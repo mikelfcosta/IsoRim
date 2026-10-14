@@ -1,4 +1,4 @@
-ISORIM - developer notes (version 1.0, built for RimWorld 1.5)
+ISORIM - developer notes (version 1.0, built for RimWorld 1.5 and 1.6)
 ==============================================
 
 How to build the mod, how it works, and how to change or add models. For players, see
@@ -10,7 +10,7 @@ make_release.bat; upload ../IsoRim_Release from the game's mod uploader.
 ----------------------------------------------------
   a. Install the free ".NET SDK" from https://dotnet.microsoft.com/download
   b. Double-click build.bat (Windows) or run build.sh (macOS/Linux).
-  c. Success leaves IsoRim.dll in the Assemblies folder. Without that file the mod does
+  c. Success leaves IsoRim.dll in the 1.5/Assemblies and 1.6/Assemblies folders. Without that file the mod does
      nothing at all, however it is enabled.
      If it says BUILD FAILED, the window lists the errors.
 

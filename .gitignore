@@ -1,0 +1,7 @@
+Source/obj/
+tools/__pycache__/
+*.pyc
+dist/
+IsoRim.zip
+.vs/
+.idea/
