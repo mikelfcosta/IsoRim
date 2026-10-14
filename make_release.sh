@@ -7,4 +7,5 @@ OUT=../IsoRim_Release
 rm -rf "$OUT" && mkdir -p "$OUT"
 for d in About 1.5 1.6 Defs Models Textures LUTs Shaders; do cp -r "$d" "$OUT/"; done
 cp README.txt "$OUT/"
+cp LICENSE "$OUT/"
 echo "Done: $OUT"

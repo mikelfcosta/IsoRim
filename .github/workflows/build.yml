@@ -1,0 +1,40 @@
+name: Build and Validate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify whitespace formatting
+        run: dotnet format whitespace Source/IsoRim.csproj --verify-no-changes
+
+      - name: Verify code style
+        run: dotnet format style Source/IsoRim.csproj --verify-no-changes
+
+      - name: Build RimWorld 1.6
+        run: dotnet build Source/IsoRim.csproj -c Release -nologo -p:RimWorldVersion=1.6
+
+      - name: Build RimWorld 1.5
+        run: dotnet build Source/IsoRim.csproj -c Release -nologo -p:RimWorldVersion=1.5
+
+      - name: Validate mod and assemblies
+        run: python3 tools/validate_mod.py --check-assemblies
