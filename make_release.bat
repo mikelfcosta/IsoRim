@@ -12,6 +12,6 @@ if exist "%OUT%" rmdir /s /q "%OUT%"
 mkdir "%OUT%"
 for %%D in (About 1.5 1.6 Defs Models Textures LUTs Shaders) do xcopy /e /i /q "%%D" "%OUT%\%%D" >nul
 copy README.txt "%OUT%" >nul
-copy LICENSE.txt "%OUT%" >nul 2>nul
+copy LICENSE "%OUT%" >nul
 echo Done: %OUT%
 pause
