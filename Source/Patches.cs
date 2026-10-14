@@ -88,8 +88,11 @@ namespace IsoRim
                 ModLog.Warn("[IsoRim] Printer_Plane.PrintPlane was not found in the expected form. Nothing can be raised and plants stay flat.");
             }
 
-            Patch("lighting and fog", AccessTools.Method(typeof(SectionLayer), "DrawLayer"),
-                prefix: nameof(DrawLayer_Prefix));
+            MethodInfo drawLayer = AccessTools.DeclaredMethod(typeof(SectionLayer), "DrawLayer")
+                ?? (typeof(SectionLayer).BaseType != null
+                    ? AccessTools.DeclaredMethod(typeof(SectionLayer).BaseType, "DrawLayer")
+                    : null);
+            Patch("lighting and fog", drawLayer, prefix: nameof(DrawLayer_Prefix));
 
             try
             {
@@ -777,9 +780,14 @@ namespace IsoRim
         // The lighting overlay and the fog of war are flat sheets. The lighting is pulled in front
         // of everything so it also darkens upright things; the fog is raised to wall height so
         // unexplored areas read as solid.
-        public static bool DrawLayer_Prefix(SectionLayer __instance)
+        public static bool DrawLayer_Prefix(object __instance)
         {
-            Type type = __instance.GetType();
+            SectionLayer layer = __instance as SectionLayer;
+            if (layer == null)
+            {
+                return true;
+            }
+            Type type = layer.GetType();
             int kind;
             if (!layerKinds.TryGetValue(type, out kind))
             {
@@ -793,9 +801,9 @@ namespace IsoRim
             // whenever the 3D view (or the setting) is off.
             if (kind == 2 && (!View3D.Ready || !st.fogLid))
             {
-                if (Interaction.FogLifted(__instance))
+                if (Interaction.FogLifted(layer))
                 {
-                    Interaction.LowerFog(__instance);
+                    Interaction.LowerFog(layer);
                 }
                 return true;
             }
@@ -811,7 +819,7 @@ namespace IsoRim
             {
                 try
                 {
-                    Interaction.LiftFog(__instance, Find.CurrentMap);
+                    Interaction.LiftFog(layer, Find.CurrentMap);
                 }
                 catch (Exception e)
                 {
@@ -823,13 +831,13 @@ namespace IsoRim
             {
                 return true;
             }
-            if (!__instance.Visible)
+            if (!layer.Visible)
             {
                 return false;
             }
 
             Matrix4x4 m = View3D.LightingMatrix;
-            List<LayerSubMesh> subs = __instance.subMeshes;
+            List<LayerSubMesh> subs = layer.subMeshes;
             for (int i = 0; i < subs.Count; i++)
             {
                 LayerSubMesh sm = subs[i];
@@ -937,7 +945,7 @@ namespace IsoRim
             catch (Exception e)
             {
                 DrawHook.active = false;
-            DrawHook.billboard = false;
+                DrawHook.billboard = false;
                 Log.ErrorOnce("[IsoRim] Standing a pawn upright failed: " + e, 93611012);
             }
             return true;

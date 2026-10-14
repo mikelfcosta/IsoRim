@@ -81,7 +81,7 @@ namespace IsoRim
             Scribe_Values.Look(ref isometric, "isometric", true);
             Scribe_Values.Look(ref isoPitch, "isoPitch", 35.3f);
             Scribe_Values.Look(ref wallHeight, "wallHeight", 1.2f);
-            Scribe_Values.Look(ref squash, "squash", 0.02f);
+            Scribe_Values.Look(ref squash, "squash", 0.003f);
             Scribe_Values.Look(ref feetOffset, "feetOffset", 0.3f);
             Scribe_Values.Look(ref saturation, "saturation", 0.85f);
             Scribe_Values.Look(ref brightness, "brightness", 0.95f);

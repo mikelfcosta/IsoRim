@@ -5,6 +5,3 @@ indent_style = space
 indent_size = 4
 end_of_line = lf
 csharp_indent_case_contents_when_block = false
-
-[Source/Patches.cs]
-generated_code = true
