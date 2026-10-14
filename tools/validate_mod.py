@@ -161,11 +161,22 @@ def validate_luts(root: Path) -> list[str]:
 
 def validate_assemblies(root: Path) -> list[str]:
     errors = []
-    assemblies = [
-        root / "1.5" / "Assemblies" / "IsoRim.dll",
-        root / "1.6" / "Assemblies" / "IsoRim.dll",
-    ]
-    for asm in assemblies:
+    load = root / "About" / "LoadFolders.xml"
+    if not load.exists():
+        return [f"Missing {load}"]
+    try:
+        tree = ET.parse(load)
+    except Exception as e:
+        return [f"Malformed XML in {load}: {e}"]
+    versions = []
+    for el in list(tree.getroot()):
+        tag = el.tag
+        if tag.startswith("v") and len(tag) > 1 and tag[1].isdigit():
+            versions.append(tag[1:])
+    if not versions:
+        errors.append(f"No game versions named in {load}")
+    for version in versions:
+        asm = root / version / "Assemblies" / "IsoRim.dll"
         if not asm.exists():
             errors.append(f"Assembly missing: {asm}")
         elif asm.stat().st_size == 0:
