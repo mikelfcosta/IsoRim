@@ -233,14 +233,14 @@ namespace IsoRim
                     ModLog.Warn("[IsoRim] The colour grade needs a shader this game does not have, so it is off.");
                     return;
                 }
-                UnityEngine.Rendering.BlendMode[,] blends =
+                int[,] blends =
                 {
-                    { UnityEngine.Rendering.BlendMode.DstColor, UnityEngine.Rendering.BlendMode.Zero },          // out = src * dst
-                    { UnityEngine.Rendering.BlendMode.DstColor, UnityEngine.Rendering.BlendMode.DstColor },      // out = dst * (src + dst)
-                    { UnityEngine.Rendering.BlendMode.One, UnityEngine.Rendering.BlendMode.SrcAlpha },           // out = src + dst * alpha
-                    { UnityEngine.Rendering.BlendMode.DstColor, UnityEngine.Rendering.BlendMode.Zero },          // out = src * dst
-                    { UnityEngine.Rendering.BlendMode.OneMinusDstColor, UnityEngine.Rendering.BlendMode.One },   // screen
-                    { UnityEngine.Rendering.BlendMode.DstColor, UnityEngine.Rendering.BlendMode.One },           // out = dst * (1 + src)
+                    { 2, 0 },          // out = src * dst
+                    { 2, 2 },          // out = dst * (src + dst)
+                    { 1, 5 },          // out = src + dst * alpha
+                    { 2, 0 },          // out = src * dst
+                    { 4, 1 },          // screen
+                    { 2, 1 },          // out = dst * (1 + src)
                 };
                 passMats = new Material[Passes];
                 passMeshes = new Mesh[Passes];
@@ -248,11 +248,11 @@ namespace IsoRim
                 {
                     Material m = new Material(shader);
                     m.name = "IsoRim_Look" + i;
-                    m.SetInt("_SrcBlend", (int)blends[i, 0]);
-                    m.SetInt("_DstBlend", (int)blends[i, 1]);
+                    m.SetInt("_SrcBlend", blends[i, 0]);
+                    m.SetInt("_DstBlend", blends[i, 1]);
                     m.SetInt("_ZWrite", 0);
                     m.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
-                    m.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+                    m.SetInt("_Cull", 0);
                     m.renderQueue = 4900 + i;   // after everything else in the map view, in this order
                     passMats[i] = m;
 
