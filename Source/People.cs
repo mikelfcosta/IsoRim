@@ -245,12 +245,13 @@ namespace IsoRim
 
             // The whole figure is two ready-made meshes (body and head), each a single draw, put
             // together once for this look and the way it is facing.
+            int submitted = 0;
             int turned = Mathf.RoundToInt(Mathf.Repeat(yaw, 360f) / 45f) % 8;
             if (!headOnly)
             {
-                DynamicModels.DrawParts(Merged(look, false, dead, turned), at, yaw, whole);
+                submitted += DynamicModels.DrawParts(Merged(look, false, dead, turned), at, yaw, whole);
             }
-            DynamicModels.DrawParts(Merged(look, true, dead, turned), at, yaw, whole);
+            submitted += DynamicModels.DrawParts(Merged(look, true, dead, turned), at, yaw, whole);
             if (workTool != null)
             {
                 // The tool is placed in the figure's own space, so it leans and dips with it.
@@ -263,7 +264,7 @@ namespace IsoRim
             }
             handHeight = 0.46f * size;
             facing = yaw;
-            return true;
+            return submitted > 0;
         }
 
         internal static void EnsureParts()
