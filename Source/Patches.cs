@@ -961,7 +961,7 @@ namespace IsoRim
             }
             if (pawn.RaceProps.Humanlike)
             {
-                return st.pawns3D && pawn.def.defName == "Human" && pawn.story != null && !People.Hidden(pawn) && People.CanDraw(pawn);
+                return st.pawns3D && pawn.def.defName == "Human" && pawn.story != null && !People.Hidden(pawn);
             }
             ModelEntry entry;
             return st.animals3D && ModelLibrary.TryGet(pawn.def, out entry) && entry.def.animal && entry.HasModel;
@@ -1144,9 +1144,22 @@ namespace IsoRim
 
         public static bool PreRender_Prefix(PawnRenderer __instance)
         {
-            // Do not skip sprite preparation: if 3D drawing produces 0 meshes or fails,
-            // the prepared sprite is ready as an immediate fallback so pawns are never invisible.
-            return true;
+            try
+            {
+                // Only people: the game still uses an animal's prepared sprite in a few places
+                // the mod does not take over (the sprite then came out garbled when the animal
+                // turned), and animals are cheap to prepare anyway.
+                Pawn pawn = pawnOfRenderer != null ? pawnOfRenderer(__instance) : null;
+                if (pawn == null || pawn.RaceProps == null || !pawn.RaceProps.Humanlike)
+                {
+                    return true;
+                }
+                return !DrawnAsModel(pawn);
+            }
+            catch (Exception)
+            {
+                return true;
+            }
         }
 
         // The weapon of a 3D figure, drawn here because the game's own drawing (which would

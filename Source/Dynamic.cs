@@ -125,16 +125,16 @@ namespace IsoRim
 
         // position: x and z in map cells, y the height above the ground in cells.
         // yaw: turn about the vertical axis in degrees. swatch: Wood, Stone, Metal or Fabric.
-        public static int Draw(Model m, Vector3 position, float yaw, Vector3 scale, Color tint, string swatch)
+        public static void Draw(Model m, Vector3 position, float yaw, Vector3 scale, Color tint, string swatch)
         {
             if (m == null)
             {
-                return 0;
+                return;
             }
             List<Part> parts = PartsFor(m, tint, swatch, 0);
             if (parts.Count == 0)
             {
-                return 0;
+                return;
             }
 
             // The whole map is drawn squashed flat (see View3D); dividing height by the same
@@ -143,22 +143,22 @@ namespace IsoRim
             Matrix4x4 matrix = Matrix4x4.Translate(new Vector3(position.x, position.y / s, position.z))
                 * Matrix4x4.Scale(new Vector3(1f, 1f / s, 1f))
                 * Matrix4x4.TRS(Vector3.zero, Quaternion.AngleAxis(yaw, Vector3.up), scale);
-            return Submit(parts, matrix);
+            Submit(parts, matrix);
         }
 
         // Draws ready-made parts (from BuildMerged) the same way DrawLocal places a model.
-        public static int DrawParts(List<Part> parts, Vector3 position, float yaw, Matrix4x4 local)
+        public static void DrawParts(List<Part> parts, Vector3 position, float yaw, Matrix4x4 local)
         {
             if (parts == null || parts.Count == 0)
             {
-                return 0;
+                return;
             }
             float s = View3D.Squash;
             Matrix4x4 matrix = Matrix4x4.Translate(new Vector3(position.x, position.y / s, position.z))
                 * Matrix4x4.Scale(new Vector3(1f, 1f / s, 1f))
                 * Matrix4x4.Rotate(Quaternion.AngleAxis(yaw, Vector3.up))
                 * local;
-            return Submit(parts, matrix);
+            Submit(parts, matrix);
         }
 
         public static void Destroy(List<Part> parts)
@@ -248,35 +248,33 @@ namespace IsoRim
         // or one of its legs. local places the part within the whole, in cells, before the whole
         // is turned by yaw and put at position. The light stays where it is as the whole turns:
         // the shading is worked out again for each eighth of a turn.
-        public static int DrawLocal(Model m, Vector3 position, float yaw, Matrix4x4 local, Color tint, string swatch)
+        public static void DrawLocal(Model m, Vector3 position, float yaw, Matrix4x4 local, Color tint, string swatch)
         {
             if (m == null)
             {
-                return 0;
+                return;
             }
             int turned = Mathf.RoundToInt(Mathf.Repeat(yaw, 360f) / 45f) % 8;
             List<Part> parts = PartsFor(m, tint, swatch, turned);
             if (parts.Count == 0)
             {
-                return 0;
+                return;
             }
             float s = View3D.Squash;
             Matrix4x4 matrix = Matrix4x4.Translate(new Vector3(position.x, position.y / s, position.z))
                 * Matrix4x4.Scale(new Vector3(1f, 1f / s, 1f))
                 * Matrix4x4.Rotate(Quaternion.AngleAxis(yaw, Vector3.up))
                 * local;
-            return Submit(parts, matrix);
+            Submit(parts, matrix);
         }
 
-        private static int Submit(List<Part> parts, Matrix4x4 matrix)
+        private static void Submit(List<Part> parts, Matrix4x4 matrix)
         {
             if (retired.Count > 0)
             {
                 Sweep();
             }
-            Camera camera = Camera.current ?? Find.Camera;
             bool outlines = IsoRimMod.Settings.outlines;
-            int count = 0;
             for (int i = 0; i < parts.Count; i++)
             {
                 Part p = parts[i];
@@ -284,17 +282,8 @@ namespace IsoRim
                 {
                     continue;
                 }
-                if (camera != null)
-                {
-                    Graphics.DrawMesh(p.mesh, matrix, p.material, 0, camera);
-                }
-                else
-                {
-                    Graphics.DrawMesh(p.mesh, matrix, p.material, 0);
-                }
-                count++;
+                Graphics.DrawMesh(p.mesh, matrix, p.material, 0);
             }
-            return count;
         }
 
         // turned: how many eighths of a turn the model is facing away from north, for the shading.

@@ -3,12 +3,13 @@
 
 Checks:
 - Well-formed XML in About.xml, LoadFolders.xml, Models.xml, KeyBindings.xml
-- Every model path named in Defs/Models.xml exists on disk
-- Every .obj string in Source/*.cs exists under Models/
+- Every model path named in Defs/Models.xml (and 1.7/Defs/Models.xml when present) exists on disk
+- Every .obj string in Source/*.cs and Source17/*.cs exists under Models/
 - Every material referenced by usemtl in Models/*.obj exists in Models/isorim.mtl
-- Every IsoRim/ texture referenced in Source/*.cs exists under Textures/IsoRim/
-- Every LUT filename referenced in Source/Looks.cs exists under LUTs/
-- When --check-assemblies is passed, 1.5/Assemblies/IsoRim.dll and 1.6/Assemblies/IsoRim.dll exist and are non-empty
+- Every IsoRim/ texture referenced in Source/*.cs and Source17/*.cs exists under Textures/IsoRim/
+- Every LUT filename referenced in Source/Looks.cs and Source17/Looks.cs exists under LUTs/
+- When --check-assemblies is passed, 1.5/Assemblies/IsoRim.dll, 1.6/Assemblies/IsoRim.dll, and
+  1.7/Assemblies/IsoRim.dll exist and are non-empty
 """
 
 import argparse
@@ -36,62 +37,98 @@ def validate_xml_files(root: Path) -> list[str]:
             ET.parse(p)
         except Exception as e:
             errors.append(f"Malformed XML in {p}: {e}")
+    models_17 = root / "1.7" / "Defs" / "Models.xml"
+    if models_17.exists():
+        try:
+            ET.parse(models_17)
+        except Exception as e:
+            errors.append(f"Malformed XML in {models_17}: {e}")
     return errors
+
+
+def _models_xml_paths(root: Path) -> list[Path]:
+    paths = [root / "Defs" / "Models.xml"]
+    extra = root / "1.7" / "Defs" / "Models.xml"
+    if extra.exists():
+        paths.append(extra)
+    return paths
 
 
 def validate_model_defs(root: Path) -> list[str]:
     errors = []
-    models_xml = root / "Defs" / "Models.xml"
-    if not models_xml.exists():
-        return [f"Missing {models_xml}"]
-    try:
-        tree = ET.parse(models_xml)
-    except Exception as e:
-        return [f"Malformed XML in {models_xml}: {e}"]
+    for models_xml in _models_xml_paths(root):
+        if not models_xml.exists():
+            errors.append(f"Missing {models_xml}")
+            continue
+        try:
+            tree = ET.parse(models_xml)
+        except Exception as e:
+            errors.append(f"Malformed XML in {models_xml}: {e}")
+            continue
 
-    for elem in tree.iter():
-        if elem.text and ".obj" in elem.text:
-            rel_path = elem.text.strip().replace("\\", "/")
-            target = root / rel_path
-            if not target.exists():
-                errors.append(f"Model path in Defs/Models.xml not found on disk: {rel_path}")
+        for elem in tree.iter():
+            if elem.text and ".obj" in elem.text:
+                rel_path = elem.text.strip().replace("\\", "/")
+                target = root / rel_path
+                if not target.exists():
+                    errors.append(f"Model path in {models_xml.relative_to(root)} not found on disk: {rel_path}")
     return errors
+
+
+def _source_dirs(root: Path) -> list[Path]:
+    dirs = []
+    for name in ("Source", "Source17"):
+        d = root / name
+        if d.is_dir():
+            dirs.append(d)
+    return dirs
 
 
 def validate_source_obj_strings(root: Path) -> list[str]:
     errors = []
-    source_dir = root / "Source"
     obj_pattern = re.compile(r'"([^"]+\.obj)"')
-    for cs_file in source_dir.glob("*.cs"):
-        try:
-            content = cs_file.read_text(encoding="utf-8")
-        except Exception as e:
-            errors.append(f"Could not read {cs_file}: {e}")
-            continue
-        for match in obj_pattern.finditer(content):
-            val = match.group(1).replace("\\", "/")
-            if (root / val).exists() or (root / "Models" / Path(val).name).exists():
+    for source_dir in _source_dirs(root):
+        for cs_file in source_dir.glob("*.cs"):
+            try:
+                content = cs_file.read_text(encoding="utf-8")
+            except Exception as e:
+                errors.append(f"Could not read {cs_file}: {e}")
                 continue
-            errors.append(f"Source file {cs_file.name} references missing .obj: {val}")
+            for match in obj_pattern.finditer(content):
+                val = match.group(1).replace("\\", "/")
+                if (root / val).exists() or (root / "Models" / Path(val).name).exists():
+                    continue
+                errors.append(f"{cs_file.relative_to(root)} references missing .obj: {val}")
     return errors
 
 
 def validate_materials(root: Path) -> list[str]:
     errors = []
-    mtl_path = root / "Models" / "isorim.mtl"
+    models_dir = root / "Models"
+    mtl_path = models_dir / "isorim.mtl"
     if not mtl_path.exists():
         return [f"Missing {mtl_path}"]
 
     defined_mtls = set()
-    try:
-        mtl_text = mtl_path.read_text(encoding="utf-8")
-    except Exception as e:
-        return [f"Could not read {mtl_path}: {e}"]
-
-    for line in mtl_text.splitlines():
-        line = line.strip()
-        if line.startswith("newmtl "):
-            defined_mtls.add(line[7:].strip())
+    for mtl_file in models_dir.glob("*.mtl"):
+        try:
+            mtl_text = mtl_file.read_text(encoding="utf-8")
+        except Exception as e:
+            errors.append(f"Could not read {mtl_file}: {e}")
+            continue
+        for line in mtl_text.splitlines():
+            line = line.strip()
+            if line.startswith("newmtl "):
+                defined_mtls.add(line[7:].strip())
+    if not defined_mtls and mtl_path.exists():
+        try:
+            mtl_text = mtl_path.read_text(encoding="utf-8")
+        except Exception as e:
+            return [f"Could not read {mtl_path}: {e}"]
+        for line in mtl_text.splitlines():
+            line = line.strip()
+            if line.startswith("newmtl "):
+                defined_mtls.add(line[7:].strip())
 
     models_dir = root / "Models"
     for obj_file in models_dir.glob("*.obj"):
@@ -111,51 +148,52 @@ def validate_materials(root: Path) -> list[str]:
 
 def validate_source_textures(root: Path) -> list[str]:
     errors = []
-    source_dir = root / "Source"
     tex_pattern = re.compile(r'"(IsoRim/[^"]+)"')
     textures_dir = root / "Textures"
 
-    for cs_file in source_dir.glob("*.cs"):
-        try:
-            content = cs_file.read_text(encoding="utf-8")
-        except Exception as e:
-            errors.append(f"Could not read {cs_file}: {e}")
-            continue
-        for match in tex_pattern.finditer(content):
-            val = match.group(1).replace("\\", "/")
-            if val == "IsoRim/LUT":
+    for source_dir in _source_dirs(root):
+        for cs_file in source_dir.glob("*.cs"):
+            try:
+                content = cs_file.read_text(encoding="utf-8")
+            except Exception as e:
+                errors.append(f"Could not read {cs_file}: {e}")
                 continue
-            if val.endswith("/"):
-                target_dir = textures_dir / val
-                if not target_dir.is_dir():
-                    errors.append(f"Source file {cs_file.name} references missing texture folder: {val}")
-            else:
-                target_png = textures_dir / (val + ".png")
-                target_raw = textures_dir / val
-                if not (target_png.exists() or target_raw.exists()):
-                    errors.append(f"Source file {cs_file.name} references missing texture: {val}")
+            for match in tex_pattern.finditer(content):
+                val = match.group(1).replace("\\", "/")
+                if val == "IsoRim/LUT":
+                    continue
+                if val.endswith("/"):
+                    target_dir = textures_dir / val
+                    if not target_dir.is_dir():
+                        errors.append(f"{cs_file.relative_to(root)} references missing texture folder: {val}")
+                else:
+                    target_png = textures_dir / (val + ".png")
+                    target_raw = textures_dir / val
+                    if not (target_png.exists() or target_raw.exists()):
+                        errors.append(f"{cs_file.relative_to(root)} references missing texture: {val}")
     return errors
 
 
 def validate_luts(root: Path) -> list[str]:
     errors = []
-    looks_cs = root / "Source" / "Looks.cs"
-    if not looks_cs.exists():
-        return [f"Missing {looks_cs}"]
-
-    try:
-        content = looks_cs.read_text(encoding="utf-8")
-    except Exception as e:
-        return [f"Could not read {looks_cs}: {e}"]
-
     luts_dir = root / "LUTs"
-    names = re.findall(r'Add\("([^"]+)"', content)
-    for name in names:
-        if name == "Custom":
+    for source_dir in _source_dirs(root):
+        looks_cs = source_dir / "Looks.cs"
+        if not looks_cs.exists():
             continue
-        target = luts_dir / (name + ".png")
-        if not target.exists():
-            errors.append(f"Looks.cs references missing LUT file: {target.name}")
+        try:
+            content = looks_cs.read_text(encoding="utf-8")
+        except Exception as e:
+            errors.append(f"Could not read {looks_cs}: {e}")
+            continue
+
+        names = re.findall(r'Add\("([^"]+)"', content)
+        for name in names:
+            if name == "Custom":
+                continue
+            target = luts_dir / (name + ".png")
+            if not target.exists():
+                errors.append(f"{looks_cs.relative_to(root)} references missing LUT file: {target.name}")
     return errors
 
 

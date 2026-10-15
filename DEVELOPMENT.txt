@@ -496,8 +496,9 @@ FLOATING ICONS
 
 RIMWORLD 1.5 AND 1.6
 --------------------
-- One source tree: build.bat runs `dotnet build -p:RimWorldVersion=1.7`, `=1.6`, and `=1.5`,
-  writing 1.5/Assemblies, 1.6/Assemblies, and 1.7/Assemblies. About/LoadFolders.xml loads the shared top level plus
+- Two code trees: `Source/` builds RimWorld 1.5 and 1.6 (`dotnet build -p:RimWorldVersion=1.5` or `=1.6`).
+  `Source17/` builds RimWorld 1.7 (Waylith port from peren717/IsoRim-1.7, MIT — see ATTRIBUTION.md).
+  build.bat runs both and writes 1.5/Assemblies, 1.6/Assemblies, and 1.7/Assemblies. About/LoadFolders.xml loads the shared top level plus
   the matching version folder. The symbol RW16 is defined for 1.6 builds, for any code that has
   to differ (#if RW16). There must be no Assemblies folder at the top level.
 - Uncertain game APIs are looked up by name with reflection and skipped with a dev-mode warning
