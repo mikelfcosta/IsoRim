@@ -186,7 +186,7 @@ def validate_assemblies(root: Path) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate IsoRim mod structure and assets")
-    parser.add_argument("--check-assemblies", action="store_true", help="Check that 1.5 and 1.6 assemblies exist and are non-empty")
+    parser.add_argument("--check-assemblies", action="store_true", help="Check that 1.5, 1.6, and 1.7 assemblies exist and are non-empty")
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parent.parent
