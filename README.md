@@ -7,6 +7,7 @@ _RimWorld in 3D, through an isometric camera. Visual only: safe to add to or rem
 existing save._
 
 Requires Harmony (load it above IsoRim). Built for RimWorld 1.5, 1.6, and 1.7.
+RimWorld 1.7 uses the Waylith port in `Source17/` (from [peren717/IsoRim-1.7](https://github.com/peren717/IsoRim-1.7), MIT); see `ATTRIBUTION.md`.
 
 CONTROLS
 --------

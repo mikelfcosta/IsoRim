@@ -1,10 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- The game version to build against; build.bat builds 1.5, 1.6, and 1.7 in turn. -->
+    <!-- RimWorld 1.5 and 1.6 only. RimWorld 1.7 builds from Source17/ (Waylith port). -->
     <RimWorldVersion Condition="'$(RimWorldVersion)' == ''">1.6</RimWorldVersion>
-    <TargetFramework Condition="'$(RimWorldVersion)' == '1.7'">net10.0</TargetFramework>
-    <TargetFramework Condition="'$(RimWorldVersion)' != '1.7'">net472</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AssemblyName>IsoRim</AssemblyName>
     <RootNamespace>IsoRim</RootNamespace>
@@ -21,19 +20,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Only the mod's own source: never the files the build generates for either version. -->
     <Compile Remove="obj\**;bin\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Reference copies of the game's own libraries. Nothing from these is copied into the mod. -->
-    <PackageReference Condition="'$(RimWorldVersion)' == '1.7'" Include="Krafs.Rimworld.Ref" Version="1.7.*-*" />
-    <PackageReference Condition="'$(RimWorldVersion)' != '1.7'" Include="Krafs.Rimworld.Ref" Version="$(RimWorldVersion).*" />
-    <!-- Harmony is supplied in game by the Harmony mod, so it is only referenced here, not shipped. -->
-    <PackageReference Condition="'$(RimWorldVersion)' == '1.7'" Include="Lib.Harmony" Version="3.0.0-*" ExcludeAssets="runtime" />
-    <PackageReference Condition="'$(RimWorldVersion)' != '1.7'" Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
-    <!-- Lets the .NET SDK build for the game's framework without Visual Studio installed. -->
-    <PackageReference Condition="'$(RimWorldVersion)' != '1.7'" Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="$(RimWorldVersion).*" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>
