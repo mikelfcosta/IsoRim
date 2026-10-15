@@ -961,7 +961,7 @@ namespace IsoRim
             }
             if (pawn.RaceProps.Humanlike)
             {
-                return st.pawns3D && pawn.def.defName == "Human" && pawn.story != null && !People.Hidden(pawn);
+                return st.pawns3D && pawn.def.defName == "Human" && pawn.story != null && !People.Hidden(pawn) && People.CanDraw(pawn);
             }
             ModelEntry entry;
             return st.animals3D && ModelLibrary.TryGet(pawn.def, out entry) && entry.def.animal && entry.HasModel;

@@ -141,7 +141,6 @@ namespace IsoRim
         private static Model face;
         private static Model visor;
         private static Model pads;
-        private static bool tried;
 
         // Draws the person at drawLoc. Returns false if they cannot be drawn as a figure, in
         // which case the game's sprite must be drawn as usual. handHeight is how high above the
@@ -155,20 +154,29 @@ namespace IsoRim
             {
                 return false;
             }
-            if (!tried)
-            {
-                tried = true;
-                head = Part("person_head");
-                face = Part("person_face");
-                visor = Part("person_visor");
-                pads = Part("person_pads");
-            }
+            EnsureParts();
             if (head == null)
             {
                 return false;
             }
             Look look = LookOf(pawn);
-            if (look == null || look.upper == null || look.lower == null)
+            if (look == null)
+            {
+                look = new Look();
+                look.lower = Part("person_male_lower");
+                look.upper = Part("person_male_upper");
+                look.skin = pawn.story.SkinColor;
+                look.hairColor = pawn.story.HairColor;
+            }
+            if (look.lower == null)
+            {
+                look.lower = Part("person_male_lower");
+            }
+            if (look.upper == null)
+            {
+                look.upper = Part("person_male_upper");
+            }
+            if (look.upper == null || look.lower == null)
             {
                 return false;
             }
@@ -258,6 +266,41 @@ namespace IsoRim
             return true;
         }
 
+        internal static void EnsureParts()
+        {
+            if (head == null)
+            {
+                head = Part("person_head");
+            }
+            if (face == null)
+            {
+                face = Part("person_face");
+            }
+            if (visor == null)
+            {
+                visor = Part("person_visor");
+            }
+            if (pads == null)
+            {
+                pads = Part("person_pads");
+            }
+        }
+
+        public static bool CanDraw(Pawn pawn)
+        {
+            if (pawn == null || pawn.story == null || pawn.def == null || pawn.def.defName != "Human" || Hidden(pawn))
+            {
+                return false;
+            }
+            EnsureParts();
+            if (head == null)
+            {
+                return false;
+            }
+            Look look = LookOf(pawn);
+            return look != null && (look.upper != null || Part("person_male_upper") != null) && (look.lower != null || Part("person_male_lower") != null);
+        }
+
         // People who are invisible must stay so: they keep their sprite, which the game hides.
         public static bool Hidden(Pawn pawn)
         {
@@ -279,12 +322,15 @@ namespace IsoRim
         internal static Model Part(string name)
         {
             Model m;
-            if (models.TryGetValue(name, out m))
+            if (models.TryGetValue(name, out m) && m != null)
             {
                 return m;
             }
             m = IsoRimMod.RootDir != null ? ModelLibrary.LoadFile(Path.Combine(IsoRimMod.RootDir, "Models", name + ".obj")) : null;
-            models[name] = m;
+            if (m != null)
+            {
+                models[name] = m;
+            }
             return m;
         }
 
@@ -323,7 +369,11 @@ namespace IsoRim
             }
             catch (Exception e)
             {
-                look = null;
+                look = new Look();
+                look.lower = Part("person_male_lower");
+                look.upper = Part("person_male_upper");
+                look.skin = pawn.story != null ? pawn.story.SkinColor : Color.white;
+                look.hairColor = pawn.story != null ? pawn.story.HairColor : Color.white;
                 Log.ErrorOnce("[IsoRim] Working out what a person looks like failed: " + e, 93611090);
             }
             if (look != null)
@@ -371,8 +421,8 @@ namespace IsoRim
                 grown = pawn.ageTracker.CurLifeStage.bodySizeFactor;
             }
             look.size = Mathf.Lerp(0.5f, 1f, Mathf.Clamp01(grown));
-            look.lower = Part("person_" + build + "_lower");
-            look.upper = Part("person_" + build + "_upper");
+            look.lower = Part("person_" + build + "_lower") ?? Part("person_male_lower");
+            look.upper = Part("person_" + build + "_upper") ?? Part("person_male_upper");
 
             // Head, hair and beard.
             string headName = story.headType != null ? (story.headType.defName ?? "") : "";
