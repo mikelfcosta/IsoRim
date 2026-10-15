@@ -1,4 +1,5 @@
 Source/obj/
+Source17/obj/
 tools/__pycache__/
 *.pyc
 dist/
