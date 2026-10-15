@@ -69,7 +69,8 @@ namespace IsoRim
                     HookMouse();
                     ixJobs.Add(new IxJob
                     {
-                        kind = "drag", tag = a[4],
+                        kind = "drag",
+                        tag = a[4],
                         a = new Vector3(F(a[0]), a.Length > 5 ? F(a[5]) : 0f, F(a[1])),
                         b = new Vector3(F(a[2]), a.Length > 6 ? F(a[6]) : 0f, F(a[3]))
                     });
@@ -90,8 +91,12 @@ namespace IsoRim
                     Vector3 at = new Vector3(F(a[0]), F(a[2]), F(a[1]));
                     ixJobs.Add(new IxJob
                     {
-                        kind = "drag", tag = a[7], a = at, b = at,
-                        offA = new Vector2(F(a[3]), F(a[4])), offB = new Vector2(F(a[5]), F(a[6]))
+                        kind = "drag",
+                        tag = a[7],
+                        a = at,
+                        b = at,
+                        offA = new Vector2(F(a[3]), F(a[4])),
+                        offB = new Vector2(F(a[5]), F(a[6]))
                     });
                     break;
                 }

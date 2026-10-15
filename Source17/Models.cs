@@ -31,7 +31,7 @@ namespace IsoRim
                                             // (also the height the game's per-frame drawing of it is raised to:
                                             // contents such as a reliquary's relic, a gibbet's corpse, a cocoon's dryad)
         public Vector3 contentOffset = Vector3.zero; // those contents moved this far (x, z; model space, facing north)
-                                            // from where the game draws them, to where the model holds them
+                                                     // from where the game draws them, to where the model holds them
         public float height = -1f;          // height in cells of the automatic shape; -1 lets the mod decide
         public bool flat = false;           // true keeps the thing as a flat sprite
 
@@ -41,7 +41,7 @@ namespace IsoRim
         public bool overArt = false;        // items: drawn with this model even while items use the game's art
                                             // (setting "3D raw materials")
         public List<AppearanceModel> byAppearance;  // a different model for things made of stuff of this look (the
-                                            // game's Graphic_Appearances: Planks, Bricks, Smooth ...); others use model
+                                                    // game's Graphic_Appearances: Planks, Bricks, Smooth ...); others use model
         public List<StyleModel> byStyle;    // a different model for things of this style (Ideology's ThingStyleDef):
                                             // <li><style>Morbid_AltarSmall</style><model>Models/x.obj</model></li>;
                                             // wins over byAppearance; things of no listed style use model
@@ -161,9 +161,9 @@ namespace IsoRim
         public bool mech = false;
         public List<MechPart> mechParts;
         public List<string> factionMaterials; // faces of these materials take the faction's mech colour, half and half
-                                            // (as the game lays its allegiance overlay over the sprite's mask)
+                                              // (as the game lays its allegiance overlay over the sprite's mask)
         public Vector3 carryAt = new Vector3(0f, -1f, 0f); // where a hauled thing is held (x, height, z; model space);
-                                            // height -1: in front of the body at half its height
+                                                           // height -1: in front of the body at half its height
 
         // Entities (Anomaly creatures) drawn on the same path as mechs (Mechs.cs): entity = true, model and
         // mechParts as for a mech (no faction marks, no worn look). looks are whole other models the game's own

@@ -1339,7 +1339,7 @@ namespace IsoRim
             catch (Exception e)
             {
                 DrawHook.active = false;
-            DrawHook.billboard = false;
+                DrawHook.billboard = false;
                 Log.ErrorOnce("[IsoRim] Standing a pawn upright failed: " + e, 93611012);
             }
             return true;

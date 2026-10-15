@@ -525,7 +525,7 @@ namespace IsoRim
                     dark.startTick = Find.TickManager.TicksGame - 2000;      // past its fade-in
                     map.gameConditionManager.SetTargetBrightness(0f, 100000f);   // the darkness sheet at once
                 }
-                    break;
+                break;
                 case "fleck":
                 {
                     Vector3 at = new IntVec3(I(a[1]), 0, I(a[2])).ToVector3Shifted();
