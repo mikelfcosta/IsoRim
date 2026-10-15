@@ -30,11 +30,13 @@ jobs:
       - name: Verify code style
         run: dotnet format style Source/IsoRim.csproj --verify-no-changes
 
+      - name: Build RimWorld 1.7
+        run: dotnet build Source/IsoRim.csproj -c Release -nologo -p:RimWorldVersion=1.7
+
       - name: Build RimWorld 1.6
         run: dotnet build Source/IsoRim.csproj -c Release -nologo -p:RimWorldVersion=1.6
 
       - name: Build RimWorld 1.5
         run: dotnet build Source/IsoRim.csproj -c Release -nologo -p:RimWorldVersion=1.5
-
       - name: Validate mod and assemblies
         run: python3 tools/validate_mod.py --check-assemblies

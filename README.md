@@ -6,7 +6,7 @@
 _RimWorld in 3D, through an isometric camera. Visual only: safe to add to or remove from an
 existing save._
 
-Requires Harmony (load it above IsoRim). Built for RimWorld 1.5 and 1.6.
+Requires Harmony (load it above IsoRim). Built for RimWorld 1.5, 1.6, and 1.7.
 
 CONTROLS
 --------

@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <!-- The game version to build against; build.bat builds 1.5, 1.6, and 1.7 in turn. -->
+    <RimWorldVersion Condition="'$(RimWorldVersion)' == ''">1.6</RimWorldVersion>
+    <TargetFramework Condition="'$(RimWorldVersion)' == '1.7'">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(RimWorldVersion)' != '1.7'">net472</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AssemblyName>IsoRim</AssemblyName>
     <RootNamespace>IsoRim</RootNamespace>
@@ -9,12 +12,11 @@
     <IntermediateOutputPath>obj\$(RimWorldVersion)\</IntermediateOutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
     <DebugType>none</DebugType>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>disable</Nullable>
     <Optimize>true</Optimize>
-    <!-- The game version to build against; build.bat builds 1.5 and 1.6 in turn. -->
-    <RimWorldVersion Condition="'$(RimWorldVersion)' == ''">1.6</RimWorldVersion>
     <DefineConstants Condition="'$(RimWorldVersion)' == '1.6'">$(DefineConstants);RW16</DefineConstants>
   </PropertyGroup>
 
@@ -25,11 +27,13 @@
 
   <ItemGroup>
     <!-- Reference copies of the game's own libraries. Nothing from these is copied into the mod. -->
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="$(RimWorldVersion).*" />
+    <PackageReference Condition="'$(RimWorldVersion)' == '1.7'" Include="Krafs.Rimworld.Ref" Version="1.7.*-*" />
+    <PackageReference Condition="'$(RimWorldVersion)' != '1.7'" Include="Krafs.Rimworld.Ref" Version="$(RimWorldVersion).*" />
     <!-- Harmony is supplied in game by the Harmony mod, so it is only referenced here, not shipped. -->
-    <PackageReference Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
+    <PackageReference Condition="'$(RimWorldVersion)' == '1.7'" Include="Lib.Harmony" Version="3.0.0-*" ExcludeAssets="runtime" />
+    <PackageReference Condition="'$(RimWorldVersion)' != '1.7'" Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
     <!-- Lets the .NET SDK build for the game's framework without Visual Studio installed. -->
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Condition="'$(RimWorldVersion)' != '1.7'" Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>
