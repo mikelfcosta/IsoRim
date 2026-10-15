@@ -32,8 +32,8 @@ namespace IsoRim
                 {
                     overlay = new Material(R3DMaterials.Solid);
                     overlay.name = "IsoRim_Overlay";
-                    overlay.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                    overlay.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    overlay.SetInt("_SrcBlend", 5);
+                    overlay.SetInt("_DstBlend", 10);
                     overlay.SetInt("_ZWrite", 0);
                     overlay.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
                     overlay.renderQueue = 3650;

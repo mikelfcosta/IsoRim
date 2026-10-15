@@ -1,7 +1,7 @@
 @echo off
-rem Builds the mod's code for RimWorld 1.5 and 1.6: 1.5\Assemblies\IsoRim.dll and 1.6\Assemblies\IsoRim.dll.
+rem Builds 1.5 and 1.6 from Source\; RimWorld 1.7 from Source17\ (Waylith port).
 rem Needs the free .NET SDK and an internet connection the first time.
-cd /d "%~dp0Source"
+set "ROOT=%~dp0"
 
 where dotnet >nul 2>nul
 if errorlevel 1 (
@@ -11,13 +11,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-rem An old single build at the top would be loaded by both game versions: remove it.
-if exist "..\Assemblies" rmdir /s /q "..\Assemblies"
+if exist "%ROOT%Assemblies" rmdir /s /q "%ROOT%Assemblies"
+
+cd /d "%ROOT%Source"
 if exist "obj" rmdir /s /q "obj"
 
 for %%V in (1.6 1.5) do (
   echo.
-  echo ===== Building for RimWorld %%V =====
+  echo ===== Building RimWorld %%V from Source =====
   dotnet build -c Release -nologo -p:RimWorldVersion=%%V
   if errorlevel 1 (
     echo.
@@ -27,6 +28,19 @@ for %%V in (1.6 1.5) do (
   )
 )
 
+cd /d "%ROOT%Source17"
+if exist "obj" rmdir /s /q "obj"
+
 echo.
-echo Done. 1.5\Assemblies and 1.6\Assemblies are ready. Start RimWorld and enable the mod.
+echo ===== Building RimWorld 1.7 from Source17 =====
+dotnet build -c Release -nologo
+if errorlevel 1 (
+  echo.
+  echo BUILD FAILED for RimWorld 1.7. See the errors above.
+  pause
+  exit /b 1
+)
+
+echo.
+echo Done. 1.5\Assemblies, 1.6\Assemblies, and 1.7\Assemblies are ready. Start RimWorld and enable the mod.
 pause

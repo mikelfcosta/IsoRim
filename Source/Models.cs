@@ -1385,16 +1385,16 @@ namespace IsoRim
 
             solid = new Material(shader);
             solid.name = "IsoRim_Solid";
-            solid.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            solid.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+            solid.SetInt("_SrcBlend", 1);
+            solid.SetInt("_DstBlend", 0);
             solid.SetInt("_ZWrite", 1);
             solid.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-            solid.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+            solid.SetInt("_Cull", 0);
             solid.renderQueue = 2000;
 
             outline = new Material(solid);
             outline.name = "IsoRim_Outline";
-            outline.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Front);
+            outline.SetInt("_Cull", 1);
             // Pushed back a touch in depth, so that where the outline shell runs close to the
             // model's own faces it can never show through them.
             outline.SetFloat("_ZBias", 1f);
@@ -1411,10 +1411,10 @@ namespace IsoRim
                 {
                     ghost = new Material(solid);
                     ghost.name = "IsoRim_Ghost";
-                    ghost.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                    ghost.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    ghost.SetInt("_SrcBlend", 5);
+                    ghost.SetInt("_DstBlend", 10);
                     ghost.SetInt("_ZWrite", 1);
-                    ghost.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Back);
+                    ghost.SetInt("_Cull", 2);
                     ghost.renderQueue = 3100;
                 }
                 return ghost;
@@ -1451,8 +1451,8 @@ namespace IsoRim
                 {
                     waterOverlay = new Material(solid);
                     waterOverlay.name = "IsoRim_Water";
-                    waterOverlay.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                    waterOverlay.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    waterOverlay.SetInt("_SrcBlend", 5);
+                    waterOverlay.SetInt("_DstBlend", 10);
                     waterOverlay.SetInt("_ZWrite", 0);
                     waterOverlay.renderQueue = 3050;
                 }
@@ -1503,8 +1503,8 @@ namespace IsoRim
                     {
                         groundShadow = new Material(basis);
                         groundShadow.name = "IsoRim_GroundShadow";
-                        groundShadow.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        groundShadow.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        groundShadow.SetInt("_SrcBlend", 5);
+                        groundShadow.SetInt("_DstBlend", 10);
                         groundShadow.SetInt("_ZWrite", 0);
                         groundShadow.renderQueue = 2420;
                     }
@@ -1544,8 +1544,8 @@ namespace IsoRim
             }
             plainShadow = new Material(basis);
             plainShadow.name = "IsoRim_Shadow";
-            plainShadow.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            plainShadow.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            plainShadow.SetInt("_SrcBlend", 5);
+            plainShadow.SetInt("_DstBlend", 10);
             plainShadow.SetInt("_ZWrite", 0);
             plainShadow.renderQueue = 2900;
         }

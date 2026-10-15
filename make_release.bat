@@ -10,7 +10,7 @@ if not exist 1.6\Assemblies\IsoRim.dll (
 set OUT=..\IsoRim_Release
 if exist "%OUT%" rmdir /s /q "%OUT%"
 mkdir "%OUT%"
-for %%D in (About 1.5 1.6 Defs Models Textures LUTs Shaders) do xcopy /e /i /q "%%D" "%OUT%\%%D" >nul
+for %%D in (About 1.5 1.6 1.7 Defs Models Textures LUTs Shaders) do xcopy /e /i /q "%%D" "%OUT%\%%D" >nul
 copy README.txt "%OUT%" >nul
 copy LICENSE "%OUT%" >nul
 echo Done: %OUT%

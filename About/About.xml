@@ -6,6 +6,7 @@
   <supportedVersions>
     <li>1.5</li>
     <li>1.6</li>
+    <li>1.7</li>
   </supportedVersions>
   <modDependencies>
     <li>
@@ -39,5 +40,7 @@
 [b]Controls[/b]
 0 (or the cube button in the bottom right corner): 3D view on and off. 9: isometric or straight-on. Q and E: turn the camera. [ and ]: camera angle. The house button shows roofs. Everything can be rebound and set up in Options > Mod settings > IsoRim.
 
-Visual only: safe to add to or remove from an existing save. Requires Harmony.</description>
+Visual only: safe to add to or remove from an existing save. Requires Harmony.
+
+RimWorld 1.7 uses the Waylith rendering port (GLSL shaders and extended models from [peren717/IsoRim-1.7](https://github.com/peren717/IsoRim-1.7), MIT). See ATTRIBUTION.md in the mod folder.</description>
 </ModMetaData>
