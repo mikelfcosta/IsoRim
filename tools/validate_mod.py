@@ -21,6 +21,7 @@ import math
 import os
 from pathlib import Path
 import re
+import struct
 import sys
 import xml.etree.ElementTree as ET
 
@@ -110,6 +111,10 @@ def validate_source_obj_strings(root: Path) -> list[str]:
     return errors
 
 
+def _float32(value: float) -> float:
+    return struct.unpack("f", struct.pack("f", value))[0]
+
+
 def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
     errors = []
     checked = []
@@ -117,6 +122,7 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
         relative = obj.relative_to(root).as_posix()
         checked.append(relative)
         positions = textures = normals = 0
+        faces = 0
         defined = set()
         used = set()
         for number, raw in enumerate(obj.read_text(encoding="utf-8").splitlines(), 1):
@@ -137,10 +143,15 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
                     values = [float(token) for token in parts[1:count + 1]]
                     if len(values) != count or not all(math.isfinite(value) for value in values):
                         raise ValueError()
-                    if kind == "vn" and not any(values):
-                        raise ValueError()
-                except ValueError:
-                    errors.append(f"{label}: {kind} must contain finite" + (" nonzero normal values" if kind == "vn" else " coordinates"))
+                    if kind == "vn":
+                        # ObjLoader parses Singles and evaluates Vector3.sqrMagnitude in float32.
+                        values = [_float32(value) for value in values]
+                        squares = [_float32(value * value) for value in values]
+                        length_squared = _float32(_float32(squares[0] + squares[1]) + squares[2])
+                        if not math.isfinite(length_squared) or length_squared < _float32(1e-12):
+                            raise ValueError()
+                except (ValueError, OverflowError):
+                    errors.append(f"{label}: {kind} must contain finite" + (" nonzero normal values with usable float32 magnitude" if kind == "vn" else " coordinates"))
             elif kind == "mtllib":
                 library = obj.parent / raw.strip()[6:].strip()
                 if not library.resolve().is_relative_to(root.resolve()) or not library.is_file():
@@ -165,6 +176,7 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
             elif kind == "usemtl" and len(parts) > 1:
                 used.add(parts[1])
             elif kind == "f":
+                valid_positions = len(parts) >= 4
                 if len(parts) < 4:
                     errors.append(f"{label}: face needs three corners")
                 for corner in parts[1:]:
@@ -179,7 +191,13 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
                             if value == 0 or not 0 <= resolved < count:
                                 raise ValueError()
                         except ValueError:
+                            if index == 0:
+                                valid_positions = False
                             errors.append(f"{label}: invalid {name} index '{token}'")
+                if valid_positions:
+                    faces += 1
+        if faces == 0:
+            errors.append(f"{relative}: no face with at least three valid position references")
         for material in sorted(used - defined):
             errors.append(f"{relative}: undefined adjacent material '{material}'")
     return errors, checked

@@ -235,10 +235,17 @@ namespace IsoRim
             {
                 Require(report.RootElement.GetProperty("nonce").GetString() == new DirectoryInfo(evidence).Name, "The validator results are stale");
                 JsonElement controls = report.RootElement.GetProperty("controls");
-                Require(controls.GetArrayLength() == 9, "The validator omitted positive or invalid controls");
+                string[] expectedControls = { "passing", "passing-no-vn", "missing-gear", "missing-model", "missing-mtl", "malformed-mtl",
+                    "zero-normal", "nonfinite-normal", "float-overflow-normal", "float-underflow-normal", "magnitude-overflow-normal",
+                    "small-magnitude-normal", "normal-index", "position-index", "empty-obj", "vertices-only-obj" };
+                Require(controls.GetArrayLength() == expectedControls.Length
+                    && expectedControls.All(name => controls.EnumerateArray().Count(control => control.GetProperty("name").GetString() == name) == 1),
+                    "The validator omitted or duplicated positive or invalid controls");
                 foreach (JsonElement control in controls.EnumerateArray())
                 {
-                    Require((control.GetProperty("exit").GetInt32() == 0) == control.GetProperty("expectedSuccess").GetBoolean()
+                    bool expectedSuccess = control.GetProperty("name").GetString() == "passing" || control.GetProperty("name").GetString() == "passing-no-vn";
+                    Require(control.GetProperty("expectedSuccess").GetBoolean() == expectedSuccess
+                        && control.GetProperty("exit").GetInt32() == (expectedSuccess ? 0 : 1)
                         && control.GetProperty("diagnosticMatched").GetBoolean(), "The staged validator accepted an invalid input or rejected the passing control: " + control.GetProperty("name").GetString());
                 }
                 var checkedPaths = controls[0].GetProperty("checkedPaths").EnumerateArray().Select(item => item.GetString()).ToArray();

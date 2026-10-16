@@ -48,6 +48,10 @@ class GateHostTests(unittest.TestCase):
                 ("1.7/Models/Diagnostics/sample.mtl", "0.2 0.3 0.4", "broken 0.3 0.4", "material colour"),
                 ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 0 0 0", "nonzero"),
                 ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn NaN 0 -1", "finite"),
+                ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e39 0 0", "float32"),
+                ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e-50 0 0", "float32"),
+                ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e20 0 0", "float32"),
+                ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e-7 0 0", "float32"),
                 ("1.7/Models/Diagnostics/internal.obj", "2/2/1", "2/2/99", "normal index"),
                 ("1.7/Models/Diagnostics/internal.obj", "2/2/1", "99/2/1", "position index"),
             ]
@@ -62,6 +66,26 @@ class GateHostTests(unittest.TestCase):
                     self.assertIn(diagnostic, result.stderr)
                 finally:
                     path.write_text(original)
+
+            path = root / "1.7/Models/Diagnostics/internal.obj"
+            original = path.read_text()
+            for content in ("", "v 0 0 0\nv 2 0 0\nv 0 1 0\n"):
+                try:
+                    path.write_text(content)
+                    result = subprocess.run(argv, capture_output=True, text=True, check=False)
+                    self.assertNotEqual(result.returncode, 0, repr(content))
+                    self.assertIn("no face", result.stderr)
+                finally:
+                    path.write_text(original)
+
+            # Authored normals are optional; valid geometric-only exports must still pass.
+            try:
+                path.write_text(original.replace("vn 0 0.6 -0.8\n", "").replace("f 1/1/1 2/2/1 3/3/1", "f 1/1 2/2 3/3"))
+                result = subprocess.run(argv, capture_output=True, text=True, check=False)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("1.7/Models/Diagnostics/internal.obj", result.stdout)
+            finally:
+                path.write_text(original)
 
     def test_output_isolation(self):
         import prepared_models_gate as gate

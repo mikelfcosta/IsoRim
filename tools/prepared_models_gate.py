@@ -276,16 +276,24 @@ def validate_staged_intake(evidence, protected):
             ("malformed-mtl", "1.7/Models/Diagnostics/sample.mtl", "0.2 0.3 0.4", "broken 0.3 0.4", "material colour"),
             ("zero-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 0 0 0", "nonzero"),
             ("nonfinite-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn NaN 0 -1", "finite"),
+            ("float-overflow-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e39 0 0", "float32"),
+            ("float-underflow-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e-50 0 0", "float32"),
+            ("magnitude-overflow-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e20 0 0", "float32"),
+            ("small-magnitude-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 1e-7 0 0", "float32"),
             ("normal-index", "1.7/Models/Diagnostics/internal.obj", "2/2/1", "2/2/99", "normal index"),
             ("position-index", "1.7/Models/Diagnostics/internal.obj", "2/2/1", "99/2/1", "position index"),
+            ("empty-obj", "1.7/Models/Diagnostics/internal.obj", None, "", "no face"),
+            ("vertices-only-obj", "1.7/Models/Diagnostics/internal.obj", None, "v 0 0 0\nv 2 0 0\nv 0 1 0\n", "no face"),
+            ("passing-no-vn", "1.7/Models/Diagnostics/internal.obj", None,
+             "v 0 0 0\nv 2 0 0\nv 0 1 0\nf 1 2 3\n", ""),
         ]
         for name, relative, old, new, diagnostic in mutations:
             path = control / relative
             original = path.read_text()
-            if old not in original:
+            if old is not None and old not in original:
                 raise Refusal(f"The validator fault control has no positive input: {name}")
             try:
-                path.write_text(original.replace(old, new))
+                path.write_text(new if old is None else original.replace(old, new))
                 run(name, control, diagnostic)
             finally:
                 path.write_text(original)
