@@ -1,0 +1,6 @@
+# Source semantic material blocks, no invented shading semantics.
+newmtl gorehulk_f_skin
+Kd 0.93 0.85 0.7
+
+newmtl entity_black
+Kd 0.18 0.19 0.22

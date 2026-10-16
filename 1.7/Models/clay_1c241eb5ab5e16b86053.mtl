@@ -1,0 +1,4 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl rawmat_obsidian
+Kd 0.300 0.290 0.310
+map_Kd IsoRim/Clay/Swatches/Rock

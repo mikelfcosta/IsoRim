@@ -1,0 +1,7 @@
+# Original source material declarations; no tint baking.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+
+newmtl flakvest_strap
+Kd 0.10 0.11 0.12

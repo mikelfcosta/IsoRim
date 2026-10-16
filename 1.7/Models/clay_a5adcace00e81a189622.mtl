@@ -1,0 +1,6 @@
+# Original source material semantic blocks; no baked lighting.
+newmtl stuff_herb
+Kd 1.000 1.000 1.000
+
+newmtl stuff_herb_dark
+Kd 0.780 0.780 0.780

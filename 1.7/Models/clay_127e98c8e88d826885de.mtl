@@ -1,0 +1,10 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_panther_body
+Kd 0.170 0.170 0.200
+
+newmtl an_panther_head
+Kd 0.170 0.170 0.200
+
+newmtl an_dark
+Kd 0.110 0.100 0.100

@@ -1,0 +1,28 @@
+newmtl blanket
+Kd 0.440 0.520 0.640
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl pillow
+Kd 0.980 0.970 0.940
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_fabric
+Kd 0.920 0.920 0.920
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_fabric_dark
+Kd 0.720 0.720 0.720
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+

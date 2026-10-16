@@ -1,0 +1,18 @@
+# Original semantic materials. No tint baking.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+newmtl helmet_rim
+Kd 0.16 0.17 0.18
+
+newmtl tactical_rail
+Kd 0.23 0.24 0.24
+
+newmtl tactical_bolt
+Kd 0.45 0.46 0.46
+
+newmtl tactical_slot
+Kd 0.105 0.115 0.12
+
+newmtl tactical_patch
+Kd 0.29 0.3 0.3

@@ -1,0 +1,4 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl fungus
+Kd 0.800 0.720 0.620

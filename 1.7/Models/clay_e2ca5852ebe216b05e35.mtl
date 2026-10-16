@@ -1,0 +1,9 @@
+# Source semantic material names, Kd and map_Kd are unchanged.
+newmtl gold
+Kd 0.920 0.740 0.300
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}
+

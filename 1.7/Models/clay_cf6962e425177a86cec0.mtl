@@ -1,0 +1,7 @@
+# HairColor runtime tint; no baked highlights or shadows.
+newmtl stuff_plain
+Kd 1.000000 1.000000 1.000000
+Ka 0.000000 0.000000 0.000000
+Ks 0.000000 0.000000 0.000000
+d 1.000000
+illum 1

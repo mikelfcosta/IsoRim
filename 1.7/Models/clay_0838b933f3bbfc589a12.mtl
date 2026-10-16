@@ -1,0 +1,10 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_megasloth_body
+Kd 0.460 0.360 0.280
+
+newmtl an_megasloth_head
+Kd 0.620 0.520 0.400
+
+newmtl an_dark
+Kd 0.110 0.100 0.100

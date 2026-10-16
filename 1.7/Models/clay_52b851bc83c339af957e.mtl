@@ -1,0 +1,19 @@
+newmtl lamp_lens
+Kd 0.91 0.86 0.68
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl metal
+Kd 0.600 0.620 0.650
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl metal_dark
+Kd 0.320 0.330 0.360
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

@@ -1,0 +1,19 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_cassowary_body
+Kd 0.150 0.150 0.170
+
+newmtl an_cassowary_head
+Kd 0.220 0.420 0.800
+
+newmtl an_cassowary_beak
+Kd 0.280 0.260 0.240
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_horn
+Kd 0.850 0.810 0.690
+
+newmtl an_cassowary_acc
+Kd 0.820 0.200 0.180

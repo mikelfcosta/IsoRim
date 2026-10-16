@@ -1,0 +1,7 @@
+# Exact used source semantic material blocks; no color/light baking.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+newmtl stuff_mask_dark
+Kd 0.200 0.200 0.200
+# stuff_hat_band: same as hats.mtl (bands, rods, earpieces), repeated so these files need only masks.mtl

@@ -1,0 +1,13 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_emu_body
+Kd 0.420 0.360 0.320
+
+newmtl an_emu_head
+Kd 0.360 0.440 0.560
+
+newmtl an_emu_beak
+Kd 0.260 0.240 0.220
+
+newmtl an_dark
+Kd 0.110 0.100 0.100

@@ -1,0 +1,7 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_hoof
+Kd 0.210 0.180 0.160
+
+newmtl an_thrumbo_leg
+Kd 0.640 0.690 0.770

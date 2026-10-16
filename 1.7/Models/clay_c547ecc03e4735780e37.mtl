@@ -1,0 +1,4 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl rawmat_gravlite
+Kd 0.660 0.700 0.700
+map_Kd IsoRim/Clay/Swatches/Metal

@@ -1,0 +1,5 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl rawmat_uranium
+Kd 0.500 0.510 0.520
+map_Kd IsoRim/Clay/Swatches/Metal

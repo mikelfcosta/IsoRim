@@ -1,0 +1,4 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_elephant_leg
+Kd 0.462 0.454 0.470

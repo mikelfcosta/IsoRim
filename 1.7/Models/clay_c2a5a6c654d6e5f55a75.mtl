@@ -1,0 +1,18 @@
+newmtl coreutil_bedding
+Kd 0.61 0.61 0.56
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_plain_dark
+Kd 0.800 0.800 0.800
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+

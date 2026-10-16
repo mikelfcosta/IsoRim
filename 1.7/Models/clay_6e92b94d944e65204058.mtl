@@ -1,0 +1,15 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl stuff_dark
+Kd 0.800 0.800 0.800
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl child_cream
+Kd 0.87 0.84 0.73
+
+newmtl child_blanket
+Kd 0.57 0.66 0.69
+map_Kd IsoRim/Clay/Swatches/Fabric

@@ -1,0 +1,6 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl entity_steel
+Kd 0.58 0.59 0.58
+
+newmtl entity_grey
+Kd 0.4 0.43 0.45

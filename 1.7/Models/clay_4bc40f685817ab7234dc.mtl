@@ -1,0 +1,25 @@
+# Original semantic material definitions retained.
+newmtl bark
+Kd 0.440 0.310 0.210
+map_Kd IsoRim/Clay/Swatches/Bark
+
+
+newmtl leaf_drago
+Kd 0.290 0.450 0.270
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl leaf_drago_dk
+Kd 0.215 0.342 0.216
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl leaf_drago_lt
+Kd 0.348 0.522 0.286
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl twig_bark
+Kd 0.440 0.310 0.210
+map_Kd IsoRim/Clay/Swatches/Bark
+

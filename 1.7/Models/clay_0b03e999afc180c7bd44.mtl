@@ -1,0 +1,10 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+newmtl stuff_plain_dark
+Kd 0.800 0.800 0.800
+
+newmtl stuff_coat_under
+Kd 0.300 0.300 0.300
+# stuff_coat_brown(_dark): the heavy bandolier's painted brown leather x stuff colour

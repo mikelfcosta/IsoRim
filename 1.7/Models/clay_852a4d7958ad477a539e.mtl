@@ -1,0 +1,16 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl pollution_trim
+Kd 0.34 0.35 0.33
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl pollution_shell
+Kd 0.59 0.60 0.58
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl pollution_red
+Kd 0.48 0.33 0.31
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl pollution_light
+Kd 0.76 0.77 0.74
+map_Kd IsoRim/Clay/Swatches/Metal

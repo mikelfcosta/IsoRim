@@ -1,0 +1,16 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl soil
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/Soil
+
+newmtl shell_olive
+Kd 0.400 0.440 0.300
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl paint_red
+Kd 0.560 0.240 0.200
+map_Kd IsoRim/Clay/Swatches/Metal

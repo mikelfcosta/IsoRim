@@ -1,0 +1,12 @@
+# Original source material semantic blocks; no baked lighting.
+newmtl gun_wood
+Kd 0.500 0.340 0.210
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_metal
+Kd 0.360 0.370 0.400
+map_Kd IsoRim/Clay/Swatches/Metal

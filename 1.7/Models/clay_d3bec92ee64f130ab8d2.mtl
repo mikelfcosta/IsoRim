@@ -1,0 +1,4 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_cassowary_leg
+Kd 0.400 0.380 0.340

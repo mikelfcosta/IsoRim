@@ -1,0 +1,17 @@
+# Source semantic material blocks preserved exactly. No baked lighting.
+newmtl metal_dark
+Kd 0.320 0.330 0.360
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl spawn_inner
+Kd 0.20 0.22 0.16
+
+newmtl spawn_ivory
+Kd 0.70 0.71 0.60
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl spawn_seam
+Kd 0.37 0.40 0.28
+
+newmtl spawn_core
+Kd 0.72 0.76 0.48

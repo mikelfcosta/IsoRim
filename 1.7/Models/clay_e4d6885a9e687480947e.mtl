@@ -1,0 +1,8 @@
+# Original source material semantic blocks; no baked lighting.
+newmtl grip
+Kd 0.300 0.220 0.160
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl gun_light
+Kd 0.660 0.680 0.700
+map_Kd IsoRim/Clay/Swatches/Metal

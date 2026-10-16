@@ -1,0 +1,8 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl milk
+Kd 0.960 0.960 0.940
+
+newmtl paint_blue
+Kd 0.300 0.400 0.520
+map_Kd IsoRim/Clay/Swatches/Metal

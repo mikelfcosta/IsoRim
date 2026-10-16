@@ -1,0 +1,12 @@
+# Exact source material blocks; no lighting, AO or tint baking.
+newmtl utility_dark
+Kd 0.22 0.25 0.26
+
+newmtl utility_tox
+Kd .65 .72 .39
+
+newmtl utility_steel
+Kd 0.49 0.53 0.53
+
+newmtl utility_amber
+Kd 0.9 0.58 0.22

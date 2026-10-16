@@ -1,0 +1,28 @@
+newmtl cloth_roll
+Kd 0.720 0.560 0.340
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl linen
+Kd 0.900 0.880 0.820
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_dark
+Kd 0.800 0.800 0.800
+map_Kd IsoRim/Clay/Swatches/{stuff}
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+

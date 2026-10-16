@@ -1,0 +1,12 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl chimera_c_coat
+Kd 0.56 0.47 0.37
+
+newmtl entity_black
+Kd 0.18 0.19 0.22
+
+newmtl chimera_c_patch
+Kd 0.3864 0.3243 0.25529999999999997
+
+newmtl entity_teeth
+Kd 0.86 0.85 0.73

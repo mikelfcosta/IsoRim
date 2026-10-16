@@ -1,0 +1,24 @@
+# Original semantic material definitions retained.
+newmtl bamboo
+Kd 0.620 0.700 0.360
+map_Kd IsoRim/Clay/Swatches/Bark
+
+
+newmtl bark_mark
+Kd 0.210 0.200 0.190
+
+
+newmtl leaf_bamboo
+Kd 0.480 0.640 0.310
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl leaf_bamboo_dk
+Kd 0.355 0.486 0.248
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl leaf_bamboo_lt
+Kd 0.576 0.742 0.329
+map_Kd IsoRim/Clay/Swatches/Leaf
+

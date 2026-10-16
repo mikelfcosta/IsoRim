@@ -1,0 +1,128 @@
+# Original IsoRim Kd, material names, and swatch paths preserved.
+# stuff* tint semantics and leaf* names are intentionally unchanged.
+newmtl battery
+Kd 0.380 0.420 0.460
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl book_blue
+Kd 0.220 0.360 0.580
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl book_red
+Kd 0.620 0.220 0.180
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl charge
+Kd 0.450 0.900 1.000
+map_Kd IsoRim/Clay/Swatches/Glow
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl ember
+Kd 0.960 0.420 0.180
+map_Kd IsoRim/Clay/Swatches/Glow
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl food_paste
+Kd 0.660 0.700 0.520
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl glow_amber
+Kd 1.000 0.720 0.300
+map_Kd IsoRim/Clay/Swatches/Glow
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl gun_light
+Kd 0.660 0.680 0.700
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl gun_metal
+Kd 0.360 0.370 0.400
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl leaf_pine
+Kd 0.230 0.410 0.250
+map_Kd IsoRim/Clay/Swatches/Leaf
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl log
+Kd 0.500 0.340 0.210
+map_Kd IsoRim/Clay/Swatches/Wood
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl metal
+Kd 0.600 0.620 0.650
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl metal_dark
+Kd 0.320 0.330 0.360
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl paper
+Kd 0.920 0.900 0.820
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl steam_pipe
+Kd 0.580 0.560 0.520
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl stone
+Kd 0.540 0.540 0.550
+map_Kd IsoRim/Clay/Swatches/Stone
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl stuff_dark
+Kd 0.800 0.800 0.800
+map_Kd IsoRim/Clay/Swatches/{stuff}
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl stuff_deep
+Kd 0.620 0.620 0.620
+map_Kd IsoRim/Clay/Swatches/{stuff}
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl terminal
+Kd 0.920 0.800 0.240
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.000 0.000 0.000
+Ns 8
+
+newmtl water_dark
+Kd 0.200 0.340 0.400
+Ks 0.000 0.000 0.000
+Ns 8

@@ -1,0 +1,41 @@
+newmtl coreutil_base
+Kd 0.3 0.31 0.3
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl coreutil_dark
+Kd 0.17 0.19 0.18
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl coreutil_edge
+Kd 0.43 0.44 0.41
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl coreutil_green
+Kd 0.43 0.47 0.39
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl coreutil_green_dark
+Kd 0.32 0.36 0.29
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl coreutil_metal
+Kd 0.53 0.55 0.54
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl coreutil_red
+Kd 0.43 0.21 0.2
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

@@ -1,0 +1,10 @@
+# Original semantic material definitions retained.
+newmtl cactus
+Kd 0.380 0.540 0.320
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl leaf_cypress_dk
+Kd 0.185 0.327 0.216
+map_Kd IsoRim/Clay/Swatches/Leaf
+

@@ -1,0 +1,9 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl rawmat_spacer
+Kd 0.400 0.340 0.380
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl rawmat_spacer_disc
+Kd 0.800 0.800 0.820
+map_Kd IsoRim/Clay/Swatches/Metal

@@ -1,0 +1,6 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl ship_rib
+Kd 0.43 0.47 0.48
+
+newmtl ship_plate
+Kd 0.65 0.68 0.67

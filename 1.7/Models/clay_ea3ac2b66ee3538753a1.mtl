@@ -1,0 +1,13 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_spelopede_body
+Kd 0.620 0.560 0.400
+
+newmtl an_spelopede_leg
+Kd 0.434 0.392 0.280
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_horn
+Kd 0.850 0.810 0.690

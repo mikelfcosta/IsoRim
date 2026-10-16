@@ -1,0 +1,18 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl mech_prod_trim
+Kd 0.35 0.35 0.33
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl mech_prod_shell
+Kd 0.58 0.57 0.54
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl mech_prod_dark
+Kd 0.20 0.22 0.21
+
+newmtl mech_prod_light
+Kd 0.72 0.71 0.67
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl mech_prod_red
+Kd 0.66 0.20 0.18

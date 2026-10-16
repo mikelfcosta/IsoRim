@@ -1,0 +1,13 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_boomalope_body
+Kd 0.740 0.600 0.500
+
+newmtl an_boomalope_head
+Kd 0.740 0.600 0.500
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_boomalope_acc
+Kd 0.880 0.800 0.440

@@ -1,0 +1,15 @@
+# Original source material declarations; no tint baking.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+
+newmtl stuff_plain_dark
+Kd 0.800 0.800 0.800
+
+
+newmtl stuff_plain_deep
+Kd 0.600 0.600 0.600
+
+
+newmtl coat_trim
+Kd 0.100 0.110 0.120

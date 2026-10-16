@@ -1,0 +1,7 @@
+# Exact source material blocks; no lighting, AO or tint baking.
+newmtl stuff_coat_brown
+Kd 0.560 0.400 0.270
+
+newmtl stuff_coat_brown_dark
+Kd 0.400 0.285 0.195
+# coat_trim: buttons; fixed dark

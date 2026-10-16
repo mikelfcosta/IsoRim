@@ -1,0 +1,9 @@
+# Original semantic materials. No tint baking.
+newmtl armor_joint
+Kd 0.1 0.11 0.12
+
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+newmtl stuff_plain_dark
+Kd 0.800 0.800 0.800

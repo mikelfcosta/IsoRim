@@ -1,0 +1,8 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl food_stew
+Kd 0.660 0.440 0.260
+
+newmtl sack
+Kd 0.740 0.640 0.460
+map_Kd IsoRim/Clay/Swatches/Fabric

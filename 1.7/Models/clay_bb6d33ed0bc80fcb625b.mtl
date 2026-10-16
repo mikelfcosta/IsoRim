@@ -1,0 +1,16 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_ostrich_body
+Kd 0.180 0.170 0.170
+
+newmtl an_ostrich_head
+Kd 0.860 0.700 0.660
+
+newmtl an_ostrich_beak
+Kd 0.800 0.620 0.420
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_ostrich_tail
+Kd 0.920 0.910 0.870

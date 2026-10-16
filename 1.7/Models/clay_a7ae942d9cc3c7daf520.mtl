@@ -1,0 +1,9 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl worker_tire
+Kd 0.16 0.18 0.16
+
+newmtl worker_edge
+Kd 0.62 0.65 0.63
+
+newmtl worker_joint
+Kd 0.23 0.26 0.25

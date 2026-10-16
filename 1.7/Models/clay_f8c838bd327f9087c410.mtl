@@ -1,0 +1,13 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_warg_body
+Kd 0.380 0.250 0.230
+
+newmtl an_warg_head
+Kd 0.380 0.250 0.230
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_warg_acc
+Kd 0.220 0.150 0.140

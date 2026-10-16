@@ -1,0 +1,22 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_thrumbo_body
+Kd 0.900 0.920 0.950
+
+newmtl an_thrumbo_belly
+Kd 0.720 0.770 0.850
+
+newmtl an_thrumbo_head
+Kd 0.840 0.870 0.920
+
+newmtl an_thrumbo_muzzle
+Kd 0.620 0.660 0.740
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_horn
+Kd 0.850 0.810 0.690
+
+newmtl an_thrumbo_acc
+Kd 0.780 0.820 0.890

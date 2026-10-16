@@ -1,0 +1,13 @@
+# Source material definitions retained verbatim per block.
+
+newmtl stuff_fabric_dark
+Kd 0.720 0.720 0.720
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl stuff_fabric
+Kd 0.920 0.920 0.920
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl strap
+Kd 0.340 0.260 0.180
+map_Kd IsoRim/Clay/Swatches/Fabric

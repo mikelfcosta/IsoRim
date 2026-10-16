@@ -1,0 +1,19 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl medicine_ult_case
+Kd 0.660 0.660 0.660
+
+newmtl medicine_ult_cross
+Kd 0.640 0.760 0.760
+
+newmtl medicine_ult_frame
+Kd 0.470 0.470 0.480
+
+newmtl medicine_ult_line
+Kd 0.310 0.390 0.400
+
+newmtl medicine_ult_seam
+Kd 0.160 0.160 0.170
+
+newmtl medicine_ult_side
+Kd 0.420 0.420 0.430

@@ -1,0 +1,19 @@
+# Simple Kd palette only; no textures or Blender shader dependencies.
+
+newmtl an_horse_body
+Kd 0.5583404 0.3139887 0.1620294
+
+newmtl an_horse_head
+Kd 0.6375968 0.4125426 0.2345506
+
+newmtl an_horse_acc
+Kd 0.1221388 0.0630100 0.0395462
+
+newmtl an_dark
+Kd 0.0262412 0.0185002 0.0137021
+
+newmtl an_horse_leg
+Kd 0.5583404 0.3139887 0.1620294
+
+newmtl an_hoof
+Kd 0.1620294 0.0865005 0.0544803

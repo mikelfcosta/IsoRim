@@ -1,0 +1,13 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl grip
+Kd 0.300 0.220 0.160
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}

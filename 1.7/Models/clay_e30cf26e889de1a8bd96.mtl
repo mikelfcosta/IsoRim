@@ -1,0 +1,29 @@
+# Original semantic material definitions retained.
+newmtl bark_birch
+Kd 0.920 0.910 0.860
+map_Kd IsoRim/Clay/Swatches/Bark
+
+
+newmtl bark_mark
+Kd 0.210 0.200 0.190
+
+
+newmtl leaf_birch
+Kd 0.520 0.640 0.300
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl leaf_birch_dk
+Kd 0.385 0.486 0.240
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl leaf_birch_lt
+Kd 0.624 0.742 0.318
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl twig_bark_birch
+Kd 0.920 0.910 0.860
+map_Kd IsoRim/Clay/Swatches/Bark
+

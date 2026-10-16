@@ -1,0 +1,28 @@
+newmtl flame
+Kd 1.000 0.900 0.480
+map_Kd IsoRim/Clay/Swatches/Flame
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl flame_core
+Kd 1.000 0.950 0.720
+map_Kd IsoRim/Clay/Swatches/Glow
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl log
+Kd 0.500 0.340 0.210
+map_Kd IsoRim/Clay/Swatches/Wood
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl metal_dark
+Kd 0.320 0.330 0.360
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
