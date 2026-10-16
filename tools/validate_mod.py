@@ -206,7 +206,7 @@ def _prepared_triangle(a, b, c):
         return True
 
 
-def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
+def validate_prepared_objs(root: Path, report_scalars: bool = True) -> tuple[list[str], list[str]]:
     errors = []
     checked = []
     scalar_bits = []
@@ -231,9 +231,10 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
                     if len(parts) not in allowed[kind]:
                         raise ValueError("unsupported numeric arity")
                     values = [prepared_single(token) for token in parts[1:]]
-                    scalar_bits.extend({"path": relative, "line": number, "kind": kind, "component": i,
-                                        "token": token, "bits": f"{struct.unpack('I', struct.pack('f', value))[0]:08X}"}
-                                       for i, (token, value) in enumerate(zip(parts[1:], values)))
+                    if report_scalars:
+                        scalar_bits.extend({"path": relative, "line": number, "kind": kind, "component": i,
+                                            "token": token, "bits": f"{struct.unpack('I', struct.pack('f', value))[0]:08X}"}
+                                           for i, (token, value) in enumerate(zip(parts[1:], values)))
                     if not all(math.isfinite(value) for value in values):
                         raise ValueError("nonfinite scalar")
                     if kind == "vn":
@@ -266,9 +267,10 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
                             if len(material) != 4:
                                 raise ValueError("unsupported colour arity")
                             colour = [prepared_single(token) for token in material[1:]]
-                            scalar_bits.extend({"path": library.relative_to(root).as_posix(), "line": line_number, "kind": "Kd", "component": i,
-                                                "token": token, "bits": f"{struct.unpack('I', struct.pack('f', value))[0]:08X}"}
-                                               for i, (token, value) in enumerate(zip(material[1:], colour)))
+                            if report_scalars:
+                                scalar_bits.extend({"path": library.relative_to(root).as_posix(), "line": line_number, "kind": "Kd", "component": i,
+                                                    "token": token, "bits": f"{struct.unpack('I', struct.pack('f', value))[0]:08X}"}
+                                                   for i, (token, value) in enumerate(zip(material[1:], colour)))
                             if not all(math.isfinite(value) for value in colour):
                                 raise ValueError("nonfinite colour")
                         except (ValueError, OverflowError, InvalidOperation) as error:
@@ -306,7 +308,8 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
         for material in sorted(used - defined):
             errors.append(f"{relative}: undefined adjacent material '{material}'")
     # Full CLI clients can compare independently specified Single bits even when normalizing hides them.
-    print("Prepared scalar bits: " + json.dumps(scalar_bits))
+    if report_scalars:
+        print("Prepared scalar bits: " + json.dumps(scalar_bits))
     return errors, checked
 
 
@@ -433,6 +436,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate IsoRim mod structure and assets")
     parser.add_argument("--check-assemblies", action="store_true", help="Check that 1.5, 1.6, and 1.7 assemblies exist and are non-empty")
     parser.add_argument("--mod-dir", type=Path, help="Validate a staged mod instead of this repository")
+    parser.add_argument("--summary", action="store_true", help="Report production asset counts without per-scalar diagnostics")
     args = parser.parse_args()
 
     root = (args.mod_dir or Path(__file__).resolve().parent.parent).resolve()
@@ -444,7 +448,7 @@ def main() -> int:
     all_errors.extend(validate_materials(root))
     all_errors.extend(validate_source_textures(root))
     all_errors.extend(validate_luts(root))
-    prepared_errors, prepared_paths = validate_prepared_objs(root)
+    prepared_errors, prepared_paths = validate_prepared_objs(root, report_scalars=not args.summary)
     all_errors.extend(prepared_errors)
 
     if args.check_assemblies:
@@ -456,7 +460,10 @@ def main() -> int:
         return 1
 
     prepared_paths.extend(path.relative_to(root).as_posix() for path in _models_xml_paths(root) if path.is_relative_to(root / "1.7"))
-    print("Prepared inputs: " + json.dumps(sorted(prepared_paths)))
+    if args.summary:
+        print(f"Prepared inputs checked: {len(prepared_paths)}")
+    else:
+        print("Prepared inputs: " + json.dumps(sorted(prepared_paths)))
     print("IsoRim validation passed.")
     return 0
 

@@ -2373,3 +2373,15 @@ The descriptive-name intake check ran at IsoRim@e7df907b1794e228ad92b5eb3b18b322
 | Scope comparison against bb70cd4f | Source, DLL, definitions, textures and frozen root/1.5/1.6 inputs remain unchanged. |
 
 No additional source build or live-game check is needed for material filenames. Hosted CI runs again on the updated PR head.
+
+## Production validation output
+
+Production CI now passes --summary to both distribution-validation calls. It retains all numeric, index, model, material, dependency and assembly checks.
+Summary mode omits per-scalar diagnostic records and the long input-path listing. Default detailed output remains unchanged for numeric verification fixtures.
+The previous hosted push succeeded in 7m02s. Asset validation consumed 5m07s and triggered csc matcher regex timeouts on the enormous diagnostic line.
+The regression first failed because the old CLI rejected --summary. The corrected asset-validation test passed in 5.726 seconds.
+It covers bounded successful output, invalid-normal and missing-library failure exits, plus the existing detailed numeric fixture matrix.
+The regression lives inside the registered asset-validation test. The ten-test host registry remains unchanged.
+The production command `python tools/validate_mod.py --check-assemblies --summary` passed in 40.14 seconds at IsoRim@9b6f537af62974e627cd5cf18b7b52a8bb34cd39.
+It checked 1,242 inputs and emitted 56 bytes across two lines. The longest line was 29 characters. No stdout adapter or diagnostic suppression wrapper ran.
+The final report-only amendment leaves the checked validator, CI wiring, asset inputs and shipped assembly unchanged.
