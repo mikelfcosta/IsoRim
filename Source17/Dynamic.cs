@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
@@ -1365,7 +1364,7 @@ namespace IsoRim
                 tried = true;
                 if (IsoRimMod.RootDir != null)
                 {
-                    rotor = ModelLibrary.LoadFile(Path.Combine(IsoRimMod.RootDir, "Models", "wind_rotor.obj"));
+                    rotor = ModelLibrary.LoadInternal("wind_rotor.obj");
                 }
             }
             if (rotor == null)
@@ -1414,10 +1413,10 @@ namespace IsoRim
                 string root = IsoRimMod.RootDir;
                 if (root != null)
                 {
-                    leaf = ModelLibrary.LoadFile(Path.Combine(root, "Models", "door_leaf.obj"));
-                    lintel = ModelLibrary.LoadFile(Path.Combine(root, "Models", "door_lintel.obj"));
-                    gateLeaf = ModelLibrary.LoadFile(Path.Combine(root, "Models", "gate_leaf.obj"));
-                    gatePosts = ModelLibrary.LoadFile(Path.Combine(root, "Models", "gate_posts.obj"));
+                    leaf = ModelLibrary.LoadInternal("door_leaf.obj");
+                    lintel = ModelLibrary.LoadInternal("door_lintel.obj");
+                    gateLeaf = ModelLibrary.LoadInternal("gate_leaf.obj");
+                    gatePosts = ModelLibrary.LoadInternal("gate_posts.obj");
                 }
             }
             Map map = door.Map;
@@ -1616,9 +1615,9 @@ namespace IsoRim
                 string root = IsoRimMod.RootDir;
                 if (root != null)
                 {
-                    flame = ModelLibrary.LoadFile(Path.Combine(root, "Models", "fx_flame.obj"));
-                    flameCore = ModelLibrary.LoadFile(Path.Combine(root, "Models", "fx_flame_core.obj"));
-                    puff = ModelLibrary.LoadFile(Path.Combine(root, "Models", "fx_puff.obj"));
+                    flame = ModelLibrary.LoadInternal("fx_flame.obj");
+                    flameCore = ModelLibrary.LoadInternal("fx_flame_core.obj");
+                    puff = ModelLibrary.LoadInternal("fx_puff.obj");
                 }
                 campfire = DefDatabase<ThingDef>.GetNamedSilentFail("Campfire");
                 geyser = DefDatabase<ThingDef>.GetNamedSilentFail("SteamGeyser");

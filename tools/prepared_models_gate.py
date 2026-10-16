@@ -233,7 +233,7 @@ def build_properties(target, audit, game=None, harmony=None):
     return properties
 
 
-def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None):
+def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None, expected_exit=0):
     verify_snapshot(protected)
     started = time.time()
     result = None
@@ -246,9 +246,52 @@ def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None)
         with (evidence / "children.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({"argv": [str(arg) for arg in argv], "exit": result.returncode if result else None,
                                      "started": started, "ended": time.time(), "protectedInputs": len(protected)}) + "\n")
-    if result.returncode:
+    if expected_exit is not None and result.returncode != expected_exit:
         raise Refusal(f"{label} exited {result.returncode}. See {evidence}")
     return result
+
+
+def validate_staged_intake(evidence, protected):
+    staged = WORK / "staged-mod"
+    rows = []
+
+    def run(name, root, diagnostic=""):
+        command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(root), "--check-assemblies"]
+        result = run_child(command, evidence, "validator-" + name, protected, expected_exit=None)
+        output = (evidence / f"validator-{name}.stdout.log").read_text()
+        error = (evidence / f"validator-{name}.stderr.log").read_text()
+        marker = next((line[len("Prepared inputs: "):] for line in output.splitlines() if line.startswith("Prepared inputs: ")), "[]")
+        rows.append({"name": name, "command": command, "exit": result.returncode,
+                     "expectedSuccess": not bool(diagnostic), "diagnosticMatched": not diagnostic or diagnostic in error,
+                     "checkedPaths": json.loads(marker)})
+
+    run("passing", staged)
+    if rows[0]["exit"] == 0:
+        control = WORK / "validator-controls" / evidence.name
+        copy_tree(staged, control)
+        mutations = [
+            ("missing-gear", "1.7/Defs/Diagnostics/WornGear.xml", "internal.obj", "missing-gear.obj", "missing-gear.obj"),
+            ("missing-model", "1.7/Defs/Diagnostics/Models.xml", "internal.obj", "missing-model.obj", "missing-model.obj"),
+            ("missing-mtl", "1.7/Models/Diagnostics/internal.obj", "sample.mtl", "missing.mtl", "missing.mtl"),
+            ("malformed-mtl", "1.7/Models/Diagnostics/sample.mtl", "0.2 0.3 0.4", "broken 0.3 0.4", "material colour"),
+            ("zero-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 0 0 0", "nonzero"),
+            ("nonfinite-normal", "1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn NaN 0 -1", "finite"),
+            ("normal-index", "1.7/Models/Diagnostics/internal.obj", "2/2/1", "2/2/99", "normal index"),
+            ("position-index", "1.7/Models/Diagnostics/internal.obj", "2/2/1", "99/2/1", "position index"),
+        ]
+        for name, relative, old, new, diagnostic in mutations:
+            path = control / relative
+            original = path.read_text()
+            if old not in original:
+                raise Refusal(f"The validator fault control has no positive input: {name}")
+            try:
+                path.write_text(original.replace(old, new))
+                run(name, control, diagnostic)
+            finally:
+                path.write_text(original)
+    report = {"nonce": evidence.name, "controls": rows}
+    (evidence / "validator-results.json").write_text(json.dumps(report, indent=2))
+    return report
 
 
 def verify_snapshot(protected):
@@ -394,7 +437,7 @@ def reset_work_directory(path):
     path.mkdir(parents=True)
 
 
-def stage_runtime(args, evidence):
+def stage_runtime(args, evidence, intake=False):
     runtime = WORK / "runtime"
     staged = WORK / "staged-mod"
     # Copy only game inputs and Core. Never follow the installed Mods junction.
@@ -411,6 +454,17 @@ def stage_runtime(args, evidence):
         copy_tree(ROOT / relative, staged / relative)
     product = WORK / "build/1.7/bin/IsoRim.dll"
     shutil.copy2(product, staged / "1.7/Assemblies/IsoRim.dll")
+    if intake:
+        from prepared_models.intake_fixtures import stage_intake
+        for version in ("1.5", "1.6"):
+            copy_tree(ROOT / version, staged / version)
+        stage_intake(staged, runtime / "Mods/NormalProofExternal")
+        frozen_files = ["About/LoadFolders.xml", "Defs/Models.xml", "1.7/Defs/Models.xml", "1.7/Defs/WornGear.xml"]
+        (evidence / "intake-frozen-inputs.json").write_text(json.dumps({
+            "nonce": evidence.name, "files": {path: digest(ROOT / path) for path in frozen_files},
+            "models": [node.findtext("defName") for node in ET.parse(ROOT / "1.7/Defs/Models.xml").getroot()],
+            "gear": [node.findtext("defName") for node in ET.parse(ROOT / "1.7/Defs/WornGear.xml").getroot()],
+        }, indent=2))
     copy_tree(staged, runtime / "Mods/IsoRim")
     harmony_mod = runtime / "Mods/Harmony"
     (harmony_mod / "About").mkdir(parents=True, exist_ok=True)
@@ -427,6 +481,7 @@ def stage_runtime(args, evidence):
     (save / "Config/ModsConfig.xml").write_text(
         "<ModsConfigData><version>1.7.4980 rev60</version><activeMods>"
         "<li>brrainz.harmony</li><li>ludeon.rimworld</li><li>connor.isorim</li>"
+        + ("<li>isorim.normalproof.external</li>" if intake else "") +
         "</activeMods><knownExpansions><li>ludeon.rimworld</li></knownExpansions></ModsConfigData>")
     (save / "IsoRimProbe.txt").write_text("# Normal proof controller\n")
     return runtime, save, product
@@ -454,7 +509,9 @@ def runtime_cases(args, evidence, protected, cases, head):
         run_child(["powershell.exe", "-NoProfile", "-Command",
                    "if (Get-Process -Name RimWorld -ErrorAction SilentlyContinue) { exit 2 }"],
                   evidence, "game-exclusion", protected)
-        runtime, save, product = stage_runtime(args, evidence)
+        intake = any(case.startswith("AssetIntakeCases.") for case in cases)
+        runtime, save, product = stage_runtime(args, evidence, intake=intake)
+        validator_results = validate_staged_intake(evidence, protected) if intake else None
         modules = {name: digest(runtime / name) for name in [*FINGERPRINTS, "System.Private.CoreLib.dll", "coreclr.dll"]}
         modules["0Harmony.dll"] = HARMONY_HASH
         request = {"nonce": evidence.name, "head": head, "assemblyHash": digest(product), "caseIds": cases,
@@ -485,9 +542,15 @@ def runtime_cases(args, evidence, protected, cases, head):
         if child.returncode:
             raise Refusal(f"The runtime exited {child.returncode}")
         active = ET.parse(save / "Config/ModsConfig.xml").findall(".//activeMods/li")
-        if {node.text for node in active} != {"brrainz.harmony", "ludeon.rimworld", "connor.isorim"} or len(active) != 3:
+        expected_active = {"brrainz.harmony", "ludeon.rimworld", "connor.isorim"}
+        if intake:
+            expected_active.add("isorim.normalproof.external")
+        if {node.text for node in active} != expected_active or len(active) != len(expected_active):
             raise Refusal("The runtime active package manifest changed")
-        return verify_proofs(list(evidence.glob("NormalProof-*.json")), cases, request, modules, child.pid, started)
+        proofs = verify_proofs(list(evidence.glob("NormalProof-*.json")), cases, request, modules, child.pid, started)
+        if validator_results and any((row["exit"] == 0) != row["expectedSuccess"] or not row["diagnosticMatched"] for row in validator_results["controls"]):
+            raise Refusal("The staged validator accepted an invalid input or rejected the passing control")
+        return proofs
 
 
 def main():

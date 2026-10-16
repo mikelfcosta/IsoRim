@@ -162,13 +162,21 @@ namespace IsoRim
                 {
                     bool passed = false;
                     string details = "";
+                    string[] evidencePaths = Array.Empty<string>();
                     try
                     {
                         if (!seen.Add(id))
                         {
                             throw new InvalidOperationException("Duplicate normal case");
                         }
-                        NormalDataCases.Run(id, request.fixtureDirectory);
+                        if (id.StartsWith("AssetIntakeCases.", StringComparison.Ordinal))
+                        {
+                            evidencePaths = new[] { AssetIntakeCases.Run(id, output) };
+                        }
+                        else
+                        {
+                            NormalDataCases.Run(id, request.fixtureDirectory);
+                        }
                         passed = true;
                     }
                     catch (Exception error)
@@ -188,7 +196,7 @@ namespace IsoRim
                         gameVersion = Assembly.Load("RimWorld").GetName().Version.ToString(),
                         processId = Environment.ProcessId,
                         engineLogRoot,
-                        evidencePaths = Array.Empty<string>()
+                        evidencePaths
                     });
                     string destination = Path.Combine(output, "NormalProof-" + seen.Count + ".json");
                     File.WriteAllText(destination + ".tmp", record);

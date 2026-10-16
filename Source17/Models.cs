@@ -585,6 +585,7 @@ namespace IsoRim
     {
         private static readonly Dictionary<ThingDef, ModelEntry> byThing = new Dictionary<ThingDef, ModelEntry>();
         private static readonly Dictionary<string, Model> byPath = new Dictionary<string, Model>();
+        private static readonly Dictionary<string, string> internalPaths = new Dictionary<string, string>();
         private static readonly Dictionary<ThingDef, string> how = new Dictionary<ThingDef, string>();
 
         public static bool TryGet(ThingDef def, out ModelEntry entry)
@@ -631,16 +632,40 @@ namespace IsoRim
             }
         }
 
+        // Internal parts have a prepared 1.7 override. Definition-owned paths never use this lookup.
+        internal static string InternalPath(string file)
+        {
+            if (IsoRimMod.RootDir == null)
+            {
+                return null;
+            }
+            string prepared = Path.GetFullPath(Path.Combine(IsoRimMod.RootDir, "1.7", "Models", file));
+            string resolved;
+            if (!internalPaths.TryGetValue(prepared, out resolved))
+            {
+                resolved = File.Exists(prepared) ? prepared : Path.GetFullPath(Path.Combine(IsoRimMod.RootDir, "Models", file));
+                internalPaths[prepared] = resolved;
+            }
+            return resolved;
+        }
+
+        internal static Model LoadInternal(string file)
+        {
+            string path = InternalPath(file);
+            return path != null ? LoadFile(path) : null;
+        }
+
         // Loads a model file once; null if it is missing or unreadable.
         public static Model LoadFile(string path)
         {
             Model model;
-            if (byPath.TryGetValue(path, out model))
-            {
-                return model;
-            }
             try
             {
+                path = Path.GetFullPath(path);
+                if (byPath.TryGetValue(path, out model))
+                {
+                    return model;
+                }
                 model = ObjLoader.Load(path);
             }
             catch (Exception e)
@@ -1931,9 +1956,19 @@ namespace IsoRim
                     }
                     current = materials[index];
                 }
-                else if (t[0] == "Kd" && t.Length >= 4 && current != null)
+                else if (t[0] == "Kd" && current != null)
                 {
-                    current.color = new Color(Num(t[1]), Num(t[2]), Num(t[3]));
+                    if (t.Length >= 4 && float.TryParse(t[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float red)
+                        && float.TryParse(t[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float green)
+                        && float.TryParse(t[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float blue)
+                        && float.IsFinite(red) && float.IsFinite(green) && float.IsFinite(blue))
+                    {
+                        current.color = new Color(red, green, blue);
+                    }
+                    else
+                    {
+                        ModLog.Warn("[IsoRim] Malformed material colour in " + path + ": " + line);
+                    }
                 }
                 else if (t[0] == "map_Kd" && t.Length >= 2 && current != null)
                 {

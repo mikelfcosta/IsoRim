@@ -10,10 +10,14 @@ Checks:
 - Every LUT filename referenced in Source/Looks.cs and Source17/Looks.cs exists under LUTs/
 - When --check-assemblies is passed, 1.5/Assemblies/IsoRim.dll, 1.6/Assemblies/IsoRim.dll, and
   1.7/Assemblies/IsoRim.dll exist and are non-empty
+- Prepared 1.7 model/gear references, adjacent material libraries, face indices and finite normals
+- --mod-dir selects a staged mod; absent authored normals remain valid geometric fallback
 """
 
 import argparse
 import glob
+import json
+import math
 import os
 from pathlib import Path
 import re
@@ -37,8 +41,7 @@ def validate_xml_files(root: Path) -> list[str]:
             ET.parse(p)
         except Exception as e:
             errors.append(f"Malformed XML in {p}: {e}")
-    models_17 = root / "1.7" / "Defs" / "Models.xml"
-    if models_17.exists():
+    for models_17 in (root / "1.7" / "Defs").rglob("*.xml"):
         try:
             ET.parse(models_17)
         except Exception as e:
@@ -48,9 +51,9 @@ def validate_xml_files(root: Path) -> list[str]:
 
 def _models_xml_paths(root: Path) -> list[Path]:
     paths = [root / "Defs" / "Models.xml"]
-    extra = root / "1.7" / "Defs" / "Models.xml"
-    if extra.exists():
-        paths.append(extra)
+    if (root / "Defs/WornGear.xml").exists():
+        paths.append(root / "Defs/WornGear.xml")
+    paths.extend(sorted((root / "1.7/Defs").rglob("*.xml")))
     return paths
 
 
@@ -67,10 +70,12 @@ def validate_model_defs(root: Path) -> list[str]:
             continue
 
         for elem in tree.iter():
-            if elem.text and ".obj" in elem.text:
+            if elem.text and ".obj" in elem.text.lower():
                 rel_path = elem.text.strip().replace("\\", "/")
                 target = root / rel_path
-                if not target.exists():
+                if not target.resolve().is_relative_to(root.resolve()):
+                    errors.append(f"Model path in {models_xml.relative_to(root)} escapes its defining mod: {rel_path}")
+                elif not target.is_file():
                     errors.append(f"Model path in {models_xml.relative_to(root)} not found on disk: {rel_path}")
     return errors
 
@@ -89,6 +94,8 @@ def validate_source_obj_strings(root: Path) -> list[str]:
     obj_pattern = re.compile(r'"([^"]+\.obj)"')
     for source_dir in _source_dirs(root):
         for cs_file in source_dir.glob("*.cs"):
+            if cs_file.name.startswith("ProbeNormals"):
+                continue  # These guarded test cases generate their own inputs outside production assets.
             try:
                 content = cs_file.read_text(encoding="utf-8")
             except Exception as e:
@@ -96,10 +103,86 @@ def validate_source_obj_strings(root: Path) -> list[str]:
                 continue
             for match in obj_pattern.finditer(content):
                 val = match.group(1).replace("\\", "/")
-                if (root / val).exists() or (root / "Models" / Path(val).name).exists():
+                if ((root / val).exists() or (root / "Models" / Path(val).name).exists()
+                        or (source_dir.name == "Source17" and (root / "1.7/Models" / Path(val).name).exists())):
                     continue
                 errors.append(f"{cs_file.relative_to(root)} references missing .obj: {val}")
     return errors
+
+
+def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
+    errors = []
+    checked = []
+    for obj in sorted((root / "1.7/Models").rglob("*.obj", case_sensitive=False)):
+        relative = obj.relative_to(root).as_posix()
+        checked.append(relative)
+        positions = textures = normals = 0
+        defined = set()
+        used = set()
+        for number, raw in enumerate(obj.read_text(encoding="utf-8").splitlines(), 1):
+            parts = raw.split("#", 1)[0].split()
+            if not parts:
+                continue
+            label = f"{relative}:{number}"
+            kind = parts[0]
+            if kind in ("v", "vt", "vn"):
+                if kind == "v":
+                    positions += 1
+                elif kind == "vt":
+                    textures += 1
+                else:
+                    normals += 1
+                count = 2 if kind == "vt" else 3
+                try:
+                    values = [float(token) for token in parts[1:count + 1]]
+                    if len(values) != count or not all(math.isfinite(value) for value in values):
+                        raise ValueError()
+                    if kind == "vn" and not any(values):
+                        raise ValueError()
+                except ValueError:
+                    errors.append(f"{label}: {kind} must contain finite" + (" nonzero normal values" if kind == "vn" else " coordinates"))
+            elif kind == "mtllib":
+                library = obj.parent / raw.strip()[6:].strip()
+                if not library.resolve().is_relative_to(root.resolve()) or not library.is_file():
+                    errors.append(f"{label}: adjacent material library missing or escaping: {library}")
+                    continue
+                for line_number, line in enumerate(library.read_text(encoding="utf-8").splitlines(), 1):
+                    material = line.split("#", 1)[0].split()
+                    if not material:
+                        continue
+                    if material[0] == "newmtl":
+                        if len(material) < 2:
+                            errors.append(f"{library}:{line_number}: missing material name")
+                        else:
+                            defined.add(material[1])
+                    elif material[0] == "Kd":
+                        try:
+                            colour = [float(token) for token in material[1:4]]
+                            if len(colour) != 3 or not all(math.isfinite(value) for value in colour):
+                                raise ValueError()
+                        except ValueError:
+                            errors.append(f"{library}:{line_number}: invalid material colour")
+            elif kind == "usemtl" and len(parts) > 1:
+                used.add(parts[1])
+            elif kind == "f":
+                if len(parts) < 4:
+                    errors.append(f"{label}: face needs three corners")
+                for corner in parts[1:]:
+                    indices = corner.split("/")
+                    for index, (name, count) in enumerate((("position", positions), ("texture", textures), ("normal", normals))):
+                        token = indices[index] if index < len(indices) else ""
+                        if not token and index > 0:
+                            continue  # Missing authored normals explicitly select geometric fallback.
+                        try:
+                            value = int(token)
+                            resolved = count + value if value < 0 else value - 1
+                            if value == 0 or not 0 <= resolved < count:
+                                raise ValueError()
+                        except ValueError:
+                            errors.append(f"{label}: invalid {name} index '{token}'")
+        for material in sorted(used - defined):
+            errors.append(f"{relative}: undefined adjacent material '{material}'")
+    return errors, checked
 
 
 def validate_materials(root: Path) -> list[str]:
@@ -199,7 +282,7 @@ def validate_luts(root: Path) -> list[str]:
 
 def validate_assemblies(root: Path) -> list[str]:
     errors = []
-    load = root / "About" / "LoadFolders.xml"
+    load = root / "About" / "About.xml"
     if not load.exists():
         return [f"Missing {load}"]
     try:
@@ -207,10 +290,9 @@ def validate_assemblies(root: Path) -> list[str]:
     except Exception as e:
         return [f"Malformed XML in {load}: {e}"]
     versions = []
-    for el in list(tree.getroot()):
-        tag = el.tag
-        if tag.startswith("v") and len(tag) > 1 and tag[1].isdigit():
-            versions.append(tag[1:])
+    for el in tree.findall(".//supportedVersions/li"):
+        if el.text:
+            versions.append(el.text.strip())
     if not versions:
         errors.append(f"No game versions named in {load}")
     for version in versions:
@@ -225,9 +307,10 @@ def validate_assemblies(root: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate IsoRim mod structure and assets")
     parser.add_argument("--check-assemblies", action="store_true", help="Check that 1.5, 1.6, and 1.7 assemblies exist and are non-empty")
+    parser.add_argument("--mod-dir", type=Path, help="Validate a staged mod instead of this repository")
     args = parser.parse_args()
 
-    root = Path(__file__).resolve().parent.parent
+    root = (args.mod_dir or Path(__file__).resolve().parent.parent).resolve()
 
     all_errors = []
     all_errors.extend(validate_xml_files(root))
@@ -236,6 +319,8 @@ def main() -> int:
     all_errors.extend(validate_materials(root))
     all_errors.extend(validate_source_textures(root))
     all_errors.extend(validate_luts(root))
+    prepared_errors, prepared_paths = validate_prepared_objs(root)
+    all_errors.extend(prepared_errors)
 
     if args.check_assemblies:
         all_errors.extend(validate_assemblies(root))
@@ -245,6 +330,8 @@ def main() -> int:
             print(f"Validation error: {err}", file=sys.stderr)
         return 1
 
+    prepared_paths.extend(path.relative_to(root).as_posix() for path in _models_xml_paths(root) if path.is_relative_to(root / "1.7"))
+    print("Prepared inputs: " + json.dumps(sorted(prepared_paths)))
     print("IsoRim validation passed.")
     return 0
 

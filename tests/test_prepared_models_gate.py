@@ -22,6 +22,47 @@ class GateHostTests(unittest.TestCase):
         cls.evidence = gate.EVIDENCE / uuid.uuid4().hex
         gate.prepare_evidence(ROOT, cls.evidence)
 
+    def test_prepared_asset_validation(self):
+        from prepared_models.intake_fixtures import stage_intake
+
+        with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
+            root = Path(tmp) / "fixture"
+            for relative in ("About", "Defs", "Models", "1.7/Assemblies"):
+                (root / relative).mkdir(parents=True, exist_ok=True)
+            (root / "About/About.xml").write_text("<ModMetaData><supportedVersions><li>1.7</li></supportedVersions></ModMetaData>")
+            (root / "About/LoadFolders.xml").write_text("<loadFolders><v1.7><li>/</li><li>1.7</li></v1.7></loadFolders>")
+            (root / "Defs/Models.xml").write_text("<Defs/>")
+            (root / "Defs/KeyBindings.xml").write_text("<Defs/>")
+            (root / "Models/isorim.mtl").write_text("newmtl sample\nKd 0.9 0.8 0.7\n")
+            (root / "1.7/Assemblies/IsoRim.dll").write_bytes(b"host structural check, not a runtime assembly")
+            stage_intake(root, Path(tmp) / "external")
+            argv = [sys.executable, str(ROOT / "tools/validate_mod.py"), "--mod-dir", str(root), "--check-assemblies"]
+            result = subprocess.run(argv, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("1.7/Models/Diagnostics/internal.obj", result.stdout)
+            self.assertIn("1.7/Defs/Diagnostics/WornGear.xml", result.stdout)
+            mutations = [
+                ("1.7/Defs/Diagnostics/WornGear.xml", "internal.obj", "missing-gear.obj", "missing-gear.obj"),
+                ("1.7/Defs/Diagnostics/Models.xml", "internal.obj", "missing-model.obj", "missing-model.obj"),
+                ("1.7/Models/Diagnostics/internal.obj", "sample.mtl", "missing.mtl", "missing.mtl"),
+                ("1.7/Models/Diagnostics/sample.mtl", "0.2 0.3 0.4", "broken 0.3 0.4", "material colour"),
+                ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn 0 0 0", "nonzero"),
+                ("1.7/Models/Diagnostics/internal.obj", "vn 0 0.6 -0.8", "vn NaN 0 -1", "finite"),
+                ("1.7/Models/Diagnostics/internal.obj", "2/2/1", "2/2/99", "normal index"),
+                ("1.7/Models/Diagnostics/internal.obj", "2/2/1", "99/2/1", "position index"),
+            ]
+            for relative, old, new, diagnostic in mutations:
+                path = root / relative
+                original = path.read_text()
+                self.assertIn(old, original)
+                try:
+                    path.write_text(original.replace(old, new))
+                    result = subprocess.run(argv, capture_output=True, text=True, check=False)
+                    self.assertNotEqual(result.returncode, 0, relative)
+                    self.assertIn(diagnostic, result.stderr)
+                finally:
+                    path.write_text(original)
+
     def test_output_isolation(self):
         import prepared_models_gate as gate
 
@@ -90,59 +131,65 @@ class GateHostTests(unittest.TestCase):
             "NormalDataCases.InvalidTriangleFallback",
             "NormalDataCases.GeometricChannelsPreserved",
             "NormalDataCases.DerivedModels",
+            "AssetIntakeCases.InternalPreference",
+            "AssetIntakeCases.DefinitionRoot",
+            "AssetIntakeCases.AdjacentMaterials",
+            "AssetIntakeCases.FolderDiscoveryFreeze",
+            "AssetIntakeCases.PreparedValidation",
         }
-        selected = gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)
+        selected = gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S02", manifest)
         self.assertEqual(set(selected), data)
-        self.assertEqual(set(manifest["cases"]), data)  # Later stories have no available cases at this S01 head.
+        self.assertEqual(set(manifest["cases"]), data)  # Later stories have no available cases at this S02 head.
         for missing in sorted(data):
+            group = "data" if missing.startswith("NormalDataCases.") else "intake"
             shortened = deepcopy(manifest)
             del shortened["cases"][missing]
-            shortened["groups"]["data"].remove(missing)
+            shortened["groups"][group].remove(missing)
             with self.subTest(removed_required_case=missing):
                 with self.assertRaises(gate.Refusal):
-                    gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", shortened)
+                    gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S02", shortened)
                 with self.assertRaises(gate.Refusal):
-                    gate.select_cases(b"M\0tools/prepared_models/cases.json\0", "ISORIM-003.S01", shortened)
+                    gate.select_cases(b"M\0tools/prepared_models/cases.json\0", "ISORIM-003.S02", shortened)
             for relocate in (False, True):
                 ungrouped = deepcopy(manifest)
-                ungrouped["groups"]["data"].remove(missing)
+                ungrouped["groups"][group].remove(missing)
                 if relocate:
                     ungrouped["groups"]["static"].append(missing)
                 with self.subTest(required_group_case=missing, relocated=relocate):
                     with self.assertRaises(gate.Refusal):
-                        gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", ungrouped)
+                        gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S02", ungrouped)
         gate.verify_registry(selected, manifest)
         with self.assertRaises(gate.Refusal):
             gate.verify_registry(["NormalDataCases.Missing"], manifest)
         for stream in (b"", b"M\0Source17/Models.cs", b"Q\0Source17/Models.cs\0", b"R100\0Source17/Models.cs\0"):
             with self.assertRaises(gate.Refusal):
-                gate.select_cases(stream, "ISORIM-003.S01", manifest)
+                gate.select_cases(stream, "ISORIM-003.S02", manifest)
         for story in ("S01", "ISORIM-003.S00", "ISORIM-003.S99"):
             with self.assertRaises(gate.Refusal):
                 gate.select_cases(b"M\0Source17/Models.cs\0", story, manifest)
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
             directory = Path(tmp)
             log = directory / "host-controls.stderr.log"
-            log.write_text("Ran 4 tests in 0.1s\n\nOK\n")
-            self.assertEqual(gate.verify_host_controls(manifest, directory)["passed"], 4)
-            for summary in ("Ran 0 tests in 0.0s\n\nOK\n", "Ran 4 tests in 0.1s\n\nOK (skipped=4)\n"):
+            log.write_text("Ran 5 tests in 0.1s\n\nOK\n")
+            self.assertEqual(gate.verify_host_controls(manifest, directory)["passed"], 5)
+            for summary in ("Ran 0 tests in 0.0s\n\nOK\n", "Ran 5 tests in 0.1s\n\nOK (skipped=5)\n"):
                 log.write_text(summary)
                 with self.assertRaises(gate.Refusal):
                     gate.verify_host_controls(manifest, directory)
         for changes in (b"M\0README.txt\0", b"D\0unknown.cs\0",
                         b"R100\0Source17/Models.cs\0unknown.cs\0"):
             with self.assertRaises(gate.Refusal):
-                gate.select_cases(changes, "ISORIM-003.S01", manifest)
-        self.assertEqual(set(gate.select_cases(b"D\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)), data)
-        self.assertEqual(set(gate.select_cases(b"R100\0Source17/Models.cs\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)), data)
+                gate.select_cases(changes, "ISORIM-003.S02", manifest)
+        self.assertEqual(set(gate.select_cases(b"D\0Source17/Models.cs\0", "ISORIM-003.S02", manifest)), data)
+        self.assertEqual(set(gate.select_cases(b"R100\0Source17/Models.cs\0Source17/Models.cs\0", "ISORIM-003.S02", manifest)), data)
         manifest["groups"]["static"] = ["StaticNormalCases.Example"]
         manifest["cases"]["StaticNormalCases.Example"] = {"story": 1}
         with self.assertRaises(gate.Refusal):
-            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)
+            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S02", manifest)
         manifest = gate.case_manifest()
         del manifest["cases"][next(iter(data))]
         with self.assertRaises(gate.Refusal):
-            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)
+            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S02", manifest)
         request = {"nonce": "fresh", "head": "head", "assemblyHash": "product"}
         proof = dict(request, caseId="case", passed=True, modules={"module": "hash"},
                      runtime="10.0.10-waylithclr.dev", gameVersion="1.7.4980.60", processId=42, evidencePaths=[])

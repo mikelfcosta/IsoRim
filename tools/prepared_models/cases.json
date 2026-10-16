@@ -1,24 +1,39 @@
 {
-  "hostCases": ["test_reference_identity", "test_fail_closed_selection_and_receipts", "test_output_isolation", "test_ignore_before_capture"],
+  "hostCases": ["test_reference_identity", "test_fail_closed_selection_and_receipts", "test_output_isolation", "test_ignore_before_capture", "test_prepared_asset_validation"],
   "cases": {
     "NormalDataCases.AuthoredIndices": {"story": 1},
     "NormalDataCases.InvalidTriangleFallback": {"story": 1},
     "NormalDataCases.GeometricChannelsPreserved": {"story": 1},
-    "NormalDataCases.DerivedModels": {"story": 1}
+    "NormalDataCases.DerivedModels": {"story": 1},
+    "AssetIntakeCases.InternalPreference": {"story": 2},
+    "AssetIntakeCases.DefinitionRoot": {"story": 2},
+    "AssetIntakeCases.AdjacentMaterials": {"story": 2},
+    "AssetIntakeCases.FolderDiscoveryFreeze": {"story": 2},
+    "AssetIntakeCases.PreparedValidation": {"story": 2}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
-    "intake": [], "static": [], "moving": [], "integrated": []
+    "intake": ["AssetIntakeCases.InternalPreference", "AssetIntakeCases.DefinitionRoot", "AssetIntakeCases.AdjacentMaterials", "AssetIntakeCases.FolderDiscoveryFreeze", "AssetIntakeCases.PreparedValidation"],
+    "static": [], "moving": [], "integrated": []
   },
   "paths": {
     "Source17/Models.cs": ["data", "intake", "static", "moving"],
+    "Source17/People.cs": ["intake", "moving"],
+    "Source17/HairParts.cs": ["intake"],
+    "Source17/Gravship.cs": ["intake"],
+    "Source17/Dynamic.cs": ["intake", "moving"],
+    "Source17/WornGear.cs": ["intake", "moving"],
+    "Source17/Mechs.cs": ["intake", "moving"],
     "Source17/IsoRim.csproj": ["all"],
     "Source17/Probe.cs": ["all"],
     "Source17/ProbeNormals.cs": ["all"],
     "Source17/ProbeNormalsData.cs": ["all"],
+    "Source17/ProbeNormalsAssets.cs": ["all"],
     "tools/prepared_models_gate.py": ["all"],
     "tools/prepared_models/cases.json": ["all"],
     "tools/prepared_models/format-isolation.targets": ["all"],
+    "tools/prepared_models/intake_fixtures.py": ["all"],
+    "tools/validate_mod.py": ["intake"],
     "tests/test_prepared_models_gate.py": ["all"],
     ".gitignore": ["all"]
   }

@@ -120,11 +120,16 @@ namespace IsoRim
 
         public static bool Exists(string part)
         {
-            bool there;
-            if (!fileThere.TryGetValue(part, out there))
+            string path = ModelLibrary.InternalPath(part + ".obj");
+            if (path == null)
             {
-                there = IsoRimMod.RootDir != null && File.Exists(Path.Combine(IsoRimMod.RootDir, "Models", part + ".obj"));
-                fileThere[part] = there;
+                return false;
+            }
+            bool there;
+            if (!fileThere.TryGetValue(path, out there))
+            {
+                there = File.Exists(path);
+                fileThere[path] = there;
             }
             return there;
         }
