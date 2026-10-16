@@ -32,7 +32,8 @@
     "IntegratedNormalCases.HandoffContract": {"story": 5},
     "ModelStyleCases.DiffuseAndHighlightModes": {"story": 6},
     "ModelStyleCases.ProtectedExceptions": {"story": 6},
-    "ModelStyleCases.ControlledOutlines": {"story": 7}
+    "ModelStyleCases.ControlledOutlines": {"story": 7},
+    "ModelStyleCases.GameplayComparisonAndPerf": {"story": 8}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
@@ -40,7 +41,7 @@
     "static": ["StaticNormalCases.TrueSpaceTransform", "StaticNormalCases.MixedStreams", "StaticNormalCases.MaterialAndShaderContract", "StaticNormalCases.GpuAuthoredDirection", "StaticNormalCases.ProductionLighting", "StaticNormalCases.GeometricResponsibilities", "StaticNormalCases.OracleControls"],
     "moving": ["MovingNormalCases.DynamicTrueSpace", "MovingNormalCases.InstanceMatrices", "MovingNormalCases.MergedPartTransforms", "MovingNormalCases.TexturesMarksAndFallback", "MovingNormalCases.CacheAndBatchReuse", "MovingNormalCases.GpuAgreement", "MovingNormalCases.ProductionLighting"],
     "integrated": ["IntegratedNormalCases.AllPaths", "IntegratedNormalCases.ProductionLightingAllPaths", "IntegratedNormalCases.RegressionControls", "IntegratedNormalCases.ProvenanceAndCompleteness", "IntegratedNormalCases.FrozenInputsAndArtifact", "IntegratedNormalCases.HandoffContract"],
-    "style": ["ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines"]
+    "style": ["ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines", "ModelStyleCases.GameplayComparisonAndPerf"]
   },
   "paths": {
     "Source17/IsoRimMod.cs": ["style"],
