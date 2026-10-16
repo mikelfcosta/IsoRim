@@ -1,0 +1,10 @@
+# Source semantic material blocks preserved exactly. No baked lighting.
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl relic_bone
+Kd 0.87 0.85 0.76
+
+newmtl relic_socket
+Kd 0.16 0.14 0.11

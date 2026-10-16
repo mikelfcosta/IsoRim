@@ -1,0 +1,14 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl ancient_dark
+Kd 0.22 0.24 0.21
+
+newmtl ancient_shell
+Kd 0.48 0.48 0.45
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl ancient_trim
+Kd 0.63 0.61 0.55
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl terminal_green
+Kd 0.14 0.65 0.22

@@ -1,0 +1,15 @@
+# Source semantic material blocks preserved exactly. No baked lighting.
+newmtl stuff_dark
+Kd 0.800 0.800 0.800
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl gold
+Kd 0.920 0.740 0.300
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
