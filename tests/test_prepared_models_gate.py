@@ -626,6 +626,19 @@ class GateHostTests(unittest.TestCase):
             self.assertEqual((directory / "success.stdout.log").read_text().strip(), "captured")
             with self.assertRaises(gate.Refusal):
                 gate.run_child([sys.executable, "-c", "raise SystemExit(7)"], directory, "failed-child", {})
+            command = [sys.executable, "-c", "import sys; print('full-log-start' + 'x' * 20000); "
+                       "print('useful stdout marker'); sys.stderr.write('useful stderr marker\\n'); "
+                       "raise AssertionError('host-control diagnostic')"]
+            with self.assertRaises(gate.Refusal) as failure:
+                gate.run_child(command, directory, "diagnostic-child", {})
+            diagnostic = str(failure.exception)
+            self.assertIn("useful stdout marker", diagnostic)
+            self.assertIn("useful stderr marker", diagnostic)
+            self.assertIn("AssertionError: host-control diagnostic", diagnostic)
+            self.assertNotIn("full-log-start", diagnostic.split("--- diagnostic-child stderr", 1)[0])
+            self.assertLess(len(diagnostic), 17000)
+            self.assertTrue((directory / "diagnostic-child.stdout.log").read_text().startswith("full-log-start"))
+            self.assertIn("AssertionError: host-control diagnostic", (directory / "diagnostic-child.stderr.log").read_text())
             with self.assertRaises(gate.Refusal):
                 gate.reset_work_directory(directory)
             calls = []
@@ -815,10 +828,12 @@ class GateHostTests(unittest.TestCase):
         with self.assertRaises(gate.Refusal):
             gate.verify_sdk(Path(sys.executable))
         with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "10.0.402\n", "")):
-            gate.verify_sdk(gate.SDK)
+            # The configured Windows pin is relative on POSIX. Exercise the positive
+            # identity/version checks with its native absolute form on either host.
+            gate.verify_sdk(gate.SDK.resolve())
         with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "6.0.100\n", "")):
-            with self.assertRaises(gate.Refusal):
-                gate.verify_sdk(gate.SDK)
+            with self.assertRaisesRegex(gate.Refusal, "SDK is not the approved"):
+                gate.verify_sdk(gate.SDK.resolve())
 
 
 if __name__ == "__main__":

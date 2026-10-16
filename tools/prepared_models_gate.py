@@ -280,7 +280,15 @@ def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None,
             stream.write(json.dumps({"argv": [str(arg) for arg in argv], "exit": result.returncode if result else None,
                                      "started": started, "ended": time.time(), "protectedInputs": len(protected)}) + "\n")
     if expected_exit is not None and result.returncode != expected_exit:
-        raise Refusal(f"{label} exited {result.returncode}. See {evidence}")
+        diagnostics = []
+        for channel in ("stdout", "stderr"):
+            path = evidence / f"{label}.{channel}.log"
+            with path.open("rb") as stream:
+                stream.seek(max(0, path.stat().st_size - 8192))
+                tail = stream.read().decode("utf-8", errors="replace").strip()
+            if tail:
+                diagnostics.append(f"\n--- {label} {channel} (last 8192 bytes; full log: {path}) ---\n{tail}")
+        raise Refusal(f"{label} exited {result.returncode}. See {evidence}" + "".join(diagnostics))
     return result
 
 
