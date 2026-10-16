@@ -513,6 +513,41 @@ class GateHostTests(unittest.TestCase):
             self.assertIn("material library missing", missing.stderr)
 
         import prepared_models_gate as gate
+
+        # Redirect only the filesystem location. Exercise the real CLI and every intake control.
+        with tempfile.TemporaryDirectory(dir=self.evidence) as directory:
+            work = Path(directory) / "work"
+            staged = work / "staged-mod"
+            recovery_mod(staged, ROOT / "1.7/Assemblies/IsoRim.dll")
+            write_model(staged / "1.7/Models/Diagnostics", "internal.obj", 2)
+            write_model(staged / "1.7/Models/Diagnostics", "legacy.obj", 2, False)
+            write_model(staged / "1.7/Models/Production", "unreferenced.obj", 2)
+            evidence = Path(directory) / "receipt"
+            evidence.mkdir()
+            with mock.patch.object(gate, "WORK", work):
+                result = gate.validate_staged_intake(evidence, {})
+                self.assertEqual(result["production"]["exit"], 0)
+                self.assertEqual(result["production"]["command"][-1], "--summary")
+                self.assertEqual(len(result["controls"]), 23)
+                self.assertEqual(len(result["recovery"]), 230)
+                self.assertTrue(all((row["exit"] == 0) == row["expectedSuccess"] and row["diagnosticMatched"] for row in result["controls"]))
+                self.assertTrue(all(row["exit"] == row["cli"] and row["bitMatched"] for row in result["recovery"]))
+                output = (evidence / "validator-production.stdout.log").read_text()
+                self.assertIn("Prepared inputs checked:", output)
+                self.assertNotIn("Prepared scalar bits:", output)
+                expected_paths = {"1.7/Defs/Diagnostics/Models.xml", "1.7/Defs/Diagnostics/WornGear.xml", "1.7/Models/Diagnostics/internal.obj",
+                                  "1.7/Models/Diagnostics/sample.mtl", "1.7/Models/Diagnostics/legacy.obj"}
+                self.assertEqual(set(result["stagedFixtureHashes"]), expected_paths)
+                source_hashes = {path: hashlib.sha256((staged / path).read_bytes()).hexdigest().upper() for path in expected_paths}
+                self.assertEqual(result["stagedFixtureHashes"], source_hashes)
+                self.assertEqual({item["path"]: item["sha256"] for item in result["controls"][0]["inputFiles"]}, source_hashes)
+                # The one production pass must still reject a malformed unreferenced asset.
+                bad = staged / "1.7/Models/Production/unreferenced.obj"
+                bad.write_text(bad.read_text().replace("vn 0 0.6 -0.8", "vn 0 0 0"))
+                with self.assertRaisesRegex(gate.Refusal, "validator-production exited 1"):
+                    gate.validate_staged_intake(evidence, {})
+
+        import prepared_models_gate as gate
         from prepared_models.intake_fixtures import stage_intake
 
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:

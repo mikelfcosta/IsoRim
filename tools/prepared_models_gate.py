@@ -321,8 +321,24 @@ def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None,
 
 
 def validate_staged_intake(evidence, protected):
+    from prepared_models.intake_fixtures import recovery_cases, recovery_mod
+
     staged = WORK / "staged-mod"
     rows = []
+    # Validate every production asset once, with bounded output and an interruptible deadline.
+    production_command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(staged), "--check-assemblies", "--summary"]
+    production = run_child(production_command, evidence, "validator-production", protected)
+
+    # Fault controls change only these diagnostic inputs. Keep their exact staged bytes and
+    # full scalar diagnostics, without reparsing the unrelated production meshes 23 times.
+    control = WORK / "validator-controls" / evidence.name
+    recovery_mod(control, staged / "1.7/Assemblies/IsoRim.dll")
+    fixture_paths = ("1.7/Defs/Diagnostics/Models.xml", "1.7/Defs/Diagnostics/WornGear.xml",
+                     "1.7/Models/Diagnostics/internal.obj", "1.7/Models/Diagnostics/sample.mtl", "1.7/Models/Diagnostics/legacy.obj")
+    for relative in fixture_paths:
+        shutil.copy2(staged / relative, control / relative)
+        if digest(staged / relative) != digest(control / relative):
+            raise Refusal("The intake control differs from its staged fixture: " + relative)
 
     def validate(root, label):
         result = validate_in_process(root)
@@ -345,10 +361,8 @@ def validate_staged_intake(evidence, protected):
                      "expectedSuccess": not bool(diagnostic), "diagnosticMatched": not diagnostic or diagnostic in error,
                      "checkedPaths": json.loads(marker), "inputFiles": raw_inputs})
 
-    run("passing", staged)
+    run("passing", control)
     if rows[0]["exit"] == 0:
-        control = WORK / "validator-controls" / evidence.name
-        copy_tree(staged, control)
         mutations = [
             ("missing-gear", "1.7/Defs/Diagnostics/WornGear.xml", "internal.obj", "missing-gear.obj", "missing-gear.obj"),
             ("missing-model", "1.7/Defs/Diagnostics/Models.xml", "internal.obj", "missing-model.obj", "missing-model.obj"),
@@ -384,7 +398,6 @@ def validate_staged_intake(evidence, protected):
                 run(name, control, diagnostic)
             finally:
                 path.write_text(original)
-    from prepared_models.intake_fixtures import recovery_cases, recovery_mod
     recovery = []
     root = WORK / "recovery-validator" / evidence.name
     recovery_mod(root, staged / "1.7/Assemblies/IsoRim.dll")
@@ -412,7 +425,10 @@ def validate_staged_intake(evidence, protected):
         recovery.append(dict(case, actualInputHash=actual_hash, actualInputHex=obj.read_bytes().hex(),
                              command=command, exit=child.returncode, diagnosticMatched=diagnostic,
                              scalarBits=bits, bitMatched=bit_match))
-    report = {"nonce": evidence.name, "controls": rows, "recovery": recovery}
+    report = {"nonce": evidence.name, "controls": rows, "recovery": recovery,
+              "production": {"command": production_command, "exit": production.returncode,
+                             "stdoutSha256": digest(evidence / "validator-production.stdout.log")},
+              "stagedFixtureHashes": {path: digest(staged / path) for path in fixture_paths}}
     (evidence / "validator-results.json").write_text(json.dumps(report, indent=2))
     return report
 
