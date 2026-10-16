@@ -438,7 +438,7 @@ class GateHostTests(unittest.TestCase):
             gate.DEADLINE = previous_deadline
 
         manifest = gate.case_manifest()
-        baseline = "1e94da595494948f4aed0cba599fae17ee3ce6ee"
+        baseline = "18eb9b3625829417d175d5c9df02945bd9d08fd2"
         self.assertEqual(gate.BASELINE, baseline)
         # A frozen integrated head can equal its epic ref. Whole selection uses base..head.
         self.assertEqual(gate.run_cases("t1", b"", "ISORIM-004.S03", manifest, baseline), sorted(manifest["cases"]))
