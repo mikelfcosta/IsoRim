@@ -129,7 +129,7 @@ namespace IsoRim
 
         private static object Provenance(ProbeNormals.Request request)
         {
-            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).OrderBy(id => id).ToArray();
+            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).Concat(ModelStyleCases.Cases).OrderBy(id => id).ToArray();
             Require(request.caseIds.Length == expected.Length && request.caseIds.OrderBy(id => id).SequenceEqual(expected), "The integrated request omits or duplicates a required case");
             var proofs = Directory.GetFiles(request.outputDirectory, "NormalProof-*.json").Select(path => JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path))).ToArray();
             var rows = new List<object>();
@@ -277,6 +277,7 @@ namespace IsoRim
                             for (int i = 0; i < groups.Count; i++) foreach (LayerSubMesh sub in groups[i])
                             {
                                 Material mat = new Material(sub.material); materials.Add(mat);
+                                mat.SetFloat("_ClayMode", 0); mat.SetFloat("_ClayWrap", 0); mat.SetFloat("_ClayHighlight", 0); mat.SetFloat("_ClayRoughness", 0);
                                 mat.SetFloat("_NormalView", 0); mat.SetFloat("_NormalLightingFault", 0); mat.SetFloat("_NormalTransportFault", 0);
                                 mat.SetVector("_IsoSun", new Vector4(0, .8f, .6f, 0));
                                 mat.SetVector("_IsoView", new Vector4(0, .5f, 1, squash)); mat.SetVector("_IsoCellMap", Vector4.zero);
@@ -359,6 +360,44 @@ namespace IsoRim
                 RenderTexture.active = previous; RenderTexture.ReleaseTemporary(target);
                 foreach (Material mat in materials) UnityEngine.Object.Destroy(mat);
                 UnityEngine.Object.Destroy(glow); UnityEngine.Object.Destroy(gameObject);
+            }
+        }
+    }
+
+    internal static class ModelStyleCases
+    {
+        internal static readonly string[] Cases = { "ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions" };
+
+        // Fixed double-precision angular Oren-Nayar references: incidence/reflection angles,
+        // sin(max(theta)) * tan(min(theta)), and the projected azimuth angle. No production helpers.
+        internal static double Reference(int sample, bool authored, int mode)
+        {
+            double[,,] rgb = { { { .543180084565, .444063253520 }, { .406548999604, .466124226562 } },
+                { { .3132, .3132 }, { .504641407082, .412556924411 } },
+                { { .550853781860, .450336692263 }, { .445017746988, .500762121535 } } };
+            return rgb[sample, authored ? 1 : 0, mode - 1];
+        }
+
+        internal static double HighlightReference(int sample, bool authored, int mode)
+        {
+            // Authored Mode 2 uses L = V = N: diffuse .490514950166, highlighted .503309813865.
+            // The 3.262690243/255 lift rejects an omitted highlight at the unchanged 2/255 tolerance.
+            double[,,] rgb = { { { .552116131114, .450699256114 }, { .406951311423, .503309813865 } },
+                { { .3132, .3132 }, { .511319890787, .503309813865 } },
+                { { .560395576570, .457417538045 }, { .445642119697, .503309813865 } } };
+            return rgb[sample, authored ? 1 : 0, mode - 1];
+        }
+
+        internal static string Run(string id, ProbeNormals.Request request)
+        {
+            switch (id)
+            {
+                case "ModelStyleCases.DiffuseAndHighlightModes": return MovingNormalCases.Run(id, request.outputDirectory, request.fixtureDirectory);
+                case "ModelStyleCases.ProtectedExceptions":
+                    string path = Path.Combine(request.outputDirectory, id + ".json");
+                    File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = new { captures = StaticNormalCases.ProtectedPixels(request.fixtureDirectory, request.outputDirectory) } }));
+                    return path;
+                default: throw new InvalidOperationException("Unknown model style case: " + id);
             }
         }
     }

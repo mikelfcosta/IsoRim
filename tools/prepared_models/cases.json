@@ -29,17 +29,21 @@
     "IntegratedNormalCases.RegressionControls": {"story": 5},
     "IntegratedNormalCases.ProvenanceAndCompleteness": {"story": 5},
     "IntegratedNormalCases.FrozenInputsAndArtifact": {"story": 5},
-    "IntegratedNormalCases.HandoffContract": {"story": 5}
+    "IntegratedNormalCases.HandoffContract": {"story": 5},
+    "ModelStyleCases.DiffuseAndHighlightModes": {"story": 6},
+    "ModelStyleCases.ProtectedExceptions": {"story": 6}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
     "intake": ["AssetIntakeCases.InternalPreference", "AssetIntakeCases.DefinitionRoot", "AssetIntakeCases.AdjacentMaterials", "AssetIntakeCases.FolderDiscoveryFreeze", "AssetIntakeCases.PreparedValidation"],
     "static": ["StaticNormalCases.TrueSpaceTransform", "StaticNormalCases.MixedStreams", "StaticNormalCases.MaterialAndShaderContract", "StaticNormalCases.GpuAuthoredDirection", "StaticNormalCases.ProductionLighting", "StaticNormalCases.GeometricResponsibilities", "StaticNormalCases.OracleControls"],
     "moving": ["MovingNormalCases.DynamicTrueSpace", "MovingNormalCases.InstanceMatrices", "MovingNormalCases.MergedPartTransforms", "MovingNormalCases.TexturesMarksAndFallback", "MovingNormalCases.CacheAndBatchReuse", "MovingNormalCases.GpuAgreement", "MovingNormalCases.ProductionLighting"],
-    "integrated": ["IntegratedNormalCases.AllPaths", "IntegratedNormalCases.ProductionLightingAllPaths", "IntegratedNormalCases.RegressionControls", "IntegratedNormalCases.ProvenanceAndCompleteness", "IntegratedNormalCases.FrozenInputsAndArtifact", "IntegratedNormalCases.HandoffContract"]
+    "integrated": ["IntegratedNormalCases.AllPaths", "IntegratedNormalCases.ProductionLightingAllPaths", "IntegratedNormalCases.RegressionControls", "IntegratedNormalCases.ProvenanceAndCompleteness", "IntegratedNormalCases.FrozenInputsAndArtifact", "IntegratedNormalCases.HandoffContract"],
+    "style": ["ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions"]
   },
   "paths": {
-    "Source17/Models.cs": ["data", "intake", "static", "moving", "integrated"],
+    "Source17/Glass.cs": ["static", "moving", "integrated", "style"],
+    "Source17/Models.cs": ["data", "intake", "static", "moving", "integrated", "style"],
     "Source17/People.cs": ["intake", "moving"],
     "Source17/HairParts.cs": ["intake"],
     "Source17/Gravship.cs": ["intake"],
@@ -62,9 +66,9 @@
     "Source17/ShaderCut.cs": ["static", "moving", "integrated"],
     "Source17/Layers.cs": ["static", "moving", "integrated"],
     "Source17/Glow.cs": ["static", "moving", "integrated"],
-    "1.7/Shaders/IsoRim.vert.glsl": ["static", "moving", "integrated"],
-    "1.7/Shaders/IsoRimTex.vert.glsl": ["static", "moving", "integrated"],
-    "1.7/Shaders/IsoRimSolid.frag.glsl": ["static", "moving", "integrated"],
+    "1.7/Shaders/IsoRim.vert.glsl": ["static", "moving", "integrated", "style"],
+    "1.7/Shaders/IsoRimTex.vert.glsl": ["static", "moving", "integrated", "style"],
+    "1.7/Shaders/IsoRimSolid.frag.glsl": ["static", "moving", "integrated", "style"],
     "1.7/Defs/ShaderDefs/IsoRim_Shaders.xml": ["static", "moving", "integrated"],
     "Source17/ProbeNormalsStatic.cs": ["all"],
     "Source17/ProbeNormalsMoving.cs": ["all"],

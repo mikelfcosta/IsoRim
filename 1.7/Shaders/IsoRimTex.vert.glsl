@@ -51,6 +51,10 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _NormalView; // @default = 0.0  guarded proof controller only
     float _NormalTransportFault; // @default = 0.0  guarded proof controller only
     float _NormalLightingFault; // @default = 0.0  1 G, 2 quantized N; ordinary lighting only
+    float _ClayMode; // @default = 0.0
+    float _ClayWrap; // @default = 0.0
+    float _ClayHighlight; // @default = 0.0
+    float _ClayRoughness; // @default = 0.0
 } uMaterial;
 
 // ---- Step 7: the cut-away in the vertex stage (C# ShaderCut, Source\ShaderCut.cs). IsoRim's walls, damage,
