@@ -2439,6 +2439,24 @@ namespace IsoRim
         public const int LightRoof = 3;    // _LightMode: roof slates (model curve * 1.05, at most 1.1)
         private static readonly Material[] litSolid = new Material[6];
         private static readonly Dictionary<string, Material> litByKey = new Dictionary<string, Material>();
+        private static int clayMode;
+        private static float clayWrap, clayHighlight, clayRoughness;
+
+        public static void SyncModelStyle(int mode, float wrap, float highlight, float roughness)
+        {
+            clayMode = mode; clayWrap = wrap; clayHighlight = highlight; clayRoughness = roughness;
+            for (int i = 0; i < 3; i++) ApplyModelStyle(litSolid[i]);
+            foreach (var entry in litByKey)
+                if (entry.Key.Contains("|0|")) ApplyModelStyle(entry.Value);
+            Glass.SyncStyle(mode, wrap, highlight, roughness);
+        }
+
+        private static void ApplyModelStyle(Material material)
+        {
+            if (material == null) return;
+            material.SetFloat("_ClayMode", clayMode); material.SetFloat("_ClayWrap", clayWrap);
+            material.SetFloat("_ClayHighlight", clayHighlight); material.SetFloat("_ClayRoughness", clayRoughness);
+        }
 
         // Which direction group a face pointing along normal belongs to.
         public static int BinOf(Vector3 normal)
@@ -2484,6 +2502,7 @@ namespace IsoRim
                 m = Make(SolidDef, curve == 1 ? "IsoRim_LitWall" : "IsoRim_LitModel", -1, ModeOf(curve));
                 IsoGlow.Use(m, IsoGlow.OwnCell);
                 if (m != null) m.SetFloat("_NormalSpace", (float)normalSpace);
+                if (curve == 0) ApplyModelStyle(m);
                 litSolid[slot] = m;
             }
             return m;
@@ -2518,6 +2537,7 @@ namespace IsoRim
                 m.SetFloat("_NormalSpace", (float)normalSpace);
                 m.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
                 IsoGlow.Use(m, IsoGlow.OwnCell);
+                if (curve == 0) ApplyModelStyle(m);
             }
             litByKey[key] = m;
             return m;

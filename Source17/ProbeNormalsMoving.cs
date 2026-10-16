@@ -42,6 +42,7 @@ namespace IsoRim
             {
                 switch (id)
                 {
+                    case "ModelStyleCases.DiffuseAndHighlightModes": observations = new { seam = "model style on native single, instanced and merged draws" }; kind = "style"; break;
                     case "IntegratedNormalCases.AllPaths": observations = new { validity = new[] { "authored", "missing", "invalid" }, poses = new[] { "standing", "scaled", "laid", "mirror" } }; kind = "all-paths"; break;
                     case "MovingNormalCases.DynamicTrueSpace": observations = DynamicTrueSpace(fixtures); kind = "dynamic"; break;
                     case "MovingNormalCases.InstanceMatrices": observations = new { seam = "DynamicModels.DrawLocal -> PartBatches.Flush -> binding 4" }; kind = "instances"; break;
@@ -150,6 +151,7 @@ namespace IsoRim
 
         private static void Freeze(Material material, Spec spec, bool diagnostic, int transport, int lighting)
         {
+            material.SetFloat("_ClayMode", 0); material.SetFloat("_ClayWrap", 0); material.SetFloat("_ClayHighlight", 0); material.SetFloat("_ClayRoughness", 0);
             material.SetFloat("_LightMode", 1); material.SetFloat("_GlowMode", 0); material.SetFloat("_MarkPass", 0);
             material.SetFloat("_NormalView", diagnostic ? 1 : 0); material.SetFloat("_NormalTransportFault", transport); material.SetFloat("_NormalLightingFault", lighting);
             material.SetVector("_IsoView", new Vector4(spec.G.x, spec.G.y, spec.G.z, View3D.Squash));
@@ -163,7 +165,7 @@ namespace IsoRim
         }
 
         private static object Capture(string caseId, string evidence, string path, Spec spec, Model model, List<DynamicModels.Part> merged,
-            bool diagnostic, int transport, int lighting, int expected, string variant = "")
+            bool diagnostic, int transport, int lighting, int expected, string variant = "", int style = 0, double referenceRgb = -1, float highlight = 0)
         {
             const int width = 1024, height = 256;
             bool instanced = path.StartsWith("instanced", StringComparison.Ordinal), textured = path.EndsWith("texture", StringComparison.Ordinal);
@@ -190,7 +192,7 @@ namespace IsoRim
             Vector3 targetPosition = origin - axis * camera.orthographicSize * 3 - centroid;
             var others = Specs().Where(s => s.Part == spec.Part).ToArray();
             Spec other = others[(Array.FindIndex(others, s => s.Pose == spec.Pose) + 1) % others.Length];
-            int targetIndex = instanced ? Array.FindIndex(others, s => s.Pose == spec.Pose) % 2 : 0;
+            int targetIndex = instanced ? Math.Max(0, Array.FindIndex(others, s => s.Pose == spec.Pose)) % 2 : 0;
             Spec[] requests = instanced ? (targetIndex == 0 ? new[] { spec, other } : new[] { other, spec }) : new[] { spec };
             Vector3[] positions = requests.Select((s, i) => i == targetIndex ? targetPosition : origin + axis * 1000).ToArray();
             Matrix4x4[] expectedMatrices = requests.Select((s, i) => Placed(s, positions[i])).ToArray();
@@ -201,6 +203,12 @@ namespace IsoRim
             double[] shades = ownCell ? new[] { spec.Shades[0] * 64 / 255, spec.Shades[0] * 192 / 255, spec.Shades[0] } : spec.Shades;
             Vector3[] directions = { spec.N, spec.G, spec.Q };
             foreach (var part in parts.Where(p => !p.outline)) Freeze(part.material, spec, diagnostic, transport, lighting);
+            if (style > 0)
+                foreach (var part in parts.Where(p => !p.outline))
+                {
+                    part.material.SetFloat("_ClayMode", style); part.material.SetFloat("_ClayWrap", .22f); part.material.SetFloat("_ClayRoughness", .65f);
+                    part.material.SetFloat("_ClayHighlight", highlight);
+                }
             if (ownCell)
             {
                 glow = new Texture2D(2, 1, TextureFormat.RGBA32, false, true) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
@@ -218,6 +226,7 @@ namespace IsoRim
                 references[i].SetFloat("_LightMode", 0); references[i].SetFloat("_GlowMode", 0); references[i].SetVector("_IsoCellMap", Vector4.zero);
                 references[i].color = diagnostic ? new Color(directions[i].x * .5f + .5f, directions[i].y * .5f + .5f, directions[i].z * .5f + .5f)
                     : new Color((float)(.6 * shades[i]), (float)(.6 * shades[i]), (float)(.6 * shades[i]));
+                if (style > 0) references[i].color = new Color((float)referenceRgb, (float)referenceRgb, (float)referenceRgb);
             }
             var backend = UnityStubs.Rendering.CameraTextureRenderer.Current;
             Require(backend != null && backend.GetType().FullName == "RimWorldWaylith.Rendering.CameraTextureBaker", "Approved GPU backend unavailable");
@@ -287,7 +296,7 @@ namespace IsoRim
                     raw.Skip(((height / 2 + dy) * width + slot * 256 + 128 + dx) * 4).Take(4).Select(v => (int)v).ToArray())).ToArray()).ToArray();
                 int[] differences = Enumerable.Range(1, 3).Select(i => patches[0].Zip(patches[i], (a, b) => Enumerable.Range(0, 3).Max(c => Math.Abs(a[c] - b[c]))).Max()).ToArray();
                 bool interior = patches.All(p => p.All(v => v[3] == 255 && !(v[0] == 255 && v[1] == 0 && v[2] == 255)));
-                bool separated = diagnostic || Enumerable.Range(1, 3).All(i => Enumerable.Range(i + 1, 3 - i).All(j => Enumerable.Range(0, 3).All(c => Math.Abs(patches[i][0][c] - patches[j][0][c]) >= 12)));
+                bool separated = style > 0 || diagnostic || Enumerable.Range(1, 3).All(i => Enumerable.Range(i + 1, 3 - i).All(j => Enumerable.Range(0, 3).All(c => Math.Abs(patches[i][0][c] - patches[j][0][c]) >= 12)));
                 var row = new
                 {
                     name,
@@ -314,6 +323,8 @@ namespace IsoRim
                     observedLightingFault = face.material.GetFloat("_NormalLightingFault"),
                     normalSpace = face.material.GetFloat("_NormalSpace"),
                     lightMode = face.material.GetFloat("_LightMode"),
+                    clayMode = face.material.GetFloat("_ClayMode"),
+                    clayHighlight = face.material.GetFloat("_ClayHighlight"),
                     textureName = face.material.mainTexture?.name,
                     textureWidth = face.material.mainTexture?.width ?? 0,
                     textureHeight = face.material.mainTexture?.height ?? 0,
@@ -460,6 +471,39 @@ namespace IsoRim
         private static List<object> Pixels(string id, string evidence, string fixtures, string kind)
         {
             var rows = new List<object>();
+            if (kind == "style")
+            {
+                rows.AddRange(StaticNormalCases.StylePixels(fixtures, evidence));
+                foreach (bool authored in new[] { true, false })
+                {
+                    Model plain = Fixture(fixtures, false, authored), tex = Fixture(fixtures, true, authored);
+                    var combined = DynamicModels.BuildMerged(new List<Model> { plain, plain }, new List<Matrix4x4> { PartLocal(0), PartLocal(1) }, new List<Color> { Color.white, Color.white }, 0);
+                    var oblique = new Spec
+                    {
+                        Pose = "oblique",
+                        Part = -1,
+                        Scale = new Vector3(1.3f, .9f, 1.1f),
+                        Turn = 20,
+                        N = new Vector3(.989247403381f, .140757555142f, .039710018574f),
+                        G = new Vector3(.342020143326f, 0, .939692620786f),
+                        Q = Vector3.forward,
+                        L = new Vector3(0, .8f, .6f),
+                        Shades = new[] { 1d, 1d, 1d }
+                    };
+                    foreach (Spec spec in new[] { oblique, Specs()[1], Specs()[2] })
+                        foreach (string path in spec.Part < 0 ? new[] { "single-solid", "single-texture", "instanced-solid", "instanced-texture" } : new[] { "merged-solid" })
+                            foreach (int mode in new[] { 1, 2 })
+                            {
+                                rows.Add(Capture(id, evidence, path, spec, path.EndsWith("texture", StringComparison.Ordinal) ? tex : plain,
+                                    spec.Part >= 0 ? combined : null, false, 0, 0, 0, (authored ? "authored" : "missing") + "-mode" + mode,
+                                    style: mode, referenceRgb: ModelStyleCases.Reference(spec.Part + 1, authored, mode)));
+                                rows.Add(Capture(id, evidence, path, spec, path.EndsWith("texture", StringComparison.Ordinal) ? tex : plain,
+                                    spec.Part >= 0 ? combined : null, false, 0, 0, 0, (authored ? "authored" : "missing") + "-highlight-mode" + mode,
+                                    style: mode, referenceRgb: ModelStyleCases.HighlightReference(spec.Part + 1, authored, mode), highlight: .04f));
+                            }
+                }
+                return rows;
+            }
             Model solid = Fixture(fixtures), texture = Fixture(fixtures, true);
             List<DynamicModels.Part> merged = null;
             if (kind == "all-paths")
