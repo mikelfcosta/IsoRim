@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
@@ -491,13 +490,18 @@ namespace IsoRim
 
         internal static Model Part(string name)
         {
+            string path = ModelLibrary.InternalPath(name + ".obj");
+            if (path == null)
+            {
+                return null;
+            }
             Model m;
-            if (models.TryGetValue(name, out m))
+            if (models.TryGetValue(path, out m))
             {
                 return m;
             }
-            m = IsoRimMod.RootDir != null ? ModelLibrary.LoadFile(Path.Combine(IsoRimMod.RootDir, "Models", name + ".obj")) : null;
-            models[name] = m;
+            m = ModelLibrary.LoadFile(path);
+            models[path] = m;
             return m;
         }
 

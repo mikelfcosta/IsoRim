@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -727,16 +726,15 @@ namespace IsoRim
                 return;
             }
             loaded = true;
-            string dir = IsoRimMod.RootDir != null ? Path.Combine(IsoRimMod.RootDir, "Models") : null;
-            if (dir == null)
+            if (IsoRimMod.RootDir == null)
             {
                 return;
             }
-            square = ModelLibrary.LoadFile(Path.Combine(dir, "roof_square.obj"));
-            triangle = ModelLibrary.LoadFile(Path.Combine(dir, "roof_triangle.obj"));
-            rim = ModelLibrary.LoadFile(Path.Combine(dir, "roof_rim.obj"));
-            rim90 = ModelLibrary.LoadFile(Path.Combine(dir, "roof_rim90.obj"));
-            rimDiagonal = ModelLibrary.LoadFile(Path.Combine(dir, "roof_rim_diagonal.obj"));
+            square = ModelLibrary.LoadInternal("roof_square.obj");
+            triangle = ModelLibrary.LoadInternal("roof_triangle.obj");
+            rim = ModelLibrary.LoadInternal("roof_rim.obj");
+            rim90 = ModelLibrary.LoadInternal("roof_rim90.obj");
+            rimDiagonal = ModelLibrary.LoadInternal("roof_rim_diagonal.obj");
             if (rim != null && rim.materials != null)
             {
                 foreach (ModelMaterial m in rim.materials)
