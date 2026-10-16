@@ -1,6 +1,6 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o sandbags_1
 s 1
 v -0.440343999000 0.128366485000 0.075166651000

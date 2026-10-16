@@ -1,6 +1,6 @@
 # Economical source-aware soft-clay geometry; native +Y up, original origin and dimensions.
 # Explicit corner normals; raw winding parity 1 for native Z reflection and conditional repair.
-mtllib clay_b8d523f396700072254d.mtl
+mtllib drug_joints_materials_b8d523f396700072254d.mtl
 o drug_joints
 v 0.1385034383 0.0438000000 0.0923507844
 v 0.1414000000 0.0347970008 0.1203233889

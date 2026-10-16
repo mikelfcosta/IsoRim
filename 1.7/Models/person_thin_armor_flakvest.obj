@@ -1,6 +1,6 @@
 # Economical clay outerwear: selective exterior curves and exact coplanar cleanup.
 # Source fit skins, garment openings, attachment rings, axes, bounds and material semantics retained.
-mtllib clay_3bebbd523bee75449168.mtl
+mtllib shared_person_fat_armor_flakvest_materials_3bebbd523bee75449168.mtl
 o person_thin_armor_flakvest
 s 1
 v -0.064740000000 0.331000000000 0.119290000000

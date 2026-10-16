@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_b1b659f33ab401011bfb.mtl
+mtllib grav_extender_materials_b1b659f33ab401011bfb.mtl
 o grav_extender
 s 1
 v 0.430000000000 0.000000000000 -0.000000000000

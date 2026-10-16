@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_88e31ee904952c0b86e6.mtl
+mtllib animal_cassowary_materials_88e31ee904952c0b86e6.mtl
 o animal_cassowary
 s 1
 v 0.067700000 0.806900000 0.241200000

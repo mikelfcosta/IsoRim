@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_dc1b034ca24426b890f0.mtl
+mtllib ruin_pipe_materials_dc1b034ca24426b890f0.mtl
 o ruin_pipe
 s 1
 v -1.360000000000 0.654600000000 0.254600000000

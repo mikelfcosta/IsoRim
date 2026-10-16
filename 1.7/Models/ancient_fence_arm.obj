@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_9c81e4c3824a89914ff1.mtl
+mtllib ancient_fence_arm_materials_9c81e4c3824a89914ff1.mtl
 o ancient_fence_arm
 v -0.060000000 0.045000000 -0.080000000
 v -0.060000000 0.045000000 -0.500000000

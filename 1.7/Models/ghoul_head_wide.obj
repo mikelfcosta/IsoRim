@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_bb804b47ffdc73cc70e2.mtl
+mtllib shared_ghoul_head_heavy_materials_bb804b47ffdc73cc70e2.mtl
 o ghoul_head_wide
 s 1
 v 0.106200000000 0.745000000000 -0.000000000000

@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_ac0bc0c3ddb2d98fd797.mtl
+mtllib mech_booster_materials_ac0bc0c3ddb2d98fd797.mtl
 o mech_booster
 s 1
 v 0.490000000000 0.000000000000 -0.000000000000

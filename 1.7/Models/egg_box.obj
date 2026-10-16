@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_fe1fd9f788571d70809f.mtl
+mtllib egg_box_materials_fe1fd9f788571d70809f.mtl
 o egg_box
 v -0.420000000 0.000000000 -0.398000000
 v -0.420000000 0.000000000 0.398000000

@@ -1,6 +1,6 @@
 # IsoRim optimized clay-friendly horse. One unit = one map cell. +Y up, -Z north.
 # Fully triangulated. Explicit corner normals. Preview lighting is not baked.
-mtllib clay_78301bbf3f5309b346be.mtl
+mtllib shared_chibi_clay_materials_78301bbf3f5309b346be.mtl
 o animal_horse_leg
 v -0.0880000 0.0000000 0.0000000
 v -0.0622254 0.0000000 0.0742462

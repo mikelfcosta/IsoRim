@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_bfee0e66671ef00740d6.mtl
+mtllib animal_spelopede_leg_materials_bfee0e66671ef00740d6.mtl
 o animal_spelopede_leg
 s 1
 v -0.006100000 0.037000000 0.018800000

@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_a6d5f78fd19811ea482a.mtl
+mtllib shared_apocriton_weapon_materials_a6d5f78fd19811ea482a.mtl
 o apocriton_weapon
 s 1
 v 0.225000000000 0.695000000000 -0.140000000000

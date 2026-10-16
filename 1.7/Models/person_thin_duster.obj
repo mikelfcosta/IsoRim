@@ -1,6 +1,6 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_8ee3a4d4fbbd426b0840.mtl
+mtllib shared_person_fat_duster_materials_8ee3a4d4fbbd426b0840.mtl
 o person_thin_duster
 s 1
 v 0.057200000000 0.039800000000 -0.163300000000

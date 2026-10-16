@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_4098d4575f2482f6d61d.mtl
+mtllib shared_tree_willow_1_materials_4098d4575f2482f6d61d.mtl
 o tree_willow_2
 s 1
 v 0.101300000 0.052800000 0.008100000

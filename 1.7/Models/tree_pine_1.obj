@@ -1,6 +1,6 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o tree_pine_1
 s 1
 v 0.002844000000 0.168352861000 0.054035714000

@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_9c76dfccf7f1bc732485.mtl
+mtllib proximity_materials_9c76dfccf7f1bc732485.mtl
 o proximity
 s 1
 v -0.291246000 0.000000000 0.211603000

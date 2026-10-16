@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_28e255d5eb76468cd802.mtl
+mtllib shared_bulbfreak_skirt_0_materials_28e255d5eb76468cd802.mtl
 o fingerspike_skirt_3
 s 1
 v 0.006057000000 0.103200000000 0.146832000000

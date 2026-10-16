@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_ccf5f2db0c6011e3b19c.mtl
+mtllib wastepack_atomizer_window_materials_ccf5f2db0c6011e3b19c.mtl
 o wastepack_atomizer_window
 s 1
 v 0.540000000000 0.856000000000 -0.000000000000

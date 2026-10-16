@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_04e492b2040ba35b86d0.mtl
+mtllib rocketswarm_top_empty_materials_04e492b2040ba35b86d0.mtl
 o rocketswarm_top_empty
 v -0.330000000 0.000000000 -0.000000000
 v 0.000000000 0.000000000 -0.330000000

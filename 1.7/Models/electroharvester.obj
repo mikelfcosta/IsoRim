@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_f8bbad15f16d18cf05a5.mtl
+mtllib electroharvester_materials_f8bbad15f16d18cf05a5.mtl
 o electroharvester
 s 1
 v -0.940000000000 0.000000000000 0.430000000000

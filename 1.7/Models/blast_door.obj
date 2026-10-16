@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_39f75eabb1ff554a0e83.mtl
+mtllib blast_door_materials_39f75eabb1ff554a0e83.mtl
 o blast_door
 s 1
 v -0.465000000000 0.025000000000 0.240000000000

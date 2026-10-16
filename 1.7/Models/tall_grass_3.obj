@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=True
-mtllib clay_3e5f13bd7fc8c22d8afc.mtl
+mtllib shared_tall_grass_1_materials_3e5f13bd7fc8c22d8afc.mtl
 o tall_grass_3
 s 1
 v 0.049600000 0.227500000 -0.070200000

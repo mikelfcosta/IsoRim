@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_b6d7e989dc1491f72d61.mtl
+mtllib shared_baby_car_materials_b6d7e989dc1491f72d61.mtl
 o baby_phone
 s 1
 v -0.300000000000 0.000000000000 0.280000000000

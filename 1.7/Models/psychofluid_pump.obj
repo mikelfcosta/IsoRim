@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_3f3d9dac173999d3097d.mtl
+mtllib psychofluid_pump_materials_3f3d9dac173999d3097d.mtl
 o psychofluid_pump
 s 1
 v -0.320000000000 0.000000000000 0.910000000000

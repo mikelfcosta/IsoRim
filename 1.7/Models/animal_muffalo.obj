@@ -1,6 +1,6 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o animal_muffalo
 s 1
 v 0.123759448000 0.973999695000 0.426325012000

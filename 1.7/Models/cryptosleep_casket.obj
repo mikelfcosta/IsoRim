@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_b5bb98d952d3d9e8dafe.mtl
+mtllib cryptosleep_casket_materials_b5bb98d952d3d9e8dafe.mtl
 o cryptosleep_casket
 v -0.440000000 0.000000000 -0.895000000
 v -0.440000000 0.000000000 0.895000000

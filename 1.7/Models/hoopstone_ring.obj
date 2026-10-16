@@ -1,5 +1,5 @@
 # Economical source-faithful soft-clay mesh. Raw +Y up / -Z north; original origin.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o hoopstone_ring
 v -0.259999990 0.100000001 0.115000002
 v -0.234999985 0.100000001 0.140000001

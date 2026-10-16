@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=True
-mtllib clay_437645e00d53960f4123.mtl
+mtllib shared_tree_cecropia_1_materials_437645e00d53960f4123.mtl
 o tree_cecropia_2
 s 1
 v 0.032400000 0.066800000 -0.036500000

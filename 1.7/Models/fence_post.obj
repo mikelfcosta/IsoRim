@@ -1,5 +1,5 @@
 # Economical source-faithful soft-clay mesh. Raw +Y up / -Z north; original origin.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o fence_post
 v -0.055000000 0.620000005 0.042999998
 v -0.042999998 0.620000005 0.055000000

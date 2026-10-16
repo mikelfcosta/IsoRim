@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_3716e13a5dc6709d1456.mtl
+mtllib shared_shambler_fat_body_overlay_materials_3716e13a5dc6709d1456.mtl
 o shambler_female_body_overlay
 s 1
 v -0.113842000000 0.451722000000 -0.077276000000

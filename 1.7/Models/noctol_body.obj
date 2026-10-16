@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_7d068b8b4b7a984c690e.mtl
+mtllib noctol_body_materials_7d068b8b4b7a984c690e.mtl
 o noctol_body
 s 1
 v 0.000000000000 0.360000000000 0.180000000000

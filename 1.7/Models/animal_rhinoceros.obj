@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_2ae9253e9501611566f3.mtl
+mtllib animal_rhinoceros_materials_2ae9253e9501611566f3.mtl
 o animal_rhinoceros
 s 1
 v 0.158900000 1.231400000 0.560700000

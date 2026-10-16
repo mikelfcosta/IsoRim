@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_df6426de95a550855e2e.mtl
+mtllib watermill_materials_df6426de95a550855e2e.mtl
 o watermill
 v 2.800000000 1.259999990 -2.300000000
 v 2.800000000 1.259999990 -0.600000000

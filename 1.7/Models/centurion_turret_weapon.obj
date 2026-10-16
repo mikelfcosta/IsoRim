@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_09d27bacecaf75613a8c.mtl
+mtllib shared_centurion_turret_weapon_materials_09d27bacecaf75613a8c.mtl
 o centurion_turret_weapon
 s 1
 v 0.120000000000 0.830000000000 -0.340000000000

@@ -1,5 +1,5 @@
 # Economical source-faithful soft-clay mesh. Raw +Y up / -Z north; original origin.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o bow_recurve
 v -0.001400000 -0.390000000 0.000000000
 v 0.006100000 -0.390000000 -0.015000000

@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_e7996ef71291864a8e54.mtl
+mtllib shared_baby_horse_materials_e7996ef71291864a8e54.mtl
 o baby_rings
 s 1
 v 0.350000000000 0.000000000000 -0.000000000000

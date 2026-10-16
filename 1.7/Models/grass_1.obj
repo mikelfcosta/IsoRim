@@ -1,5 +1,5 @@
 # IsoRim 3x mesh trial. Raw +Y up, -Z north. Explicit normals; no subdivision.
-mtllib clay_d7e22b353c43c1215f34.mtl
+mtllib shared_authoritative_source_semantics_materials_d7e22b353c43c1215f34.mtl
 o grass_1
 v 0.0882000 0.0000000 -0.0218000
 v 0.0069000 0.0000000 -0.0209000

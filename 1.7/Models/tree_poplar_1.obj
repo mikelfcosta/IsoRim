@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_165c1b97423395fe6bac.mtl
+mtllib shared_tree_poplar_1_materials_165c1b97423395fe6bac.mtl
 o tree_poplar_1
 s 1
 v -0.050000000 0.080800000 0.000000000

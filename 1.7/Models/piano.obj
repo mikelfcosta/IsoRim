@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_8e45d6b25a2ce954719b.mtl
+mtllib piano_materials_8e45d6b25a2ce954719b.mtl
 o piano
 s 1
 v -1.260000000 0.700000000 -1.050000000

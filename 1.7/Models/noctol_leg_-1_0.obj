@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_6adbe6c093dd30c1aa72.mtl
+mtllib shared_metalhorror_juvenile_head_materials_6adbe6c093dd30c1aa72.mtl
 o noctol_leg_-1_0
 s 1
 v -0.279621000000 0.740000000000 -0.273815000000

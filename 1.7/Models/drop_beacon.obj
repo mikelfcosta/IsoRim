@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_e6f459446ac03e4ec21b.mtl
+mtllib drop_beacon_materials_e6f459446ac03e4ec21b.mtl
 o drop_beacon
 s 1
 v -0.291246000 0.000000000 0.211603000

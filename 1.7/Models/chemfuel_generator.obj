@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_19cbef652f9dd85d62d3.mtl
+mtllib chemfuel_generator_materials_19cbef652f9dd85d62d3.mtl
 o chemfuel_generator
 v -0.910000000 0.000000000 0.900000000
 v -0.310000000 0.000000000 0.900000000

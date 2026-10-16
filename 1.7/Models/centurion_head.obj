@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_5645f094b97d93e35b45.mtl
+mtllib centurion_head_materials_5645f094b97d93e35b45.mtl
 o centurion_head
 s 1
 v 0.480000000000 1.180000000000 0.065000000000

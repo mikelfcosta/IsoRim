@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_417899005dfb92bd554a.mtl
+mtllib serum_lab_materials_417899005dfb92bd554a.mtl
 o serum_lab
 s 1
 v -0.900000000000 0.000000000000 0.900000000000

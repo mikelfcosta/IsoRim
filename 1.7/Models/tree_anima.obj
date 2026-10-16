@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_bd2c9ef0932da35586c2.mtl
+mtllib tree_anima_materials_bd2c9ef0932da35586c2.mtl
 o tree_anima
 s 1
 v 0.100400000 0.047600000 0.000900000

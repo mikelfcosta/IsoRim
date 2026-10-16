@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=True
-mtllib clay_ef16854420e388ff43e0.mtl
+mtllib shared_tree_palm_1_materials_ef16854420e388ff43e0.mtl
 o tree_palm_2
 s 1
 v -0.001400000 0.147400000 0.061700000

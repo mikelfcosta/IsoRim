@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_f71dfa5554f09ced94f1.mtl
+mtllib blackboard_materials_f71dfa5554f09ced94f1.mtl
 o blackboard
 s 1
 v -0.910000000000 0.000000000000 0.360000000000

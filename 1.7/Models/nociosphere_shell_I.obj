@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_dc929e372a1319a414eb.mtl
+mtllib shared_nociosphere_shell_A_materials_dc929e372a1319a414eb.mtl
 o nociosphere_shell_I
 s 1
 v -0.277680000000 0.698948000000 0.492260000000

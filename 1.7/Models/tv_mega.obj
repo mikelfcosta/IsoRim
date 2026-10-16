@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_afcf621fcb9a208386ac.mtl
+mtllib tv_mega_materials_afcf621fcb9a208386ac.mtl
 o tv_mega
 v -2.120000000 0.300000000 0.200000000
 v -2.120000000 0.300000000 -0.200000000

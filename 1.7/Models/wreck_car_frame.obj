@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_2ad01e42e77469eac44a.mtl
+mtllib wreck_car_frame_materials_2ad01e42e77469eac44a.mtl
 o wreck_car_frame
 v -1.300000000 0.320000000 0.460000000
 v -1.300000000 0.320000000 0.340000000

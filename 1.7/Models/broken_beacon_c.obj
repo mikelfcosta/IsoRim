@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_6c87ddfa16167d6a7c09.mtl
+mtllib shared_broken_beacon_a_materials_6c87ddfa16167d6a7c09.mtl
 o broken_beacon_c
 v 0.370000000 0.000000000 -0.000000000
 v 0.320429000 0.000000000 -0.185000000

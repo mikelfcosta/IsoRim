@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_8cd22341d6f5eddf0e78.mtl
+mtllib person_pack_hunter_materials_8cd22341d6f5eddf0e78.mtl
 o person_pack_hunter
 s 1
 v -0.110800000000 0.349200000000 0.023000000000

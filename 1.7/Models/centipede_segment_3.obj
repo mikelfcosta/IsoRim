@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_0b9490e881a7cd5d7f27.mtl
+mtllib shared_centipede_materials_0b9490e881a7cd5d7f27.mtl
 o centipede_segment_3
 v -0.000000000 0.163040000 0.460000000
 v 0.283800000 0.224797000 0.460000000

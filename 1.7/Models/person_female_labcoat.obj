@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_c30ba962e663e264b719.mtl
+mtllib shared_person_fat_labcoat_materials_c30ba962e663e264b719.mtl
 o person_female_labcoat
 s 1
 v 0.039800000000 0.070000000000 -0.151800000000

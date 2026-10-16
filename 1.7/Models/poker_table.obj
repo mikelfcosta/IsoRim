@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_6e815a489d3872f43342.mtl
+mtllib poker_table_materials_6e815a489d3872f43342.mtl
 o poker_table
 v 0.160000000 0.000000000 -0.000000000
 v 0.100000000 0.580000000 -0.000000000

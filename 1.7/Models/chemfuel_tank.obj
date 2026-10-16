@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_2cd1959f609b22723802.mtl
+mtllib shared_chemfuel_tank_materials_2cd1959f609b22723802.mtl
 o chemfuel_tank
 s 1
 v -0.840000000000 0.060000000000 0.900000000000

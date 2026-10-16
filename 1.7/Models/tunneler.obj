@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_d23914044a9775ae2017.mtl
+mtllib tunneler_materials_d23914044a9775ae2017.mtl
 o tunneler
 s 1
 v -0.625000000000 0.510000000000 0.520000000000

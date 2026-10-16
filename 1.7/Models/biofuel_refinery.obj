@@ -1,5 +1,5 @@
 # Economical source-faithful soft-clay mesh. Raw +Y up / -Z north; original origin.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o biofuel_refinery
 v -0.949999988 0.100000001 0.909999967
 v -0.909999967 0.100000001 0.949999988

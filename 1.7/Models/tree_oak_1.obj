@@ -1,6 +1,6 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_d7e22b353c43c1215f34.mtl
+mtllib shared_authoritative_source_semantics_materials_d7e22b353c43c1215f34.mtl
 o tree_oak_1
 s 1
 v 0.095000000000 -0.015300000000 0.000000000000

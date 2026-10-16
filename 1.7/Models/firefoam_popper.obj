@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_5a99872cccf27f3916d8.mtl
+mtllib firefoam_popper_materials_5a99872cccf27f3916d8.mtl
 o firefoam_popper
 v 0.220000000 0.000000000 -0.000000000
 v 0.220000000 0.550000000 -0.000000000

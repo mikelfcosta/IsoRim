@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_266df030f4fbc816784d.mtl
+mtllib drape_materials_266df030f4fbc816784d.mtl
 o drape
 s 1
 v -0.905000000 0.000000000 -0.170000000

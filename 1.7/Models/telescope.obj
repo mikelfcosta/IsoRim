@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_816928a7c2841aa00bbe.mtl
+mtllib telescope_materials_816928a7c2841aa00bbe.mtl
 o telescope
 v 0.018100000 0.927900000 -0.002900000
 v 0.001600000 0.924900000 -0.019300000

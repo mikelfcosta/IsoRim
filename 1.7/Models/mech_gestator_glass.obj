@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_78d0ffe15f80989cf922.mtl
+mtllib shared_large_mech_gestator_glass_materials_78d0ffe15f80989cf922.mtl
 o mech_gestator_glass
 s 1
 v 0.640000000000 0.370000000000 -0.000000000000

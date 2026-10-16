@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_0838b933f3bbfc589a12.mtl
+mtllib animal_megasloth_materials_0838b933f3bbfc589a12.mtl
 o animal_megasloth
 s 1
 v 0.173700000 1.423400000 0.586800000

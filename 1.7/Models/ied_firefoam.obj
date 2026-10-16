@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_47bf7e88f582b14e2e1b.mtl
+mtllib ied_firefoam_materials_47bf7e88f582b14e2e1b.mtl
 o ied_firefoam
 v 0.360000000 0.000000000 -0.000000000
 v 0.300000000 0.050000000 -0.000000000

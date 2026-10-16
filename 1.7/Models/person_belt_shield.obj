@@ -1,6 +1,6 @@
 # Source-faithful soft-clay mesh trial; raw +Y up and -Z north; no runtime integration.
-mtllib clay_a722e6d79e79d3a847e8.mtl
-mtllib clay_b181b41ce18a16e006e1.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
+mtllib person_belt_shield_materials_b181b41ce18a16e006e1.mtl
 o person_belt_shield
 v 0.192428246 0.264999986 0.000000000
 v 0.189999998 0.267334431 0.000000000

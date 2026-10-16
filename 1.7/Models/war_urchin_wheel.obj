@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_a7ae942d9cc3c7daf520.mtl
+mtllib shared_centurion_wheel_materials_a7ae942d9cc3c7daf520.mtl
 o war_urchin_wheel
 s 1
 v -0.105000000000 0.180000000000 -0.180000000000

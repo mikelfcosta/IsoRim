@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_5bc31dc45267ea47f22d.mtl
+mtllib shared_fabricor_materials_5bc31dc45267ea47f22d.mtl
 o militor_upper
 s 1
 v 0.080000000000 0.410000000000 0.035000000000

@@ -1,6 +1,6 @@
 # Batch 05 Royalty worn: efficiency-first sparse clay profiles.
 # Native source-compatible raw winding. Importer ignores vn; no runtime dependency.
-mtllib clay_c5cb1d15b2737465ee62.mtl
+mtllib shared_person_fat_robe_royal_materials_c5cb1d15b2737465ee62.mtl
 o person_hulk_robe_royal
 s 1
 v 0.204000000000 0.030000000000 -0.163100000000

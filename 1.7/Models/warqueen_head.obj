@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_72e704bfbc15e0f0ab69.mtl
+mtllib shared_diabolus_head_materials_72e704bfbc15e0f0ab69.mtl
 o warqueen_head
 s 1
 v -0.430000000000 1.700000000000 -0.430000000000

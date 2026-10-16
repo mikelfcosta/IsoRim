@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_4fb1467b03d13394103c.mtl
+mtllib scorcher_weapon_materials_4fb1467b03d13394103c.mtl
 o scorcher_weapon
 s 1
 v -0.085000000000 0.395000000000 -0.280000000000

@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_71e98bdd604de923183b.mtl
+mtllib shared_centipede_blaster_head_materials_71e98bdd604de923183b.mtl
 o termite_head
 v 0.043262000 0.350000000 -0.783637000
 v 0.113262000 0.350000000 -0.736412000

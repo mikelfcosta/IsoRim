@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_ed6ebf306df1d616921b.mtl
+mtllib animal_thrumbo_leg_materials_ed6ebf306df1d616921b.mtl
 o animal_thrumbo_leg
 s 1
 v -0.039100000 0.168300000 0.120400000

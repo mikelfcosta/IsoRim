@@ -1,6 +1,6 @@
 # Efficient soft-clay furniture. Source units, origin, axes and semantic keys retained.
 # Native importer reflects Z and ignores vn. Explicit vn are authored outward DCC shading normals.
-mtllib clay_20b5e6886dbf6f36f1b3.mtl
+mtllib shared_bookcase_materials_20b5e6886dbf6f36f1b3.mtl
 o bookcase_small
 v -0.40000000 0.90000000 0.36000000
 v -0.40000000 0.90000000 0.34000000

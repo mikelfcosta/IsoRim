@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_0b03e999afc180c7bd44.mtl
+mtllib shared_person_fat_vacsuit_materials_0b03e999afc180c7bd44.mtl
 o person_thin_vacsuit
 s 1
 v -0.044400000000 0.000000000000 0.091200000000

@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_0f0ca9b2318db3c9af71.mtl
+mtllib ied_toxgas_materials_0f0ca9b2318db3c9af71.mtl
 o ied_toxgas
 s 1
 v 0.360000000000 0.000000000000 -0.000000000000

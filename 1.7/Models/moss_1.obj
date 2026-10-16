@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_db4a8fa0c36d72c3e693.mtl
+mtllib shared_moss_1_materials_db4a8fa0c36d72c3e693.mtl
 o moss_1
 s 1
 v 0.383500000 0.000000000 -0.130400000

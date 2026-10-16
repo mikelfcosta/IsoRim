@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_2de16718000a97638d99.mtl
+mtllib shared_constructoid_wheel_left_materials_2de16718000a97638d99.mtl
 o constructoid_wheel_left
 s 1
 v -0.385000000000 0.225000000000 -0.195000000000

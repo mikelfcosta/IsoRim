@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_74f249dc945cfa445078.mtl
+mtllib sun_blocker_materials_74f249dc945cfa445078.mtl
 o sun_blocker
 s 1
 v 2.650000000 0.000000000 1.930000000

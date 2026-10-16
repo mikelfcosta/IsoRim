@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_aef8c827b45e3a150bea.mtl
+mtllib person_pack_disruptor_materials_aef8c827b45e3a150bea.mtl
 o person_pack_disruptor
 s 1
 v -0.110800000000 0.349200000000 0.023000000000

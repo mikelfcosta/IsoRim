@@ -1,6 +1,6 @@
 # Soft-clay trial. Final baked triangles; raw +Y-up, -Z north.
 # Original bounds, material keys and corner UV semantics retained.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o animal_capybara
 s 1
 v 0.061900000 0.451900000 0.238800000

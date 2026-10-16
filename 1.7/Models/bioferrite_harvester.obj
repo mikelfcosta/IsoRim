@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_3eefe87f29b195e60723.mtl
+mtllib bioferrite_harvester_materials_3eefe87f29b195e60723.mtl
 o bioferrite_harvester
 v -0.400000000 0.000000000 -0.895000000
 v -0.400000000 0.000000000 0.895000000

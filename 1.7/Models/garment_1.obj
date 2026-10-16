@@ -1,6 +1,6 @@
 # Economical source-aware soft-clay geometry; native +Y up, original origin and dimensions.
 # Explicit corner normals; raw winding parity 1 for native Z reflection and conditional repair.
-mtllib clay_93ba59d0c333dafeb1c2.mtl
+mtllib shared_garment_1_materials_93ba59d0c333dafeb1c2.mtl
 o garment_1
 v -0.2454000000 0.0000000000 -0.1396720000
 v -0.1668720000 0.0000000000 -0.2054000000

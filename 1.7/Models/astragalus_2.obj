@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=True
-mtllib clay_a157222d6baf9b4d29c5.mtl
+mtllib shared_astragalus_1_materials_a157222d6baf9b4d29c5.mtl
 o astragalus_2
 s 1
 v 0.064000000 0.184800000 0.008600000

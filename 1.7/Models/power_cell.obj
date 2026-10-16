@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_e87740aa500f0904424a.mtl
+mtllib power_cell_materials_e87740aa500f0904424a.mtl
 o power_cell
 s 1
 v -0.350000000 0.000000000 -0.000000000

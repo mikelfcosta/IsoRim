@@ -2,7 +2,7 @@
 # Native IsoRim winding: clockwise from outside in OBJ authoring coordinates.
 # Native importer reflects Z. DCC preview copies must reverse faces AND vn.
 # No runtime subdivision. Open scalp rims intentionally remain open.
-mtllib clay_cf6962e425177a86cec0.mtl
+mtllib shared_isorim_materials_cf6962e425177a86cec0.mtl
 o Cute
 s 1
 g scalp_mass

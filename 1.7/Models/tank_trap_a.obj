@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_3b27492b108c0182839f.mtl
+mtllib shared_tank_trap_a_materials_3b27492b108c0182839f.mtl
 o tank_trap_a
 v -0.596992000 0.014142000 0.187818000
 v -0.603576000 0.014142000 0.133213000

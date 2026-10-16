@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_fac3a7cef8893fed5590.mtl
+mtllib animus_stone_materials_fac3a7cef8893fed5590.mtl
 o animus_stone
 s 1
 v -0.107900000 0.921700000 0.225000000

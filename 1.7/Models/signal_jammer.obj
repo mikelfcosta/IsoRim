@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_b15341e4787e2c804dc3.mtl
+mtllib signal_jammer_materials_b15341e4787e2c804dc3.mtl
 o signal_jammer
 s 1
 v -0.836000000000 0.064000000000 0.900000000000

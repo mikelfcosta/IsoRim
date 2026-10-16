@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_e1803735182617696f4b.mtl
+mtllib glow_mushroom_materials_e1803735182617696f4b.mtl
 o glow_mushroom
 v 0.035000000 0.000000000 -0.000000000
 v 0.030000000 0.300000000 -0.000000000

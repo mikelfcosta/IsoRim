@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_12df97c2b77a189c1296.mtl
+mtllib barrel_materials_12df97c2b77a189c1296.mtl
 o barrel
 v 0.199800000 0.360000000 0.275100000
 v 0.323400000 0.360000000 0.105100000

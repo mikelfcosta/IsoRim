@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_1a2f6b0440697a6aeeba.mtl
+mtllib bioferrite_generator_materials_1a2f6b0440697a6aeeba.mtl
 o bioferrite_generator
 s 1
 v -1.430000000000 0.000000000000 0.920000000000

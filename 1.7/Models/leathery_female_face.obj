@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_41ccb348de91762c03cb.mtl
+mtllib shared_leathery_female_face_materials_41ccb348de91762c03cb.mtl
 o leathery_female_face
 s 1
 v -0.063000000000 0.975000000000 -0.224375000000

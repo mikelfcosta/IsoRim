@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_d1dcbafce67086a44a40.mtl
+mtllib shared_legionary_materials_d1dcbafce67086a44a40.mtl
 o tesseron
 s 1
 v 0.210000000000 0.240000000000 0.025000000000

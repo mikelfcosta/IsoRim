@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_dc17f3f6cc6c2580e27d.mtl
+mtllib shared_nucleus_b_assembled_materials_dc17f3f6cc6c2580e27d.mtl
 o nucleus_c_assembled
 s 1
 v 0.000000000000 0.050000000000 -0.000000000000

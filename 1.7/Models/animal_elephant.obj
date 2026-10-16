@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_4957bca16cd481afad05.mtl
+mtllib animal_elephant_materials_4957bca16cd481afad05.mtl
 o animal_elephant
 s 1
 v 0.190300000 1.706200000 0.642700000

@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_852a4d7958ad477a539e.mtl
+mtllib pollution_pump_materials_852a4d7958ad477a539e.mtl
 o pollution_pump
 s 1
 v -0.130000000000 0.000000000000 -0.100000000000

@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_e29d1d76cdd2a3f5f752.mtl
+mtllib deathrest_casket_materials_e29d1d76cdd2a3f5f752.mtl
 o deathrest_casket
 s 1
 v -0.270000000000 0.000000000000 0.910000000000

@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_403dd41b9ce2766ea6c5.mtl
+mtllib shared_diabolus_leg_left_1_materials_403dd41b9ce2766ea6c5.mtl
 o legionary_leg_right
 s 1
 v 0.106568000000 0.357514000000 -0.007424000000

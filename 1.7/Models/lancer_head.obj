@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_487a0078a208faf9a2aa.mtl
+mtllib shared_lancer_head_materials_487a0078a208faf9a2aa.mtl
 o lancer_head
 v -0.044496000 1.210000000 0.007328000
 v 0.016996000 1.210000000 -0.077308000

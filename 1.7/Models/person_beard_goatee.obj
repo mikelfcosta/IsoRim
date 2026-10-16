@@ -1,7 +1,7 @@
 # Final batch 04 sparse soft-clay export. +Y up, -Z north.
 # Source-native clockwise winding; preview only: reverse faces AND normals.
 # Explicit smooth normals supplied. Source importer currently recomputes normals.
-mtllib clay_22ed3a4b2e47096d7d28.mtl
+mtllib shared_person_beard_full_materials_22ed3a4b2e47096d7d28.mtl
 o person_beard_goatee
 s 1
 v -0.021600000000 0.878800000000 -0.281000000000

@@ -1,6 +1,6 @@
 # Batch 05 Biotech worn: efficiency-first sparse clay profiles.
 # Native source-compatible raw winding. Importer ignores vn; no runtime dependency.
-mtllib clay_c67f5b3581ddd6300f81.mtl
+mtllib shared_person_fat_bandolier_materials_c67f5b3581ddd6300f81.mtl
 o person_male_bandolier_overvest
 s 1
 v -0.053300000000 0.414900000000 0.205600000000

@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_16f20b8a534c791f6bde.mtl
+mtllib shared_devourer_body_materials_16f20b8a534c791f6bde.mtl
 o metalhorror_mature_blade_1_0
 s 1
 v 0.248124000000 0.590000000000 -0.118627000000

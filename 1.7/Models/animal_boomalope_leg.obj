@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_2b78593d5d8fcb3a98c8.mtl
+mtllib animal_boomalope_leg_materials_2b78593d5d8fcb3a98c8.mtl
 o animal_boomalope_leg
 s 1
 v -0.014900000 0.070200000 0.045900000

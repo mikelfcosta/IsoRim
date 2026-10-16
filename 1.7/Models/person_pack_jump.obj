@@ -1,6 +1,6 @@
 # Batch 05 Royalty worn: efficiency-first sparse clay profiles.
 # Native source-compatible raw winding. Importer ignores vn; no runtime dependency.
-mtllib clay_55aa75f36ae98b60b00d.mtl
+mtllib shared_person_pack_bandwidth_materials_55aa75f36ae98b60b00d.mtl
 o person_pack_jump
 s 1
 v -0.119200000000 0.340800000000 0.027000000000

@@ -1,6 +1,6 @@
 # Economical source-aware soft-clay geometry; native +Y up, original origin and dimensions.
 # Explicit corner normals; raw winding parity 1 for native Z reflection and conditional repair.
-mtllib clay_a7b444b2dd68f76ec98a.mtl
+mtllib shared_boulder_1_materials_a7b444b2dd68f76ec98a.mtl
 o boulder_5
 v 0.2247561024 0.0000000000 -0.2513011757
 v 0.3384512872 0.0000000000 -0.0821614378

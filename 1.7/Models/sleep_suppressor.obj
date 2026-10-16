@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_54bcf59b896168e54be3.mtl
+mtllib sleep_suppressor_materials_54bcf59b896168e54be3.mtl
 o sleep_suppressor
 s 1
 v -0.870000000000 0.000000000000 0.350000000000

@@ -1,7 +1,7 @@
 # Final batch 04 sparse soft-clay export. +Y up, -Z north.
 # Source-native clockwise winding; preview only: reverse faces AND normals.
 # Explicit smooth normals supplied. Source importer currently recomputes normals.
-mtllib clay_2973e264c4c18fa9d257.mtl
+mtllib shared_person_hat_cap_materials_2973e264c4c18fa9d257.mtl
 o person_hat_helmet
 s 1
 v 0.096800000000 1.164000000000 0.232800000000

@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_9691452965be8a3de132.mtl
+mtllib wall_lamp_materials_9691452965be8a3de132.mtl
 o wall_lamp
 v -0.075000000 0.028000000 -0.500000000
 v -0.075000000 0.252000000 -0.500000000

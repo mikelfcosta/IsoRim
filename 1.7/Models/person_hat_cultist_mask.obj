@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_d5fccc64b6dd43bdf48b.mtl
+mtllib person_hat_cultist_mask_materials_d5fccc64b6dd43bdf48b.mtl
 o person_hat_cultist_mask
 s 1
 v -0.238800000000 0.741500000000 -0.033600000000

@@ -1,5 +1,5 @@
 # Source-faithful soft-clay mesh trial; raw +Y up and -Z north; no runtime integration.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o turret_gun_mini
 v -0.200000003 0.119999997 0.067199990
 v -0.147200003 0.119999997 0.119999997

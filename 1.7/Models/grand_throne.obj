@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_9d6d7e6e2eb19dde69f6.mtl
+mtllib grand_throne_materials_9d6d7e6e2eb19dde69f6.mtl
 o grand_throne
 s 1
 v -1.440000000 0.000000000 -0.930000000

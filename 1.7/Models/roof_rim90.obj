@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_cd4d73e0142ecc5184b8.mtl
+mtllib shared_roof_rim_materials_cd4d73e0142ecc5184b8.mtl
 o roof_rim90
 s 1
 v -0.500000000000 0.000000000000 0.070000000000

@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_7b5937c941e47839d076.mtl
+mtllib shared_hatch_entrance_materials_7b5937c941e47839d076.mtl
 o hatch_exit
 s 1
 v -1.220000000000 0.000000000000 1.470000000000

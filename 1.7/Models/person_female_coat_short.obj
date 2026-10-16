@@ -1,6 +1,6 @@
 # Batch 04 generic fallback shell. Source scale, positions and interfaces retained.
 # Native IsoRim source winding. Inward raw OBJ; outward after importer Z flip.
-mtllib clay_aa7e7a61a8947ee922ae.mtl
+mtllib shared_person_fat_coat_long_materials_aa7e7a61a8947ee922ae.mtl
 o person_female_coat_short
 s 1
 v 0.090100000000 0.270000000000 0.147000000000

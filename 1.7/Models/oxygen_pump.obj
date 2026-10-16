@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_4e04f659a87fdc498f39.mtl
+mtllib oxygen_pump_materials_4e04f659a87fdc498f39.mtl
 o oxygen_pump
 s 1
 v -0.255000000000 0.465000000000 -0.420000000000

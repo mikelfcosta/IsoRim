@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_43e695fcc1458104fa9f.mtl
+mtllib shared_centipede_gunner_weapon_materials_43e695fcc1458104fa9f.mtl
 o centipede_gunner_weapon
 v -0.155000000 0.385000000 -0.440000000
 v -0.180000000 0.385000000 -0.465000000

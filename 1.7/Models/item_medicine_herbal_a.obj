@@ -1,5 +1,5 @@
 # Economical source-faithful soft-clay mesh. Raw +Y up / -Z north; original origin.
-mtllib clay_db3697f9b739443a2fdb.mtl
+mtllib shared_medicine_materials_db3697f9b739443a2fdb.mtl
 o item_medicine_herbal_a
 v -0.101700000 0.000000000 0.246100000
 v 0.101700000 0.000000000 0.246100000

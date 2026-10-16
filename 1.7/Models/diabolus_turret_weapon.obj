@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_c7f0f71832a6da8ec847.mtl
+mtllib diabolus_turret_weapon_materials_c7f0f71832a6da8ec847.mtl
 o diabolus_turret_weapon
 s 1
 v 0.630000000000 0.960000000000 -0.020000000000

@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_6dfa8391778a996b3b64.mtl
+mtllib shared_hairs_furious_heavy_materials_6dfa8391778a996b3b64.mtl
 o hairs_vengeful_wide
 s 1
 v -0.208703000000 1.251083000000 0.025000000000

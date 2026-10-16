@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_b38aeb9f4a8d7e3c1b23.mtl
+mtllib mech_high_shield_materials_b38aeb9f4a8d7e3c1b23.mtl
 o mech_high_shield
 s 1
 v -0.215000000 0.000000000 0.372391000

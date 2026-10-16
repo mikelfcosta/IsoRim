@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_3c1d73fac1816ca31083.mtl
+mtllib psychoid_materials_3c1d73fac1816ca31083.mtl
 o psychoid
 s 1
 v 0.177100000 0.000000000 -0.175100000

@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_bb6d33ed0bc80fcb625b.mtl
+mtllib animal_ostrich_materials_bb6d33ed0bc80fcb625b.mtl
 o animal_ostrich
 s 1
 v 0.072400000 1.010400000 0.258000000

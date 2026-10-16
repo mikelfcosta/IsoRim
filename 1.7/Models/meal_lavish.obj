@@ -1,6 +1,6 @@
 # Economical source-aware soft-clay geometry; native +Y up, original origin and dimensions.
 # Explicit corner normals; raw winding parity 1 for native Z reflection and conditional repair.
-mtllib clay_5f306a068f187dbc565e.mtl
+mtllib meal_lavish_materials_5f306a068f187dbc565e.mtl
 o meal_lavish
 v 0.1293000000 0.0800000000 0.1780000000
 v 0.2092000000 0.0800000000 0.0680000000

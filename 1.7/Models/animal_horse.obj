@@ -1,6 +1,6 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_78301bbf3f5309b346be.mtl
+mtllib shared_chibi_clay_materials_78301bbf3f5309b346be.mtl
 o animal_horse
 s 1
 v -0.083928200000 0.628617600000 0.643898200000

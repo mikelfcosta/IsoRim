@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_7b0982100e3620a8c2e4.mtl
+mtllib person_pack_cerebrex_materials_7b0982100e3620a8c2e4.mtl
 o person_pack_cerebrex
 s 1
 v -0.110800000000 0.349200000000 0.023000000000

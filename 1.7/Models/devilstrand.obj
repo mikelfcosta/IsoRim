@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=True
-mtllib clay_fc01b4b1312fe94e790c.mtl
+mtllib devilstrand_materials_fc01b4b1312fe94e790c.mtl
 o devilstrand
 s 1
 v 0.035000000 0.000000000 -0.000000000

@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_81da560b9fbf8cd657af.mtl
+mtllib harp_materials_81da560b9fbf8cd657af.mtl
 o harp
 s 1
 v 0.370000000 0.000000000 0.240000000

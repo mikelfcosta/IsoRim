@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_b63a1df72197fd4af14c.mtl
+mtllib shared_warqueen_segment_2_materials_b63a1df72197fd4af14c.mtl
 o warqueen_segment_3
 s 1
 v 0.418200000000 0.630000000000 0.520000000000

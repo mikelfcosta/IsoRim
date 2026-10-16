@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_83594b52f2b47de4afda.mtl
+mtllib throne_materials_83594b52f2b47de4afda.mtl
 o throne
 s 1
 v -0.440000000 0.000000000 -0.430000000

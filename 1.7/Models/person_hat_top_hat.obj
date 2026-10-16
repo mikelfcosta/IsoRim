@@ -1,6 +1,6 @@
 # Batch 05 Royalty worn: efficiency-first sparse clay profiles.
 # Native source-compatible raw winding. Importer ignores vn; no runtime dependency.
-mtllib clay_e11cb1d463f71fc9444a.mtl
+mtllib shared_person_hat_eltex_skullcap_materials_e11cb1d463f71fc9444a.mtl
 o person_hat_top_hat
 s 1
 v 0.000000000000 1.155000000000 -0.315000000000

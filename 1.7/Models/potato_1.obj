@@ -1,7 +1,7 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_a722e6d79e79d3a847e8.mtl
-mtllib clay_769df296e118b2124624.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
+mtllib shared_crop_remakes_materials_769df296e118b2124624.mtl
 o potato_1
 s 1
 v 0.018170467000 0.006714941000 0.001395847000

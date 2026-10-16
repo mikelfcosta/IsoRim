@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_1c241eb5ab5e16b86053.mtl
+mtllib shared_item_rm_obsidian_a_materials_1c241eb5ab5e16b86053.mtl
 o item_rm_obsidian_b
 s 1
 v 0.149000000000 0.000000000000 0.052000000000

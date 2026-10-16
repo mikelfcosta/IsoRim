@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_e74af875f7fe87a926a6.mtl
+mtllib stele_large_materials_e74af875f7fe87a926a6.mtl
 o stele_large
 v -0.800000000 0.050000000 0.630000000
 v -0.850000000 0.050000000 0.580000000

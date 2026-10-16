@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_7166191f04fe01b6ed09.mtl
+mtllib animal_bear_grizzly_materials_7166191f04fe01b6ed09.mtl
 o animal_bear_grizzly
 s 1
 v 0.119100000 1.005800000 0.420100000

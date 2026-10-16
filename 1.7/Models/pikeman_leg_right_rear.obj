@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_9dd0c418d4a2487c16c6.mtl
+mtllib shared_pikeman_leg_left_front_materials_9dd0c418d4a2487c16c6.mtl
 o pikeman_leg_right_rear
 v 0.279658000 0.482711000 0.320660000
 v 0.300342000 0.357289000 0.207340000

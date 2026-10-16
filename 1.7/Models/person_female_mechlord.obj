@@ -1,6 +1,6 @@
 # Batch 05 Biotech worn: efficiency-first sparse clay profiles.
 # Native source-compatible raw winding. Importer ignores vn; no runtime dependency.
-mtllib clay_374226cc587d0935bb30.mtl
+mtllib shared_person_fat_mechlord_materials_374226cc587d0935bb30.mtl
 o person_female_mechlord
 s 1
 v -0.048500000000 0.000000000000 0.101100000000

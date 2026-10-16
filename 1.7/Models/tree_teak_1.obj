@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_ffd9c2e0386c7468997c.mtl
+mtllib shared_tree_teak_1_materials_ffd9c2e0386c7468997c.mtl
 o tree_teak_1
 s 1
 v 0.053600000 0.063700000 0.030400000

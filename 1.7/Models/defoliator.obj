@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_6582a7192e742ef1bff0.mtl
+mtllib defoliator_materials_6582a7192e742ef1bff0.mtl
 o defoliator
 s 1
 v 1.150000000 0.000000000 -1.430000000

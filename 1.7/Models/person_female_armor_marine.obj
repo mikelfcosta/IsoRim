@@ -1,6 +1,6 @@
 # Economical source-aware clay: sparse exterior rounded support profiles.
 # Original axes, fit surfaces, openings, bounds and semantic UV regions retained.
-mtllib clay_5f3cb82cdb4cf0e0a5a3.mtl
+mtllib shared_person_fat_armor_marine_materials_5f3cb82cdb4cf0e0a5a3.mtl
 o person_female_armor_marine
 s 1
 v 0.069230000000 0.450000000000 0.116516000000

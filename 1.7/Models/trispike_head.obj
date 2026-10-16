@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_51815a8d38f2459712d8.mtl
+mtllib shared_fingerspike_head_materials_51815a8d38f2459712d8.mtl
 o trispike_head
 s 1
 v 0.000000000000 0.254200000000 -0.266600000000

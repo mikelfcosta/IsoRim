@@ -1,5 +1,5 @@
 # Source-faithful soft-clay mesh trial; raw +Y up and -Z north; no runtime integration.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o standing_lamp
 v 0.213686362 0.000000000 0.000000000
 v 0.219999999 0.009841646 0.000000000

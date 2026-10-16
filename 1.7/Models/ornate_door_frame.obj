@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_e2ca5852ebe216b05e35.mtl
+mtllib ornate_door_frame_materials_e2ca5852ebe216b05e35.mtl
 o ornate_door_frame
 v -1.000000000 1.060000000 -0.160000000
 v 1.000000000 1.060000000 0.160000000

@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_7bf4deca5d13ea8a85bc.mtl
+mtllib growth_vat_glass_materials_7bf4deca5d13ea8a85bc.mtl
 o growth_vat_glass
 s 1
 v 0.365000000000 0.450000000000 0.800000000000

@@ -1,6 +1,6 @@
 # IsoRim soft-clay workstation trial. +Y up, -Z north; origin unchanged.
 # Explicit triangulated geometry with no subdivision; original material keys and world-space swatch UVs.
-mtllib clay_a5797be9a0bd71144700.mtl
+mtllib shared_workstation_clay_materials_a5797be9a0bd71144700.mtl
 o bench_electric_smithy
 v -1.37000000 0.10500000 -0.32500000
 v -1.37000000 0.10500000 0.30500000

@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_bec04129980be20098b5.mtl
+mtllib toxic_spewer_materials_bec04129980be20098b5.mtl
 o toxic_spewer
 s 1
 v 2.650000000 0.000000000 2.430000000

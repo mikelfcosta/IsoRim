@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_155fe5254e64cbeaef8b.mtl
+mtllib shared_blast_terminal_materials_155fe5254e64cbeaef8b.mtl
 o proximity_detector
 s 1
 v 0.260000000000 0.000000000000 -0.000000000000

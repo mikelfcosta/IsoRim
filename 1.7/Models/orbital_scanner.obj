@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_bd7bd5097089ad1a61f2.mtl
+mtllib orbital_scanner_materials_bd7bd5097089ad1a61f2.mtl
 o orbital_scanner
 s 1
 v -0.660000000000 0.000000000000 0.880000000000

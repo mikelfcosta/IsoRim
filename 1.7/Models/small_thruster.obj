@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_8ceeaac9d83319dd79cb.mtl
+mtllib shared_large_thruster_materials_8ceeaac9d83319dd79cb.mtl
 o small_thruster
 s 1
 v -0.380000000000 0.060000000000 0.260000000000

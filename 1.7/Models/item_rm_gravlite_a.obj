@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_c547ecc03e4735780e37.mtl
+mtllib shared_item_rm_gravlite_a_materials_c547ecc03e4735780e37.mtl
 o item_rm_gravlite_a
 s 1
 v 0.429200000000 0.000000000000 -0.000000000000

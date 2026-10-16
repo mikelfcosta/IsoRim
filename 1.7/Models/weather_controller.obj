@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_ed416e73a500e4ed0919.mtl
+mtllib weather_controller_materials_ed416e73a500e4ed0919.mtl
 o weather_controller
 s 1
 v 2.650000000 0.000000000 2.930000000

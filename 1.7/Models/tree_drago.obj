@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_4bc40f685817ab7234dc.mtl
+mtllib tree_drago_materials_4bc40f685817ab7234dc.mtl
 o tree_drago
 s 1
 v 0.024000000 0.050000000 0.105300000

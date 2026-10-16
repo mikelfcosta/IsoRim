@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_9481210d1c794736bc92.mtl
+mtllib ied_deadlife_materials_9481210d1c794736bc92.mtl
 o ied_deadlife
 s 1
 v 0.360000000000 0.000000000000 -0.000000000000

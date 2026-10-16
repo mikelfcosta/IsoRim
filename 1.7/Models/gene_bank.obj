@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_89344910c060c935c29c.mtl
+mtllib gene_bank_materials_89344910c060c935c29c.mtl
 o gene_bank
 s 1
 v -0.810000000000 0.000000000000 0.440000000000

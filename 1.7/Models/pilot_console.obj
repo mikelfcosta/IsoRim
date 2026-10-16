@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_1b79acffd07a95b7832e.mtl
+mtllib pilot_console_materials_1b79acffd07a95b7832e.mtl
 o pilot_console
 s 1
 v -1.320000000000 0.080000000000 -0.150000000000

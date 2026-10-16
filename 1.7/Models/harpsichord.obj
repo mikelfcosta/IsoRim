@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_72b8685d387524eaf4fa.mtl
+mtllib harpsichord_materials_72b8685d387524eaf4fa.mtl
 o harpsichord
 s 1
 v 0.483800000 0.700000000 0.430000000

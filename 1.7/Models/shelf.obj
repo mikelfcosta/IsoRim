@@ -1,7 +1,7 @@
 # IsoRim soft-clay furniture trial; explicit 3x-budget geometry; +Y up, -Z north.
 # Original origin, scale, outer envelope and material names are retained.
 # No subdivision modifier or runtime tessellation is required.
-mtllib clay_feaab62f41af8a3a0ba6.mtl
+mtllib shared_isorim_source_materials_feaab62f41af8a3a0ba6.mtl
 o shelf
 v -0.93600000 0.00000000 0.35200000
 v -0.93600000 0.00000000 0.38800000

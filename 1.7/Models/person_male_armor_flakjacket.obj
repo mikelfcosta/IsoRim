@@ -1,6 +1,6 @@
 # Economical source-aware clay: sparse exterior rounded support profiles.
 # Original axes, fit surfaces, openings, bounds and semantic UV regions retained.
-mtllib clay_38be446e83af937de72e.mtl
+mtllib shared_person_fat_armor_flakjacket_materials_38be446e83af937de72e.mtl
 o person_male_armor_flakjacket
 s 1
 v 0.209400000000 0.235000000000 -0.062588000000

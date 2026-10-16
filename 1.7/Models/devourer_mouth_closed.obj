@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_5330ff85efdbdea7cbfc.mtl
+mtllib devourer_mouth_closed_materials_5330ff85efdbdea7cbfc.mtl
 o devourer_mouth_closed
 s 1
 v 0.000000000000 0.510000000000 -0.520000000000

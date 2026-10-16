@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_3503c5cc69a4db2a8355.mtl
+mtllib chimera_d_body_materials_3503c5cc69a4db2a8355.mtl
 o chimera_d_body
 s 1
 v 0.000000000000 0.330000000000 0.120000000000

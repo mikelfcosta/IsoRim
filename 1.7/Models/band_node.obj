@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_0a57e06ace5399c8e110.mtl
+mtllib band_node_materials_0a57e06ace5399c8e110.mtl
 o band_node
 s 1
 v -0.810000000000 0.000000000000 0.560000000000

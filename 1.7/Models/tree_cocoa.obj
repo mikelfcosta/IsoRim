@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_da8f8d719429d295a152.mtl
+mtllib tree_cocoa_materials_da8f8d719429d295a152.mtl
 o tree_cocoa
 s 1
 v -0.009900000 0.034100000 0.050900000

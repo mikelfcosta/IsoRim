@@ -1,7 +1,7 @@
 # Economical shared base apparel. Source proportions and exact fitting endpoints.
 # T-shirt/button-down/tribalwear are runtime tint routes; no separate shirt geometry.
 # Y-up cell units. Explicit DCC normals; native importer ignores vn. No subdivision.
-mtllib clay_a51128c3bfea7902581f.mtl
+mtllib shared_shared_apparel_materials_a51128c3bfea7902581f.mtl
 o person_hulk_upper
 v 0.219800000000 0.270000000000 0.058900000000
 v 0.091000000000 0.270000000000 0.142200000000

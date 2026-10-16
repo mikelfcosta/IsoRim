@@ -1,6 +1,6 @@
 # Biotech combat mechs: efficient source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_4eec3448ed7eae89fc21.mtl
+mtllib legionary_weapon_materials_4eec3448ed7eae89fc21.mtl
 o legionary_weapon
 s 1
 v 0.195000000000 0.685000000000 -0.100000000000

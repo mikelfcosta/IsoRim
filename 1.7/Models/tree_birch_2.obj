@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_e30cf26e889de1a8bd96.mtl
+mtllib shared_tree_birch_1_materials_e30cf26e889de1a8bd96.mtl
 o tree_birch_2
 s 1
 v 0.042200000 0.095100000 0.009300000

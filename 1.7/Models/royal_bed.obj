@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_328314bc74c117cf4828.mtl
+mtllib royal_bed_materials_328314bc74c117cf4828.mtl
 o royal_bed
 v -0.900000000 0.120000000 0.900000000
 v 0.900000000 0.120000000 0.900000000

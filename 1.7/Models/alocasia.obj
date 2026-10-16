@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=True
-mtllib clay_872ad71d83bfb1175857.mtl
+mtllib alocasia_materials_872ad71d83bfb1175857.mtl
 o alocasia
 s 1
 v 0.000000000 0.460000000 0.000000000

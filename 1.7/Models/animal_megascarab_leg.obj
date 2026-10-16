@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_6c18f4343f771444dcf9.mtl
+mtllib animal_megascarab_leg_materials_6c18f4343f771444dcf9.mtl
 o animal_megascarab_leg
 s 1
 v -0.003700000 0.020200000 0.011200000

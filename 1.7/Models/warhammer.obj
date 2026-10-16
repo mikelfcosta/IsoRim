@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_588f5125c19db083d09f.mtl
+mtllib warhammer_materials_588f5125c19db083d09f.mtl
 o warhammer
 s 1
 v -0.245000000 0.015000000 0.015000000

@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_877609908e9ce89da8c0.mtl
+mtllib person_hat_whisperer_hood_materials_877609908e9ce89da8c0.mtl
 o person_hat_whisperer_hood
 s 1
 v 0.000000000000 1.550000000000 -0.035000000000

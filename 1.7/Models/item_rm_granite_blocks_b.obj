@@ -1,8 +1,8 @@
 # Soft clay baked geometry; right-handed OBJ, outward DCC winding.
 # Native loader reflects Z and repairs negative winding. Explicit normals agree with OBJ faces.
 # No source, renderer, shader or runtime binding is modified.
-mtllib clay_a722e6d79e79d3a847e8.mtl
-mtllib clay_58cb68e9bd410839738c.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
+mtllib shared_rawmat_materials_58cb68e9bd410839738c.mtl
 o item_rm_granite_blocks_b
 s 1
 g block_1

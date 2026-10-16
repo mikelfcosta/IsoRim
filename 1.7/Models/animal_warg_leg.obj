@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_db535bd58f5d3dc93ea2.mtl
+mtllib animal_warg_leg_materials_db535bd58f5d3dc93ea2.mtl
 o animal_warg_leg
 s 1
 v -0.020100000 0.083800000 0.061900000

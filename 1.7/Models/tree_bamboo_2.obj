@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=True
-mtllib clay_8d5a4fef5a0c0cfd5309.mtl
+mtllib shared_tree_bamboo_1_materials_8d5a4fef5a0c0cfd5309.mtl
 o tree_bamboo_2
 s 1
 v 0.175700000 0.460200000 -0.023200000

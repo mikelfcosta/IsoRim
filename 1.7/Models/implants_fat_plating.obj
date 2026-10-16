@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_9c2274c4f27f28cd9e27.mtl
+mtllib shared_implants_fat_plating_materials_9c2274c4f27f28cd9e27.mtl
 o implants_fat_plating
 s 1
 v -0.173305000000 0.508000000000 -0.149858000000

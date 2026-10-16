@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_26cea12be8c9d7468fa2.mtl
+mtllib shared_hive_a_materials_26cea12be8c9d7468fa2.mtl
 o hive_b
 v 0.448094000 0.000000000 -0.000000000
 v 0.357135000 0.000000000 -0.189697000

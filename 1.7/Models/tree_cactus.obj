@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_96413946ae8197969d65.mtl
+mtllib tree_cactus_materials_96413946ae8197969d65.mtl
 o tree_cactus
 s 1
 v 0.036395920 0.497600000 0.087800000

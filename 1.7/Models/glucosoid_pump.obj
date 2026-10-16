@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_e138d4ad0d2f8328d2f7.mtl
+mtllib shared_glucosoid_pump_materials_e138d4ad0d2f8328d2f7.mtl
 o glucosoid_pump
 s 1
 v -0.320000000000 0.000000000000 0.910000000000

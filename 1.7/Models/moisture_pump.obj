@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_d49c17662c5be7dc08fc.mtl
+mtllib moisture_pump_materials_d49c17662c5be7dc08fc.mtl
 o moisture_pump
 v -0.400000000 0.000000000 -0.378000000
 v -0.400000000 0.000000000 0.378000000

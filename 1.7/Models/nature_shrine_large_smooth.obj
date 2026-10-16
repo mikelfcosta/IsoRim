@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_92ce36b94a7e487a697a.mtl
+mtllib shared_nature_shrine_large_smooth_materials_92ce36b94a7e487a697a.mtl
 o nature_shrine_large_smooth
 s 1
 v -0.597169000 0.000000000 -0.328950000

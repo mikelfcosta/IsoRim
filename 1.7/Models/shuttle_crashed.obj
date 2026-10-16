@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_51ef1813aedbb46046b9.mtl
+mtllib shuttle_crashed_materials_51ef1813aedbb46046b9.mtl
 o shuttle_crashed
 v -2.220000000 0.372000000 0.620000000
 v -2.220000000 0.845000000 0.620000000

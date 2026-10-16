@@ -1,6 +1,6 @@
 # Economical source-compatible clay plant; no growth/variant binding changes.
 # Native clockwise preflip=False
-mtllib clay_0ae60310b9c49eecbca7.mtl
+mtllib tree_cypress_materials_0ae60310b9c49eecbca7.mtl
 o tree_cypress
 s 1
 v -0.050000000 0.080700000 0.000000000

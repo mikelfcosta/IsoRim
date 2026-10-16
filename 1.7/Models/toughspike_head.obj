@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_769d57693bbc0e2beeeb.mtl
+mtllib toughspike_head_materials_769d57693bbc0e2beeeb.mtl
 o toughspike_head
 s 1
 v 0.000000000000 0.266500000000 -0.279500000000

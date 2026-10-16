@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_60a5c5b53412e03a8212.mtl
+mtllib agrihand_cutter_materials_60a5c5b53412e03a8212.mtl
 o agrihand_cutter
 s 1
 v 0.360000000000 0.077500000000 -0.320000000000

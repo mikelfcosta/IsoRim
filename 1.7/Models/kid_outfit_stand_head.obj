@@ -1,6 +1,6 @@
 # Odyssey efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_ca5233046bfe31289c58.mtl
+mtllib shared_kid_outfit_stand_head_materials_ca5233046bfe31289c58.mtl
 o kid_outfit_stand_head
 s 1
 v 0.072000000000 0.892800000000 -0.000000000000

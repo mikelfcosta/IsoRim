@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_1619631bee6a66f88a8e.mtl
+mtllib pikeman_weapon_materials_1619631bee6a66f88a8e.mtl
 o pikeman_weapon
 v 0.112500000 0.770000000 0.109593000
 v 0.112500000 0.770000000 -0.089593000

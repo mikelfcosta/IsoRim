@@ -1,6 +1,6 @@
 # Economical clay outerwear: selective exterior curves and exact coplanar cleanup.
 # Source fit skins, garment openings, attachment rings, axes, bounds and material semantics retained.
-mtllib clay_d73780e889f5d6dc88aa.mtl
+mtllib shared_person_fat_jacket_materials_d73780e889f5d6dc88aa.mtl
 o person_male_jacket
 s 1
 v 0.042500000000 0.170000000000 -0.162500000000

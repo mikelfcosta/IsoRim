@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_dc072a28796ded8d5b75.mtl
+mtllib broadshield_projector_materials_dc072a28796ded8d5b75.mtl
 o broadshield_projector
 s 1
 v -0.165550000 0.000000000 0.286741000

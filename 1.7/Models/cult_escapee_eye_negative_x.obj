@@ -1,6 +1,6 @@
 # Batch 05 Anomaly: exact fit-safe source geometry retained; authored corner normals.
 # Raw winding preserved. Native importer ignores vn. No runtime, shader or configuration changes.
-mtllib clay_46f0b8b91486d39630cc.mtl
+mtllib shared_cult_escapee_eye_negative_x_materials_46f0b8b91486d39630cc.mtl
 o cult_escapee_eye_negative_x
 s 1
 v -0.063000000000 0.975000000000 -0.224375000000

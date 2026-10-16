@@ -1,7 +1,7 @@
 # Native IsoRim hair: clockwise from outside in OBJ coordinates.
 # Native importer reflects Z; native faces become outward without repair.
 # DCC preview: reverse faces and recalculate outward normals. No runtime subdivision.
-mtllib clay_a722e6d79e79d3a847e8.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
 o person_hair_long
 s 1
 g hair_component_1

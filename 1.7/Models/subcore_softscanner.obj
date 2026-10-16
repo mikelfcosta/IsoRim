@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_50af1eb3d76a0b546a62.mtl
+mtllib shared_subcore_ripscanner_materials_50af1eb3d76a0b546a62.mtl
 o subcore_softscanner
 s 1
 v -1.310000000000 0.000000000000 0.940000000000

@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_5a87bacca44d805b244c.mtl
+mtllib geyser_materials_5a87bacca44d805b244c.mtl
 o geyser
 v 0.360000000 0.000000000 -0.000000000
 v 0.300000000 0.030000000 -0.000000000

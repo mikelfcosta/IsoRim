@@ -1,7 +1,7 @@
 # Baked clay campfire effect mesh trial; +Y up, -Z north.
 # Conventional outward OBJ winding. No runtime subdivision.
 # Source UV corners and per-face charts retained; intermediate UVs interpolated.
-mtllib clay_05f0ff486844d1388661.mtl
+mtllib fx_flame_core_materials_05f0ff486844d1388661.mtl
 o fx_flame_core
 v 0.000000000 1.000000000 0.000000000
 v -0.141000000 0.000000000 -0.479700000

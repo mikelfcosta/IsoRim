@@ -1,6 +1,6 @@
 # Soft-clay trial. Final baked triangles; raw +Y-up, -Z north.
 # Original bounds, material keys and corner UV semantics retained.
-mtllib clay_db3697f9b739443a2fdb.mtl
+mtllib shared_medicine_materials_db3697f9b739443a2fdb.mtl
 o item_medicine_industrial_a
 s 1
 v -0.276796074 0.112334472 0.237868702

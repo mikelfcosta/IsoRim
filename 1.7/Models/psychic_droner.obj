@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_d43052f22478ef2b692a.mtl
+mtllib psychic_droner_materials_d43052f22478ef2b692a.mtl
 o psychic_droner
 v -2.650000000 0.000000000 2.930000000
 v 2.650000000 0.000000000 2.930000000

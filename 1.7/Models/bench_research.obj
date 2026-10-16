@@ -1,6 +1,6 @@
 # Economical clay candidate; endpoint-constrained simplification.
 # Original axes, exact surviving positions, material regions and UV seams retained.
-mtllib clay_a5797be9a0bd71144700.mtl
+mtllib shared_workstation_clay_materials_a5797be9a0bd71144700.mtl
 o bench_research
 s 1
 v -1.370000000000 0.105000000000 -0.825000000000

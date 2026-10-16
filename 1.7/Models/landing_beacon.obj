@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_9b3afb0cb7e8d18fdb6b.mtl
+mtllib landing_beacon_materials_9b3afb0cb7e8d18fdb6b.mtl
 o landing_beacon
 s 1
 v 0.080344000 0.000000000 0.247275000

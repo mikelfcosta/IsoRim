@@ -1,6 +1,6 @@
 # Biotech efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_d5735ee8f98f725d2c29.mtl
+mtllib standard_recharger_materials_d5735ee8f98f725d2c29.mtl
 o standard_recharger
 s 1
 v -1.320000000000 0.000000000000 0.940000000000

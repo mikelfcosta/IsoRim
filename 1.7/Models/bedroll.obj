@@ -1,5 +1,5 @@
 # Economical soft-clay variant; original units, origin, axes and semantic materials.
-mtllib clay_2b4cebdd378e564a4239.mtl
+mtllib shared_isorim_source_materials_2b4cebdd378e564a4239.mtl
 o bedroll
 v -0.40000000 0.00000000 -0.81500000
 v -0.40000000 0.00000000 0.83500000

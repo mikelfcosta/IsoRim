@@ -1,7 +1,7 @@
 # Economical baked soft-clay model. Original +Y-up / -Z north.
 # Per-part envelopes and semantic materials retained. No runtime subdivision.
-mtllib clay_a722e6d79e79d3a847e8.mtl
-mtllib clay_769df296e118b2124624.mtl
+mtllib shared_isorim_materials_a722e6d79e79d3a847e8.mtl
+mtllib shared_crop_remakes_materials_769df296e118b2124624.mtl
 o healroot_1
 s 1
 v 0.011000000 0.000000000 -0.019053000

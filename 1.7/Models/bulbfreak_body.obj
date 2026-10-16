@@ -1,6 +1,6 @@
 # Anomaly efficient soft-clay source-preserving export.
 # Original origin / scale / source winding; vn is DCC-only, current native importer ignores it.
-mtllib clay_705ee52be01b3f3c4528.mtl
+mtllib shared_bulbfreak_body_materials_705ee52be01b3f3c4528.mtl
 o bulbfreak_body
 s 1
 v 0.000000000000 0.042000000000 -0.000000000000

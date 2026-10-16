@@ -1,6 +1,6 @@
 # Efficient selective soft-clay authoring; original local origins, cell units and raw source winding.
 # Native import reflects Z and ignores vn; no runtime subdivision or shader changes.
-mtllib clay_93c27affe8fcb2782099.mtl
+mtllib countdown_materials_93c27affe8fcb2782099.mtl
 o countdown
 s 1
 v -0.291246000 0.000000000 0.211603000

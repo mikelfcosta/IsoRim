@@ -1,6 +1,6 @@
 # Source-specific soft-clay mesh. Original +Y up / -Z north local space.
 # Final baked geometry; no runtime subdivision.
-mtllib clay_d37463c4f01257ab921d.mtl
+mtllib animal_megaspider_materials_d37463c4f01257ab921d.mtl
 o animal_megaspider
 s 1
 v 0.153500000 0.160200000 0.147900000

@@ -1,6 +1,6 @@
 # Efficient soft-clay rigid-part asset. Original units, origin, envelope and semantic materials.
 # Authored outward normals for DCC; native Z reflection/winding repair validated separately.
-mtllib clay_6298a14e82da32c8fb57.mtl
+mtllib shared_turret_gun_auto_materials_6298a14e82da32c8fb57.mtl
 o turret_gun_mortar
 v -0.180200000 0.029300000 0.101600000
 v 0.422500000 0.646600000 0.092400000

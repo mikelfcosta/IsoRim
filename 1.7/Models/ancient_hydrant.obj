@@ -1,6 +1,6 @@
 # Economical source-faithful soft-clay structure. Original units, origin and axes retained.
 # Native import contract: reflect Z, then conditional winding repair. Explicit vn are DCC normals.
-mtllib clay_146944b7624e8742cbc7.mtl
+mtllib ancient_hydrant_materials_146944b7624e8742cbc7.mtl
 o ancient_hydrant
 v 0.250000000 0.000000000 -0.000000000
 v 0.202254000 0.000000000 -0.146946000

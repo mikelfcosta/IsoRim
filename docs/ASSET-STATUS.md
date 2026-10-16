@@ -2117,7 +2117,7 @@ The following table records every repeated runtime basename. Earlier members rem
 
 Four stone families deliver identical OBJ/MTL payloads for each stack stage. Granite is the shared active path for all four explicit bindings.
 The import keeps semantic identities in the XML. Nine redundant stone copies do not create extra model identities.
-MTL basenames never decide selection. Each distinct rewritten MTL content has a clay_<SHA-256-prefix>.mtl filename beside the OBJs.
+MTL basenames never decide selection. Each distinct MTL library uses its source or model name, followed by materials_<content-hash>.mtl. Shared libraries add the shared_ prefix.
 Every material name, Kd value, transparency/emission record and dynamic {stuff} token stays intact. Texture keys use IsoRim/Clay/Swatches.
 All required supplied swatches match their source bytes. The 1.7 texture namespace prevents changes to frozen root content.
 No unresolved geometry-selection collision remains. Inherited contacts and missing runtime integration remain limitations, not hidden fixes.
@@ -2128,10 +2128,10 @@ Both differing libraries remain available under distinct content names. Each OBJ
 
 | Original basename | Source ZIP/member(s) | Source SHA-256 | Active library |
 |---|---|---|---|
-| isorim.mtl | `IsoRim_Clay_Batch200_Animals_121-160/IsoRim_Clay_Animals_121-160/animals_a/isorim.mtl`; `IsoRim_Clay_Batch200_Animals_161-200/IsoRim_Clay_Animals_161-200/animals_b/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/animals/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/OptimizedPrevious/Models/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/machines/isorim.mtl`; `IsoRim_Efficient_90_Assets/IsoRim_Efficient_90_Assets/Models/utilities/isorim.mtl`; `IsoRim_Clay_Batch200_Objects_001-030/IsoRim_Clay_Objects_001-030/props/Models/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/organics/isorim.mtl`; `IsoRim_Batch_04_Final_Support_Models/Models/isorim.mtl`; `IsoRim_Clay_Batch200_Resources_and_Plants_031-090/IsoRim_Clay_Resources_and_Plants_031-090/resources/Models/isorim.mtl`; `IsoRim_Efficient_90_Assets/IsoRim_Efficient_90_Assets/Models/hair/isorim.mtl`; `IsoRim_Efficient_90_Assets/IsoRim_Efficient_90_Assets/Models/headgear/isorim.mtl` | `b464c37fea31d042720734b56b8d61d96897253cb0d9976be9c1c6e60e46cfb8` | `1.7/Models/clay_a722e6d79e79d3a847e8.mtl` |
-| isorim.mtl | `IsoRim_Clay_Batch200_Hairstyles_091-120/IsoRim_Clay_Hairstyles_091-120/hair/isorim.mtl` | `cf6962e425177a86cec03aba39bc8d2715b5ff0c91ce40867b7d05a42aa78d92` | `1.7/Models/clay_cf6962e425177a86cec0.mtl` |
-| isorim_source_materials.mtl | `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/OptimizedPrevious/Models/isorim_source_materials.mtl` | `22fed876f75f88e2ef1e5db6c6275136aafd984d42775ce453e46cb8ec78ce85` | `1.7/Models/clay_feaab62f41af8a3a0ba6.mtl` |
-| isorim_source_materials.mtl | `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/furniture/isorim_source_materials.mtl` | `77fa8f22394ad7d3bba124572188446fc8a84c6018716438192af4557984e4d0` | `1.7/Models/clay_2b4cebdd378e564a4239.mtl` |
+| isorim.mtl | `IsoRim_Clay_Batch200_Animals_121-160/IsoRim_Clay_Animals_121-160/animals_a/isorim.mtl`; `IsoRim_Clay_Batch200_Animals_161-200/IsoRim_Clay_Animals_161-200/animals_b/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/animals/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/OptimizedPrevious/Models/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/machines/isorim.mtl`; `IsoRim_Efficient_90_Assets/IsoRim_Efficient_90_Assets/Models/utilities/isorim.mtl`; `IsoRim_Clay_Batch200_Objects_001-030/IsoRim_Clay_Objects_001-030/props/Models/isorim.mtl`; `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/organics/isorim.mtl`; `IsoRim_Batch_04_Final_Support_Models/Models/isorim.mtl`; `IsoRim_Clay_Batch200_Resources_and_Plants_031-090/IsoRim_Clay_Resources_and_Plants_031-090/resources/Models/isorim.mtl`; `IsoRim_Efficient_90_Assets/IsoRim_Efficient_90_Assets/Models/hair/isorim.mtl`; `IsoRim_Efficient_90_Assets/IsoRim_Efficient_90_Assets/Models/headgear/isorim.mtl` | `b464c37fea31d042720734b56b8d61d96897253cb0d9976be9c1c6e60e46cfb8` | `1.7/Models/shared_isorim_materials_a722e6d79e79d3a847e8.mtl` |
+| isorim.mtl | `IsoRim_Clay_Batch200_Hairstyles_091-120/IsoRim_Clay_Hairstyles_091-120/hair/isorim.mtl` | `cf6962e425177a86cec03aba39bc8d2715b5ff0c91ce40867b7d05a42aa78d92` | `1.7/Models/shared_isorim_materials_cf6962e425177a86cec0.mtl` |
+| isorim_source_materials.mtl | `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/OptimizedPrevious/Models/isorim_source_materials.mtl` | `22fed876f75f88e2ef1e5db6c6275136aafd984d42775ce453e46cb8ec78ce85` | `1.7/Models/shared_isorim_source_materials_feaab62f41af8a3a0ba6.mtl` |
+| isorim_source_materials.mtl | `IsoRim_Economical_60_Assets/IsoRim_Economical_60_Assets/NewModels/furniture/isorim_source_materials.mtl` | `77fa8f22394ad7d3bba124572188446fc8a84c6018716438192af4557984e4d0` | `1.7/Models/shared_isorim_source_materials_2b4cebdd378e564a4239.mtl` |
 
 ## Missing deliveries and next modelling gaps
 
@@ -2197,3 +2197,179 @@ All 30 delivered hairstyle literals occur in the built assembly. The frozen root
 
 The earlier 52.55-second intake result still covers identical source and asset inputs. This package-only correction does not repeat intake or run the live game.
 Asset totals, provenance, unmapped deliveries and census limits remain unchanged. The branch stays local and slot 2 stays claimed.
+
+## Descriptive material filenames
+
+The 1,238 OBJ files use 491 distinct MTL libraries. Of those libraries, 335 serve one model and 156 serve multiple models.
+Single-model libraries use the model name. Shared libraries use a representative original library name with the shared_ prefix.
+Each filename retains its content hash to distinguish conflicting versions. The OBJ mtllib record identifies its exact adjacent library.
+This rename changes filenames and mtllib references only. Material bytes, geometry, normals, texture paths, C# source and the packaged DLL remain unchanged.
+
+| Shared library | OBJ model names |
+|---|---|
+| `shared_agrihand_track_left_materials_7e93c5f5321ec98cba77.mtl` | `agrihand_track_left`, `agrihand_track_right`, `cleansweeper_brush`, `fabricor_wheel`, `lifter_wheel`, `militor_wheel` |
+| `shared_apocriton_leg_left_1_materials_18de0a7b981fb1c17f4b.mtl` | `apocriton_leg_left_1`, `apocriton_leg_left_2`, `apocriton_leg_right_1`, `apocriton_leg_right_2`, `diabolus_segment_2`, `diabolus_segment_3`, `diabolus_segment_4`, `diabolus_segment_5`, `diabolus_segment_6` |
+| `shared_apocriton_tail_materials_55755ee0e0590c641a0b.mtl` | `apocriton_tail`, `militor` |
+| `shared_apocriton_weapon_materials_a6d5f78fd19811ea482a.mtl` | `apocriton_weapon`, `war_urchin_weapon` |
+| `shared_astragalus_1_materials_a157222d6baf9b4d29c5.mtl` | `astragalus_1`, `astragalus_2` |
+| `shared_authoritative_source_semantics_materials_d7e22b353c43c1215f34.mtl` | `grass_1`, `person_head`, `tree_oak_1` |
+| `shared_baby_car_materials_b6d7e989dc1491f72d61.mtl` | `baby_car`, `baby_phone` |
+| `shared_baby_horse_materials_e7996ef71291864a8e54.mtl` | `baby_horse`, `baby_rings` |
+| `shared_blast_terminal_materials_155fe5254e64cbeaef8b.mtl` | `blast_terminal`, `proximity_detector` |
+| `shared_bolt_rifle_materials_53473b2acb770a2bfe4a.mtl` | `bolt_rifle`, `revolver`, `shotgun` |
+| `shared_bookcase_materials_20b5e6886dbf6f36f1b3.mtl` | `bookcase`, `bookcase_small`, `table_1x2`, `table_2x4`, `table_3x3` |
+| `shared_boulder_1_materials_a7b444b2dd68f76ec98a.mtl` | `boulder_1`, `boulder_2`, `boulder_3`, `boulder_4`, `boulder_5`, `boulder_6` |
+| `shared_broken_beacon_a_materials_6c87ddfa16167d6a7c09.mtl` | `broken_beacon_a`, `broken_beacon_b`, `broken_beacon_c` |
+| `shared_bulbfreak_appendage_0_materials_5d3b330dc22a407d6f75.mtl` | `bulbfreak_appendage_0`, `bulbfreak_appendage_1`, `bulbfreak_appendage_2`, `bulbfreak_appendage_3`, `bulbfreak_appendage_4`, `dreadmeld_appendage_0`, `dreadmeld_appendage_1`, `fingerspike_appendage_0`, `toughspike_appendage_0`, `toughspike_appendage_1`, `trispike_appendage_0`, `trispike_appendage_1`, `trispike_appendage_2` |
+| `shared_bulbfreak_body_materials_705ee52be01b3f3c4528.mtl` | `bulbfreak_body`, `dreadmeld_body` |
+| `shared_bulbfreak_head_materials_95b1ea7db9a96390db3c.mtl` | `bulbfreak_head`, `dreadmeld_head` |
+| `shared_bulbfreak_skirt_0_materials_28e255d5eb76468cd802.mtl` | `bulbfreak_skirt_0`, `bulbfreak_skirt_1`, `bulbfreak_skirt_2`, `bulbfreak_skirt_3`, `dreadmeld_skirt_0`, `dreadmeld_skirt_1`, `dreadmeld_skirt_2`, `dreadmeld_skirt_3`, `fingerspike_body`, `fingerspike_skirt_0`, `fingerspike_skirt_1`, `fingerspike_skirt_2`, `fingerspike_skirt_3`, `toughspike_body`, `toughspike_skirt_0`, `toughspike_skirt_1`, `toughspike_skirt_2`, `toughspike_skirt_3`, `trispike_body`, `trispike_skirt_0`, `trispike_skirt_1`, `trispike_skirt_2`, `trispike_skirt_3` |
+| `shared_centipede_blaster_head_materials_71e98bdd604de923183b.mtl` | `centipede_blaster_head`, `centipede_gunner_head`, `pikeman_head`, `termite_head` |
+| `shared_centipede_blaster_weapon_materials_1699ae31cc395d7a94f7.mtl` | `centipede_blaster_weapon`, `termite_weapon` |
+| `shared_centipede_gunner_weapon_materials_43e695fcc1458104fa9f.mtl` | `centipede_gunner_weapon`, `lancer_wheel_left`, `lancer_wheel_right`, `scyther_wheel` |
+| `shared_centipede_legs_left_1_materials_b5cdf9527c6e6d5af9ff.mtl` | `centipede_legs_left_1`, `centipede_legs_left_2`, `centipede_legs_left_3`, `centipede_legs_left_4`, `centipede_legs_left_5`, `centipede_legs_left_6`, `centipede_legs_right_1`, `centipede_legs_right_2`, `centipede_legs_right_3`, `centipede_legs_right_4`, `centipede_legs_right_5`, `centipede_legs_right_6`, `lancer_arm_left`, `lancer_arm_right`, `termite_leg_left_1`, `termite_leg_left_2`, `termite_leg_left_3`, `termite_leg_right_1`, `termite_leg_right_2`, `termite_leg_right_3` |
+| `shared_centipede_materials_0b9490e881a7cd5d7f27.mtl` | `centipede`, `centipede_segment_2`, `centipede_segment_3`, `centipede_segment_4`, `centipede_segment_5`, `centipede_segment_6`, `pikeman`, `scyther`, `scyther_arm_left`, `scyther_arm_right`, `termite` |
+| `shared_centurion_turret_weapon_materials_09d27bacecaf75613a8c.mtl` | `centurion_turret_weapon`, `warqueen_turret_weapon` |
+| `shared_centurion_wheel_materials_a7ae942d9cc3c7daf520.mtl` | `centurion_wheel`, `war_urchin_wheel` |
+| `shared_chain_shotgun_materials_305aaaa4e23f798d5939.mtl` | `chain_shotgun`, `lmg`, `machine_pistol`, `minigun`, `pistol`, `smg`, `sniper_rifle` |
+| `shared_charge_lance_materials_d154303eb2bf6ccc0575.mtl` | `charge_lance`, `charge_rifle` |
+| `shared_chemfuel_tank_materials_2cd1959f609b22723802.mtl` | `chemfuel_tank`, `large_chemfuel_tank` |
+| `shared_chibi_clay_materials_78301bbf3f5309b346be.mtl` | `animal_horse`, `animal_horse_leg` |
+| `shared_chimera_a_leg_-1_0_materials_9efa280e2464a5f94f95.mtl` | `chimera_a_leg_-1_0`, `chimera_a_leg_-1_1`, `chimera_a_leg_1_0`, `chimera_a_leg_1_1` |
+| `shared_chimera_b_leg_-1_0_materials_4153866ee6238b90fbbd.mtl` | `chimera_b_leg_-1_0`, `chimera_b_leg_-1_1`, `chimera_b_leg_1_0`, `chimera_b_leg_1_1` |
+| `shared_chimera_c_leg_-1_0_materials_1a52644d7ca55737a1ff.mtl` | `chimera_c_leg_-1_0`, `chimera_c_leg_-1_1`, `chimera_c_leg_1_0`, `chimera_c_leg_1_1` |
+| `shared_chimera_d_leg_-1_0_materials_bcdd417bc6373a0247aa.mtl` | `chimera_d_leg_-1_0`, `chimera_d_leg_-1_1`, `chimera_d_leg_1_0`, `chimera_d_leg_1_1` |
+| `shared_cleansweeper_wheel_left_materials_8388918b133f6ea49dcb.mtl` | `cleansweeper_wheel_left`, `cleansweeper_wheel_right` |
+| `shared_column_materials_e8d33663d5f70e6b4689.mtl` | `column`, `sculpture_grand_0`, `sculpture_grand_1`, `sculpture_grand_2`, `sculpture_large_0`, `sculpture_large_1`, `sculpture_large_2`, `sculpture_small_0`, `sculpture_small_1`, `sculpture_small_2`, `stele_grand` |
+| `shared_constructoid_wheel_left_materials_2de16718000a97638d99.mtl` | `constructoid_wheel_left`, `constructoid_wheel_right` |
+| `shared_crop_remakes_materials_769df296e118b2124624.mtl` | `healroot_1`, `healroot_2`, `potato_1`, `potato_2`, `rice_1`, `rice_2` |
+| `shared_cult_escapee_eye_negative_x_materials_46f0b8b91486d39630cc.mtl` | `cult_escapee_eye_negative_x`, `cult_escapee_eye_positive_x`, `timeless_face` |
+| `shared_devourer_body_materials_16f20b8a534c791f6bde.mtl` | `devourer_body`, `devourer_fin_-1`, `devourer_fin_1`, `devourer_head`, `metalhorror_juvenile_blade_-1_0`, `metalhorror_juvenile_blade_-1_1`, `metalhorror_juvenile_blade_-1_2`, `metalhorror_juvenile_blade_1_0`, `metalhorror_juvenile_blade_1_1`, `metalhorror_juvenile_blade_1_2`, `metalhorror_larva_blade_-1_0`, `metalhorror_larva_blade_-1_1`, `metalhorror_larva_blade_1_0`, `metalhorror_larva_blade_1_1`, `metalhorror_mature_blade_-1_0`, `metalhorror_mature_blade_-1_1`, `metalhorror_mature_blade_-1_2`, `metalhorror_mature_blade_1_0`, `metalhorror_mature_blade_1_1`, `metalhorror_mature_blade_1_2` |
+| `shared_diabolus_head_materials_72e704bfbc15e0f0ab69.mtl` | `diabolus_head`, `paramedic_head`, `war_urchin_head`, `warqueen_head` |
+| `shared_diabolus_leg_left_1_materials_403dd41b9ce2766ea6c5.mtl` | `diabolus_leg_left_1`, `diabolus_leg_left_2`, `diabolus_leg_left_3`, `diabolus_leg_left_4`, `diabolus_leg_left_5`, `diabolus_leg_left_6`, `diabolus_leg_right_1`, `diabolus_leg_right_2`, `diabolus_leg_right_3`, `diabolus_leg_right_4`, `diabolus_leg_right_5`, `diabolus_leg_right_6`, `legionary_leg_left`, `legionary_leg_right`, `scorcher_front_left`, `scorcher_front_right`, `scorcher_rear_left`, `scorcher_rear_right`, `tesseron_leg_left`, `tesseron_leg_right`, `warqueen_leg_left_1`, `warqueen_leg_left_2`, `warqueen_leg_left_3`, `warqueen_leg_left_4`, `warqueen_leg_left_5`, `warqueen_leg_right_1`, `warqueen_leg_right_2`, `warqueen_leg_right_3`, `warqueen_leg_right_4`, `warqueen_leg_right_5` |
+| `shared_dresser_materials_1b96f558ae9d78cc8452.mtl` | `dresser`, `end_table` |
+| `shared_fabricor_materials_5bc31dc45267ea47f22d.mtl` | `fabricor`, `militor_upper`, `tesseron_upper` |
+| `shared_fingerspike_head_materials_51815a8d38f2459712d8.mtl` | `fingerspike_head`, `trispike_head` |
+| `shared_garment_1_materials_93ba59d0c333dafeb1c2.mtl` | `garment_1`, `garment_2` |
+| `shared_ghoul_fat_body_overlay_materials_ec6c5234e5c91a021427.mtl` | `ghoul_fat_body_overlay`, `ghoul_female_body_overlay`, `ghoul_hulk_body_overlay`, `ghoul_male_body_overlay`, `ghoul_thin_body_overlay` |
+| `shared_ghoul_head_heavy_materials_bb804b47ffdc73cc70e2.mtl` | `ghoul_head_heavy`, `ghoul_head_narrow`, `ghoul_head_normal`, `ghoul_head_wide` |
+| `shared_gladius_materials_95d8f5b65112cf8cb4b7.mtl` | `gladius`, `longsword` |
+| `shared_glucosoid_pump_materials_e138d4ad0d2f8328d2f7.mtl` | `glucosoid_pump`, `hemopump` |
+| `shared_gorehulk_a_arm_-1_materials_8a71170e5ac5926650c0.mtl` | `gorehulk_a_arm_-1`, `gorehulk_a_arm_1`, `gorehulk_a_head` |
+| `shared_gorehulk_a_leg_-1_materials_6610cec7a2e78a615ad5.mtl` | `gorehulk_a_leg_-1`, `gorehulk_a_leg_1` |
+| `shared_gorehulk_b_arm_-1_materials_62c23cc2c15d35df49ba.mtl` | `gorehulk_b_arm_-1`, `gorehulk_b_arm_1`, `gorehulk_b_head` |
+| `shared_gorehulk_b_leg_-1_materials_2cb431f329303a0c53b9.mtl` | `gorehulk_b_leg_-1`, `gorehulk_b_leg_1` |
+| `shared_gorehulk_c_arm_-1_materials_8caa46ed679796b193ff.mtl` | `gorehulk_c_arm_-1`, `gorehulk_c_arm_1`, `gorehulk_c_head` |
+| `shared_gorehulk_c_leg_-1_materials_0dd34e07d8e847e3b736.mtl` | `gorehulk_c_leg_-1`, `gorehulk_c_leg_1` |
+| `shared_gorehulk_d_arm_-1_materials_aebd89815699911b598f.mtl` | `gorehulk_d_arm_-1`, `gorehulk_d_arm_1`, `gorehulk_d_head` |
+| `shared_gorehulk_d_leg_-1_materials_53dacba21816e15e547e.mtl` | `gorehulk_d_leg_-1`, `gorehulk_d_leg_1` |
+| `shared_gorehulk_e_arm_-1_materials_45c22b462950e764b2ca.mtl` | `gorehulk_e_arm_-1`, `gorehulk_e_arm_1`, `gorehulk_e_head` |
+| `shared_gorehulk_e_leg_-1_materials_241a5128a1e67fc48014.mtl` | `gorehulk_e_leg_-1`, `gorehulk_e_leg_1` |
+| `shared_gorehulk_f_arm_-1_materials_adcf9f7182e2574f30b8.mtl` | `gorehulk_f_arm_-1`, `gorehulk_f_arm_1`, `gorehulk_f_head` |
+| `shared_gorehulk_f_leg_-1_materials_13675e7812cf92afdf5c.mtl` | `gorehulk_f_leg_-1`, `gorehulk_f_leg_1` |
+| `shared_hairs_furious_heavy_materials_6dfa8391778a996b3b64.mtl` | `hairs_furious_heavy`, `hairs_furious_narrow`, `hairs_furious_normal`, `hairs_furious_wide`, `hairs_hungry_heavy`, `hairs_hungry_narrow`, `hairs_hungry_normal`, `hairs_hungry_wide`, `hairs_ravenous_heavy`, `hairs_ravenous_narrow`, `hairs_ravenous_normal`, `hairs_ravenous_wide`, `hairs_twisted_heavy`, `hairs_twisted_narrow`, `hairs_twisted_normal`, `hairs_twisted_wide`, `hairs_vengeful_heavy`, `hairs_vengeful_narrow`, `hairs_vengeful_normal`, `hairs_vengeful_wide`, `hairs_warped_heavy`, `hairs_warped_narrow`, `hairs_warped_normal`, `hairs_warped_wide`, `hairs_wicked_heavy`, `hairs_wicked_narrow`, `hairs_wicked_normal`, `hairs_wicked_wide` |
+| `shared_hatch_entrance_materials_7b5937c941e47839d076.mtl` | `hatch_entrance`, `hatch_exit`, `holding_platform` |
+| `shared_hats_materials_55d9a9d1405b4a1a27cc.mtl` | `person_hat_cowboy_hat`, `person_hat_tuque` |
+| `shared_herb_1_materials_a5adcace00e81a189622.mtl` | `herb_1`, `herb_2`, `herb_3` |
+| `shared_hive_a_materials_26cea12be8c9d7468fa2.mtl` | `hive_a`, `hive_b`, `hive_c` |
+| `shared_implants_fat_barbs_materials_256da65bc16662f23c42.mtl` | `implants_fat_barbs`, `implants_female_barbs`, `implants_hulk_barbs`, `implants_male_barbs`, `implants_thin_barbs` |
+| `shared_implants_fat_plating_materials_9c2274c4f27f28cd9e27.mtl` | `implants_fat_plating`, `implants_female_plating`, `implants_hulk_plating`, `implants_male_plating`, `implants_thin_plating` |
+| `shared_isorim_materials_a722e6d79e79d3a847e8.mtl` | `animal_alpaca`, `animal_alpaca_leg`, `animal_bison`, `animal_bison_leg`, `animal_boomrat`, `animal_boomrat_leg`, `animal_capybara`, `animal_capybara_leg`, `animal_caribou`, `animal_caribou_leg`, `animal_cat`, `animal_cat_leg`, `animal_chicken`, `animal_chicken_leg`, `animal_chinchilla`, `animal_chinchilla_leg`, `animal_cobra`, `animal_cow`, `animal_cow_leg`, `animal_deer`, `animal_deer_leg`, `animal_donkey`, `animal_donkey_leg`, `animal_dromedary`, `animal_dromedary_leg`, `animal_duck`, `animal_duck_leg`, `animal_elk`, `animal_elk_leg`, `animal_fox_arctic`, `animal_fox_arctic_leg`, `animal_fox_fennec`, `animal_fox_fennec_leg`, `animal_fox_red`, `animal_fox_red_leg`, `animal_gazelle`, `animal_gazelle_leg`, `animal_goat`, `animal_goat_leg`, `animal_goose`, `animal_goose_leg`, `animal_guineapig`, `animal_guineapig_leg`, `animal_hare`, `animal_hare_leg`, `animal_husky`, `animal_husky_leg`, `animal_ibex`, `animal_ibex_leg`, `animal_iguana`, `animal_iguana_leg`, `animal_labrador`, `animal_labrador_leg`, `animal_lynx`, `animal_lynx_leg`, `animal_muffalo`, `animal_muffalo_leg`, `animal_pig`, `animal_pig_leg`, `animal_raccoon`, `animal_raccoon_leg`, `animal_rat`, `animal_rat_leg`, `animal_sheep`, `animal_sheep_leg`, `animal_snowhare`, `animal_snowhare_leg`, `animal_squirrel`, `animal_squirrel_leg`, `animal_tortoise`, `animal_tortoise_leg`, `animal_turkey`, `animal_turkey_leg`, `animal_wildboar`, `animal_wildboar_leg`, `animal_wolf_arctic`, `animal_wolf_arctic_leg`, `animal_wolf_timber`, `animal_wolf_timber_leg`, `animal_yak`, `animal_yak_leg`, `animal_yorkie`, `animal_yorkie_leg`, `assault_rifle`, `bench_butcher`, `bench_electric_tailor`, `bench_fueled_stove`, `bench_machining`, `bench_sculpting`, `bench_smelter`, `bench_stonecutter`, `bench_tailor`, `biofuel_refinery`, `bow_great`, `bow_recurve`, `bow_short`, `campfire`, `club`, `comms_console`, `cooler`, `corn_1`, `corn_2`, `cotton`, `door_leaf`, `door_lintel`, `fence_arm`, `fence_post`, `food_agave_a`, `food_agave_b`, `food_agave_c`, `food_berries_a`, `food_berries_b`, `food_berries_c`, `food_corn_a`, `food_corn_b`, `food_corn_c`, `food_hay_a`, `food_hay_b`, `food_hay_c`, `food_potato_a`, `food_potato_b`, `food_potato_c`, `food_rice_a`, `food_rice_b`, `food_rice_c`, `game_of_ur`, `gate_leaf`, `gate_posts`, `geothermal`, `healroot_1`, `healroot_2`, `heater`, `hoopstone_ring`, `hopper`, `ikwa`, `item_rm_chemfuel_a`, `item_rm_component_a`, `item_rm_granite_blocks_a`, `item_rm_granite_blocks_b`, `item_rm_granite_blocks_c`, `item_rm_silver_a`, `item_rm_silver_b`, `item_rm_silver_c`, `item_rm_steel_a`, `item_rm_steel_b`, `item_rm_steel_c`, `item_rm_textile_a`, `item_rm_textile_b`, `item_rm_textile_c`, `knife`, `meal_pemmican`, `meal_simple`, `passive_cooler`, `pen_marker`, `person_belt_shield`, `person_hair_afro`, `person_hair_bob`, `person_hair_bun`, `person_hair_long`, `person_hair_medium`, `person_hair_mohawk`, `person_hair_ponytail`, `person_hair_short`, `person_hair_spiky`, `person_hair_twintails`, `person_hat_cowboy_hat`, `person_hat_simple_helmet`, `person_hat_tuque`, `person_hat_war_mask`, `person_hat_war_veil`, `pila`, `potato_1`, `potato_2`, `rice_1`, `rice_2`, `sandbags_1`, `sandbags_2`, `sandbags_3`, `sarcophagus`, `solar_generator`, `spear`, `spike_trap`, `standing_lamp`, `torch_lamp`, `trade_beacon`, `tree_pine_1`, `tree_pine_2`, `turret_gun_mini`, `turret_mini`, `wind_rotor`, `wind_turbine`, `wood_fired_generator` |
+| `shared_isorim_materials_cf6962e425177a86cec0.mtl` | `person_hair_style_bowlcut`, `person_hair_style_braidedknot`, `person_hair_style_bravo`, `person_hair_style_burgundy`, `person_hair_style_cleopatra`, `person_hair_style_cute`, `person_hair_style_decent`, `person_hair_style_firestarter`, `person_hair_style_flowy`, `person_hair_style_fringe`, `person_hair_style_frozen`, `person_hair_style_greasyswoop`, `person_hair_style_junkie`, `person_hair_style_keeper`, `person_hair_style_lackland`, `person_hair_style_mop`, `person_hair_style_ponytails`, `person_hair_style_primal`, `person_hair_style_randy`, `person_hair_style_revolt`, `person_hair_style_rockstar`, `person_hair_style_rookie`, `person_hair_style_scatman`, `person_hair_style_scrapper`, `person_hair_style_senorita`, `person_hair_style_shavetopbraid`, `person_hair_style_snazzy`, `person_hair_style_troubadour`, `person_hair_style_warden`, `person_hair_style_wavy` |
+| `shared_isorim_source_materials_2b4cebdd378e564a4239.mtl` | `bed_double`, `bedroll`, `chess_table`, `horseshoes_pin`, `stool`, `tool_cabinet`, `tv_flat` |
+| `shared_isorim_source_materials_feaab62f41af8a3a0ba6.mtl` | `armchair`, `bed`, `dining_chair`, `hospital_bed`, `shelf`, `table_2x2` |
+| `shared_item_medicine_ultratech_a_materials_9c54a9013752076d02bc.mtl` | `item_medicine_ultratech_a`, `item_medicine_ultratech_b`, `item_medicine_ultratech_c` |
+| `shared_item_rm_bioferrite_a_materials_22a5720e73004f59d346.mtl` | `item_rm_bioferrite_a`, `item_rm_bioferrite_b`, `item_rm_bioferrite_c` |
+| `shared_item_rm_gold_a_materials_0a3bd54694c13c532ef9.mtl` | `item_rm_gold_a`, `item_rm_gold_b`, `item_rm_gold_c` |
+| `shared_item_rm_gravlite_a_materials_c547ecc03e4735780e37.mtl` | `item_rm_gravlite_a`, `item_rm_gravlite_b`, `item_rm_gravlite_c` |
+| `shared_item_rm_jade_a_materials_b86e987a3ccc07303780.mtl` | `item_rm_jade_a`, `item_rm_jade_b`, `item_rm_jade_c` |
+| `shared_item_rm_neutroamine_a_materials_98ad8f36d29fcf0bf98c.mtl` | `item_rm_neutroamine_a`, `item_rm_neutroamine_b`, `item_rm_neutroamine_c` |
+| `shared_item_rm_obsidian_a_materials_1c241eb5ab5e16b86053.mtl` | `item_rm_obsidian_a`, `item_rm_obsidian_b`, `item_rm_obsidian_c` |
+| `shared_item_rm_plasteel_a_materials_d8273cbc74e729004107.mtl` | `item_rm_plasteel_a`, `item_rm_plasteel_b`, `item_rm_plasteel_c` |
+| `shared_item_rm_uranium_a_materials_cbc4e6637d3b7b387a4a.mtl` | `item_rm_uranium_a`, `item_rm_uranium_b`, `item_rm_uranium_c` |
+| `shared_kid_outfit_stand_head_materials_ca5233046bfe31289c58.mtl` | `kid_outfit_stand_head`, `outfit_stand_head` |
+| `shared_kid_outfit_stand_materials_21aeee9d4f986c7283d5.mtl` | `kid_outfit_stand`, `outfit_stand` |
+| `shared_lancer_head_materials_487a0078a208faf9a2aa.mtl` | `lancer_head`, `scyther_head` |
+| `shared_large_mech_gestator_glass_materials_78d0ffe15f80989cf922.mtl` | `large_mech_gestator_glass`, `mech_gestator_glass` |
+| `shared_large_mech_gestator_materials_61269257262e45e749b0.mtl` | `large_mech_gestator`, `mech_gestator` |
+| `shared_large_thruster_materials_8ceeaac9d83319dd79cb.mtl` | `large_thruster`, `small_thruster` |
+| `shared_leathery_female_face_materials_41ccb348de91762c03cb.mtl` | `leathery_female_face`, `leathery_male_face`, `scholar_female_face`, `scholar_male_face` |
+| `shared_legionary_materials_d1dcbafce67086a44a40.mtl` | `legionary`, `tesseron` |
+| `shared_lifter_materials_53b324ccf7e02c9ac305.mtl` | `lifter`, `scorcher_head` |
+| `shared_masks_materials_69205fb2b4aefbde4975.mtl` | `person_hat_war_mask`, `person_hat_war_veil` |
+| `shared_medicine_materials_db3697f9b739443a2fdb.mtl` | `item_medicine_herbal_a`, `item_medicine_herbal_b`, `item_medicine_herbal_c`, `item_medicine_industrial_a`, `item_medicine_industrial_b`, `item_medicine_industrial_c` |
+| `shared_metalhorror_juvenile_body_materials_97bec7d3689197b8fd4e.mtl` | `metalhorror_juvenile_body`, `metalhorror_larva_body`, `metalhorror_mature_body` |
+| `shared_metalhorror_juvenile_head_materials_6adbe6c093dd30c1aa72.mtl` | `metalhorror_juvenile_head`, `metalhorror_juvenile_support_-1`, `metalhorror_juvenile_support_1`, `metalhorror_larva_head`, `metalhorror_larva_support_-1`, `metalhorror_larva_support_1`, `metalhorror_mature_head`, `metalhorror_mature_support_-1`, `metalhorror_mature_support_1`, `nociosphere_closed_lining`, `noctol_leg_-1_0`, `noctol_leg_-1_1`, `noctol_leg_1_0`, `noctol_leg_1_1` |
+| `shared_moss_1_materials_db4a8fa0c36d72c3e693.mtl` | `moss_1`, `moss_2` |
+| `shared_nature_shrine_large_smooth_materials_92ce36b94a7e487a697a.mtl` | `nature_shrine_large_smooth`, `nature_shrine_small_smooth` |
+| `shared_nociosphere_shell_A_materials_dc929e372a1319a414eb.mtl` | `nociosphere_shell_A`, `nociosphere_shell_B`, `nociosphere_shell_C`, `nociosphere_shell_D`, `nociosphere_shell_E`, `nociosphere_shell_F`, `nociosphere_shell_G`, `nociosphere_shell_H`, `nociosphere_shell_I`, `nociosphere_shell_J`, `nociosphere_shell_K`, `nociosphere_shell_L`, `nociosphere_shell_M`, `nociosphere_shell_N` |
+| `shared_nucleus_b_assembled_materials_dc17f3f6cc6c2580e27d.mtl` | `nucleus_b_assembled`, `nucleus_c_assembled`, `nucleus_d_assembled`, `nucleus_e_assembled` |
+| `shared_person_beard_full_materials_22ed3a4b2e47096d7d28.mtl` | `person_beard_full`, `person_beard_goatee`, `person_hat_hood` |
+| `shared_person_fat_armor_cataphract_materials_26fffcdedb1a56aeebef.mtl` | `person_fat_armor_cataphract`, `person_female_armor_cataphract`, `person_hulk_armor_cataphract`, `person_male_armor_cataphract`, `person_thin_armor_cataphract` |
+| `shared_person_fat_armor_flakjacket_materials_38be446e83af937de72e.mtl` | `person_fat_armor_flakjacket`, `person_female_armor_flakjacket`, `person_hulk_armor_flakjacket`, `person_male_armor_flakjacket`, `person_thin_armor_flakjacket` |
+| `shared_person_fat_armor_flakpants_materials_38e15b1adde03f538219.mtl` | `person_fat_armor_flakpants`, `person_fat_robe`, `person_female_armor_flakpants`, `person_female_robe`, `person_hulk_armor_flakpants`, `person_hulk_robe`, `person_male_armor_flakpants`, `person_male_robe`, `person_thin_armor_flakpants`, `person_thin_robe` |
+| `shared_person_fat_armor_flakvest_front_materials_e616bb5954cf82cefc88.mtl` | `person_fat_armor_flakvest_front`, `person_female_armor_flakvest_front`, `person_hulk_armor_flakvest_front`, `person_male_armor_flakvest_front`, `person_thin_armor_flakvest_front` |
+| `shared_person_fat_armor_flakvest_materials_3bebbd523bee75449168.mtl` | `person_fat_armor_flakvest`, `person_female_armor_flakvest`, `person_hulk_armor_flakvest`, `person_male_armor_flakvest`, `person_thin_armor_flakvest` |
+| `shared_person_fat_armor_marine_materials_5f3cb82cdb4cf0e0a5a3.mtl` | `person_fat_armor_marine`, `person_female_armor_marine`, `person_hulk_armor_marine`, `person_male_armor_marine`, `person_thin_armor_marine` |
+| `shared_person_fat_armor_plate_materials_6cb41e95b6392eeb5311.mtl` | `person_fat_armor_plate`, `person_female_armor_plate`, `person_hulk_armor_plate`, `person_male_armor_plate`, `person_thin_armor_plate` |
+| `shared_person_fat_armor_recon_materials_bd065a1a210e8ac8dde5.mtl` | `person_fat_armor_recon`, `person_female_armor_recon`, `person_hulk_armor_recon`, `person_male_armor_recon`, `person_thin_armor_recon` |
+| `shared_person_fat_bandolier_materials_c67f5b3581ddd6300f81.mtl` | `person_fat_bandolier`, `person_fat_bandolier_overvest`, `person_female_bandolier`, `person_female_bandolier_overvest`, `person_hulk_bandolier`, `person_hulk_bandolier_overvest`, `person_male_bandolier`, `person_male_bandolier_overvest`, `person_thin_bandolier`, `person_thin_bandolier_overvest` |
+| `shared_person_fat_coat_long_materials_aa7e7a61a8947ee922ae.mtl` | `person_fat_coat_long`, `person_fat_coat_short`, `person_female_coat_long`, `person_female_coat_short`, `person_hulk_coat_long`, `person_hulk_coat_short`, `person_male_coat_long`, `person_male_coat_short`, `person_thin_coat_long`, `person_thin_coat_short` |
+| `shared_person_fat_duster_materials_8ee3a4d4fbbd426b0840.mtl` | `person_fat_duster`, `person_female_duster`, `person_hulk_duster`, `person_male_duster`, `person_thin_duster` |
+| `shared_person_fat_jacket_materials_d73780e889f5d6dc88aa.mtl` | `person_fat_jacket`, `person_female_jacket`, `person_hulk_jacket`, `person_male_jacket`, `person_thin_jacket` |
+| `shared_person_fat_labcoat_materials_c30ba962e663e264b719.mtl` | `person_fat_labcoat`, `person_female_labcoat`, `person_hulk_labcoat`, `person_male_labcoat`, `person_thin_labcoat` |
+| `shared_person_fat_locust_materials_959c20f3d3cdb19aa066.mtl` | `person_fat_locust`, `person_female_locust`, `person_hulk_locust`, `person_male_locust`, `person_thin_locust` |
+| `shared_person_fat_mechlord_materials_374226cc587d0935bb30.mtl` | `person_fat_mechlord`, `person_female_mechlord`, `person_hulk_mechlord`, `person_male_mechlord`, `person_thin_mechlord` |
+| `shared_person_fat_parka_materials_dd36974c041a1086b72b.mtl` | `person_fat_parka`, `person_female_parka`, `person_hulk_parka`, `person_male_parka`, `person_thin_parka` |
+| `shared_person_fat_robe_psy_materials_f9f4ec11f8f6945f0334.mtl` | `person_fat_robe_psy`, `person_female_robe_psy`, `person_hulk_robe_psy`, `person_male_robe_psy`, `person_thin_robe_psy` |
+| `shared_person_fat_robe_royal_materials_c5cb1d15b2737465ee62.mtl` | `person_fat_robe_royal`, `person_female_robe_royal`, `person_hat_crown_stellic`, `person_hulk_robe_royal`, `person_male_robe_royal`, `person_thin_robe_royal` |
+| `shared_person_fat_vacsuit_materials_0b03e999afc180c7bd44.mtl` | `person_fat_vacsuit`, `person_female_vacsuit`, `person_hulk_vacsuit`, `person_male_vacsuit`, `person_thin_vacsuit` |
+| `shared_person_hat_brim_materials_da92c12383e2f9413245.mtl` | `person_hat_brim`, `person_hat_tall` |
+| `shared_person_hat_cap_materials_2973e264c4c18fa9d257.mtl` | `person_hat_cap`, `person_hat_fullhelm`, `person_hat_helmet` |
+| `shared_person_hat_cloth_hood_materials_cb4bb7ccad8151418761.mtl` | `person_hat_cloth_hood`, `person_hat_cloth_mask`, `person_hat_tribal_headdress` |
+| `shared_person_hat_coronet_materials_d1a5313a7fe01f574bea.mtl` | `person_hat_coronet`, `person_hat_psyfocus_helmet` |
+| `shared_person_hat_eltex_skullcap_materials_e11cb1d463f71fc9444a.mtl` | `person_hat_eltex_skullcap`, `person_hat_ladies_hat`, `person_hat_top_hat` |
+| `shared_person_pack_bandwidth_materials_55aa75f36ae98b60b00d.mtl` | `person_pack_bandwidth`, `person_pack_jump`, `person_tool_mechcluster` |
+| `shared_person_tool_bombardment_materials_bde7b65afc3a35e515ce.mtl` | `person_tool_bombardment`, `person_tool_powerbeam` |
+| `shared_person_tool_insanity_materials_f2361fbf3d21b05accae.mtl` | `person_tool_insanity`, `person_tool_shock` |
+| `shared_pikeman_leg_left_front_materials_9dd0c418d4a2487c16c6.mtl` | `pikeman_leg_left_front`, `pikeman_leg_left_rear`, `pikeman_leg_right_front`, `pikeman_leg_right_rear` |
+| `shared_rawmat_materials_58cb68e9bd410839738c.mtl` | `item_rm_chemfuel_a`, `item_rm_component_a`, `item_rm_granite_blocks_a`, `item_rm_granite_blocks_b`, `item_rm_granite_blocks_c`, `item_rm_silver_a`, `item_rm_silver_b`, `item_rm_silver_c`, `item_rm_steel_a`, `item_rm_steel_b`, `item_rm_steel_c`, `item_rm_textile_a`, `item_rm_textile_b`, `item_rm_textile_c` |
+| `shared_revenant_arm_-1_materials_95165c9137de3f32d7db.mtl` | `revenant_arm_-1`, `revenant_arm_1`, `sightstealer_a_arm_-1`, `sightstealer_a_arm_1`, `sightstealer_a_head`, `sightstealer_b_arm_-1`, `sightstealer_b_arm_1`, `sightstealer_b_head`, `sightstealer_c_arm_-1`, `sightstealer_c_arm_1`, `sightstealer_c_head`, `sightstealer_d_arm_-1`, `sightstealer_d_arm_1`, `sightstealer_d_head` |
+| `shared_revenant_leg_-1_materials_cc06fed292eb4f6e3867.mtl` | `revenant_leg_-1`, `revenant_leg_1`, `sightstealer_a_body`, `sightstealer_a_leg_-1`, `sightstealer_a_leg_1`, `sightstealer_b_body`, `sightstealer_b_leg_-1`, `sightstealer_b_leg_1`, `sightstealer_c_body`, `sightstealer_c_leg_-1`, `sightstealer_c_leg_1`, `sightstealer_d_body`, `sightstealer_d_leg_-1`, `sightstealer_d_leg_1` |
+| `shared_roof_rim_materials_cd4d73e0142ecc5184b8.mtl` | `roof_rim`, `roof_rim90`, `roof_rim_diagonal` |
+| `shared_roof_square_materials_e0a4c3609b74185a3cd7.mtl` | `roof_square`, `roof_triangle` |
+| `shared_scyther_blade_left_materials_a5ec29076266a38322cd.mtl` | `scyther_blade_left`, `scyther_blade_right` |
+| `shared_shambler_fat_body_overlay_materials_3716e13a5dc6709d1456.mtl` | `shambler_fat_body_overlay`, `shambler_female_body_overlay`, `shambler_head_scars`, `shambler_hulk_body_overlay`, `shambler_male_body_overlay`, `shambler_thin_body_overlay` |
+| `shared_shared_apparel_materials_a51128c3bfea7902581f.mtl` | `person_fat_lower`, `person_fat_upper`, `person_female_lower`, `person_female_upper`, `person_hulk_lower`, `person_hulk_upper`, `person_male_lower`, `person_male_upper`, `person_thin_lower`, `person_thin_upper` |
+| `shared_ship_beam_materials_23ec8b15b9e88bab7aec.mtl` | `ship_beam`, `ship_computer_core`, `ship_engine`, `ship_reactor`, `ship_sensor` |
+| `shared_ship_chunk_1_materials_07d498dddffbcdd403f9.mtl` | `ship_chunk_1`, `ship_chunk_2` |
+| `shared_slag_1_materials_c3363ec7fe03712c97a6.mtl` | `slag_1`, `slag_2` |
+| `shared_subcore_ripscanner_materials_50af1eb3d76a0b546a62.mtl` | `subcore_ripscanner`, `subcore_softscanner` |
+| `shared_tall_grass_1_materials_3e5f13bd7fc8c22d8afc.mtl` | `tall_grass_1`, `tall_grass_2`, `tall_grass_3` |
+| `shared_tank_trap_a_materials_3b27492b108c0182839f.mtl` | `tank_trap_a`, `tank_trap_b`, `tank_trap_c` |
+| `shared_tool_hoe_materials_7451748ebf938db2185f.mtl` | `tool_hoe`, `tool_pickaxe` |
+| `shared_tree_bamboo_1_materials_8d5a4fef5a0c0cfd5309.mtl` | `tree_bamboo_1`, `tree_bamboo_2` |
+| `shared_tree_birch_1_materials_e30cf26e889de1a8bd96.mtl` | `tree_birch_1`, `tree_birch_2` |
+| `shared_tree_cecropia_1_materials_437645e00d53960f4123.mtl` | `tree_cecropia_1`, `tree_cecropia_2` |
+| `shared_tree_maple_1_materials_a00b1d5f34f982cc1d09.mtl` | `tree_maple_1`, `tree_maple_2` |
+| `shared_tree_palm_1_materials_ef16854420e388ff43e0.mtl` | `tree_palm_1`, `tree_palm_2` |
+| `shared_tree_poplar_1_materials_165c1b97423395fe6bac.mtl` | `tree_poplar_1`, `tree_poplar_2` |
+| `shared_tree_teak_1_materials_ffd9c2e0386c7468997c.mtl` | `tree_teak_1`, `tree_teak_2` |
+| `shared_tree_willow_1_materials_4098d4575f2482f6d61d.mtl` | `tree_willow_1`, `tree_willow_2` |
+| `shared_tunneler_arm_left_materials_66db1e88a96364a9ddc6.mtl` | `tunneler_arm_left`, `tunneler_arm_right`, `war_urchin` |
+| `shared_tunneler_claw_left_inner_materials_1cf99a0b0d5cd74dba79.mtl` | `tunneler_claw_left_inner`, `tunneler_claw_left_outer`, `tunneler_claw_right_inner`, `tunneler_claw_right_outer` |
+| `shared_tunneler_track_left_materials_b1e761837565712f59ff.mtl` | `tunneler_track_left`, `tunneler_track_right` |
+| `shared_turret_gun_auto_materials_6298a14e82da32c8fb57.mtl` | `turret_gun_auto`, `turret_gun_mortar`, `turret_mortar` |
+| `shared_warqueen_hatch_left_materials_49dd35689f31dff7805b.mtl` | `warqueen_hatch_left`, `warqueen_hatch_right` |
+| `shared_warqueen_segment_2_materials_b63a1df72197fd4af14c.mtl` | `warqueen_segment_2`, `warqueen_segment_3`, `warqueen_segment_4`, `warqueen_segment_5` |
+| `shared_workstation_clay_materials_a5797be9a0bd71144700.mtl` | `battery`, `bench_electric_smithy`, `bench_research`, `bench_stove`, `hydroponics`, `paste_dispenser` |
+
+The descriptive-name intake check ran at IsoRim@e7df907b1794e228ad92b5eb3b18b3227c5af826. A report-only amendment records its result.
+
+| Check command | Outcome |
+|---|---|
+| `python artifacts/clay-asset-import/validate.py` | Pass, 103.23 seconds. Existing intake validator checks all 1,238 renamed OBJ/material routes and four definition inputs. |
+| `python artifacts/clay-asset-import/verify_material_names.py` | Pass. All 491 material payloads match previous committed blobs. All 1,238 OBJ files preserve non-mtllib records. Every renamed library resolves and is used. |
+| Scope comparison against bb70cd4f | Source, DLL, definitions, textures and frozen root/1.5/1.6 inputs remain unchanged. |
+
+No additional source build or live-game check is needed for material filenames. Hosted CI runs again on the updated PR head.
