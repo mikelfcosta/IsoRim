@@ -58,7 +58,8 @@ def stage_intake(staged: Path, external: Path) -> None:
         parts = "<parts><li>1.7/Models/Diagnostics/part.obj</li></parts>" if prefix == "External" else ""
         (defs / "Models.xml").write_text(
             f'<Defs><ThingDef ParentName="ResourceBase"><defName>NormalProof{prefix}Thing</defName>'
-            f'<label>normal proof {prefix.lower()}</label><description>Diagnostic item.</description></ThingDef>'
+            f'<label>normal proof {prefix.lower()}</label><description>Diagnostic item.</description>'
+            '<statBases><Mass>1</Mass></statBases></ThingDef>'
             f'<IsoRim.ModelDef><defName>NormalProof{prefix}Model</defName><thingDef>NormalProof{prefix}Thing</thingDef>'
             f'<model>{path}</model>{parts}</IsoRim.ModelDef></Defs>')
         (defs / "WornGear.xml").write_text(

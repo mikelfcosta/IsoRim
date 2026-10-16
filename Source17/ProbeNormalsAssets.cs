@@ -134,6 +134,7 @@ namespace IsoRim
             {
                 ModelDef def = DefDatabase<ModelDef>.GetNamed("NormalProof" + prefix + "Model");
                 ThingDef thing = DefDatabase<ThingDef>.GetNamed("NormalProof" + prefix + "Thing");
+                Require(thing.statBases != null && thing.statBases.Any(stat => stat.stat == StatDefOf.Mass && stat.value == 1f), "The diagnostic item has no authored mass");
                 ModelEntry entry;
                 Require(ModelLibrary.TryGet(thing, out entry) && entry.def == def, "The fixture binding was not discovered: " + prefix);
                 string owner = def.modContentPack.RootDir;
