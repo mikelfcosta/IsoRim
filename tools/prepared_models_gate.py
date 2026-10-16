@@ -35,6 +35,7 @@ FINGERPRINTS = {
     "Waylith.UnityCompat.dll": "E4362E5F45EC39533C721B4B4E04C996CF59DE8FCDA2547EB648C3D68FBB5710",
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
+# Execution pin shared by frozen-input comparison and T1 selection.
 BASELINE = "1e94da595494948f4aed0cba599fae17ee3ce6ee"
 DEADLINE = None
 
@@ -593,10 +594,10 @@ def reset_work_directory(path):
     path.mkdir(parents=True)
 
 
-def stage_runtime(args, evidence, intake=False):
+def stage_runtime(args, evidence, intake=False, comparison=False):
     runtime = WORK / "runtime"
     staged = WORK / "staged-mod"
-    # Copy only game inputs and Core. Never follow the installed Mods junction.
+    # Copy approved game inputs and selected official data. Never follow the installed Mods junction.
     reset_work_directory(runtime)
     reset_work_directory(staged)
     for path in args.game_dir.iterdir():
@@ -604,6 +605,8 @@ def stage_runtime(args, evidence, intake=False):
             shutil.copy2(path, runtime / path.name)
     for relative in ("Data/Core", "Rendering", "vulkan"):
         copy_tree(args.game_dir / relative, runtime / relative)
+    if comparison:
+        copy_tree(args.game_dir / "Data/Biotech", runtime / "Data/Biotech")
     if (runtime / "Mods").exists() and {path.name for path in (runtime / "Mods").iterdir()} - {"IsoRim", "Harmony"}:
         raise Refusal("The sandbox contains an optional package")
     for relative in ("About", "Defs", "Models", "Textures", "LUTs", "1.7"):
@@ -647,7 +650,8 @@ def stage_runtime(args, evidence, intake=False):
         "<fullscreen>False</fullscreen><runInBackground>True</runInBackground></PrefsData>")
     (save / "Config/ModsConfig.xml").write_text(
         "<ModsConfigData><version>1.7.4980 rev60</version><activeMods>"
-        "<li>brrainz.harmony</li><li>ludeon.rimworld</li><li>connor.isorim</li>"
+        "<li>brrainz.harmony</li><li>ludeon.rimworld</li>"
+        + ("<li>ludeon.rimworld.biotech</li>" if comparison else "") + "<li>connor.isorim</li>"
         + ("<li>isorim.normalproof.external</li>" if intake else "") +
         "</activeMods><knownExpansions><li>ludeon.rimworld</li></knownExpansions></ModsConfigData>")
     (save / "IsoRimProbe.txt").write_text("# Normal proof controller\n")
@@ -898,6 +902,8 @@ def verify_static_pixels(evidence, cases, request, pid, started):
             captures.append({"caseId": case, "name": row["name"], "gpuFrame": serial,
                              "rawSha256": row["rawHash"], "pngSha256": row["pngHash"],
                              "reportSha256": digest(path), "differences": differences})
+    if GAMEPLAY_CASE in cases:
+        verify_gameplay_pixels(evidence, started, captures)
     if captures:
         (evidence / "framebuffer-receipt.json").write_text(json.dumps({
             "nonce": request["nonce"], "head": request["head"], "assemblyHash": request["assemblyHash"],
@@ -919,7 +925,89 @@ def verify_lighting_coverage(readings):
     return len(tuples)
 
 
+GAMEPLAY_CASE = "ModelStyleCases.GameplayComparisonAndPerf"
+GAMEPLAY_SAMPLES = {"Armchair", "Table2x2c", "ElectricStove", "StandingLamp", "Campfire", "Plant_TreeOak",
+                    "SmoothFixture", "Colonist", "Muffalo", "Turret_MiniTurret", "Door", "GrowthVat"}
+GAMEPLAY_PRESETS = ("Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines")
+
+
+def gameplay_readings(evidence, started):
+    path = evidence / (GAMEPLAY_CASE + ".json")
+    report = json.loads(path.read_text())
+    if path.stat().st_mtime < started or report.get("caseId") != GAMEPLAY_CASE or report.get("passed") is not True:
+        raise Refusal("The gameplay comparison report is stale or invalid")
+    return report["readings"]
+
+
+def verify_gameplay_pixels(evidence, started, captures):
+    readings = gameplay_readings(evidence, started)
+    rows = readings["frames"]
+    required = {(preset, pitch, yaw) for preset in GAMEPLAY_PRESETS for pitch, yaw in ((35.3, 45), (55, 0))}
+    if len(rows) != 8 or {(row["preset"], round(row["pitch"], 1), row["yaw"]) for row in rows} != required:
+        raise Refusal("The gameplay comparison preset/camera matrix is incomplete")
+    if not readings["dressedApparel"] or readings["backend"] != "RimWorldWaylith.Rendering.CameraTextureBaker":
+        raise Refusal("The gameplay comparison lacks its dressed rig or approved GPU backend")
+    serials = {row["gpuFrame"] for row in captures}
+    images = {}
+    for row in rows:
+        if (row["width"], row["height"], row["orthographicSize"]) != (512, 512, 11) or row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 1 or row["gpuFrameCompleted"] in serials:
+            raise Refusal("The gameplay comparison lacks a unique completed frame at normal zoom")
+        serials.add(row["gpuFrameCompleted"])
+        for kind in ("raw", "png"):
+            path = evidence / row[kind + "Path"]
+            if path.resolve().parent != evidence.resolve() or path.is_symlink() or path.stat().st_mtime < started or digest(path) != row[kind + "Hash"]:
+                raise Refusal("A gameplay capture is missing, stale or redirected")
+        raw, png = [(evidence / row[kind + "Path"]).read_bytes() for kind in ("raw", "png")]
+        if len(raw) != 512 * 512 * 4 or png[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", png[16:24]) != (512, 512):
+            raise Refusal("A gameplay capture has invalid dimensions")
+        samples = row["samples"]
+        if len(samples) != 12 or {sample["name"] for sample in samples} != GAMEPLAY_SAMPLES or any(sample["commands"] <= 0 for sample in samples) or sum(sample["commands"] for sample in samples) != row["commands"]:
+            raise Refusal("The gameplay comparison omits required sample submissions")
+        for sample in samples:
+            x0, y0, x1, y1 = sample["bounds"]
+            if not (2 <= x0 < x1 <= 509 and 2 <= y0 < y1 <= 509):
+                raise Refusal("A gameplay sample is clipped")
+            others = [other["bounds"] for other in samples if other is not sample]
+            count = sum(raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 3] != bytes((255, 0, 255))
+                        for y in range(y0, y1 + 1) for x in range(x0, x1 + 1)
+                        if not any(a <= x <= c and b <= y <= d for a, b, c, d in others))
+            if count < 5 or count != sample["pixels"]:
+                raise Refusal("A gameplay sample is blank, occluded or its pixel observation differs: " + sample["name"])
+        images[(row["preset"], round(row["pitch"], 1))] = (raw, row["pngHash"])
+        captures.append({"caseId": GAMEPLAY_CASE, "name": row["name"], "gpuFrame": row["gpuFrameCompleted"],
+                         "rawSha256": row["rawHash"], "pngSha256": row["pngHash"], "reportSha256": digest(evidence / (GAMEPLAY_CASE + ".json"))})
+    for pitch in (35.3, 55):
+        for i, a in enumerate(GAMEPLAY_PRESETS):
+            for b in GAMEPLAY_PRESETS[i+1:]:
+                first, first_png = images[a, pitch]
+                second, second_png = images[b, pitch]
+                if a == "MatteWrapped" and b == "MatteOrenNayar" and any(
+                        (first[i:i+3] == bytes((255, 0, 255))) != (second[i:i+3] == bytes((255, 0, 255))) for i in range(0, len(first), 4)):
+                    raise Refusal("Wrapped/Oren-Nayar changed comparison geometry instead of shading")
+                changed = sum(any(abs(first[i+c] - second[i+c]) > 2 for c in range(3)) for i in range(0, len(first), 4))
+                if changed < 20 or first_png == second_png:
+                    raise Refusal("The gameplay comparison presets are not visibly distinct: " + a + "/" + b)
+
+
+def verify_gameplay_timings(rows):
+    if len(rows) != 3 or {row["preset"] for row in rows} != {"Classic", "MatteWrapped", "MatteOrenNayar"}:
+        raise Refusal("The comparison timing modes are incomplete or duplicated")
+    for row in rows:
+        values = row["samplesMs"]
+        if len(values) != 60 or any(not math.isfinite(value) or value <= 0 for value in values) or row["commands"] <= 0:
+            raise Refusal("The comparison lacks 60 positive warm render timings or commands")
+        if row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 60:
+            raise Refusal("The comparison warm renders did not complete 60 GPU frames")
+        ordered = sorted(values)
+        expected = ((ordered[29] + ordered[30]) / 2, sum(values) / 60, ordered[56])
+        if any(not math.isfinite(row[key]) or abs(row[key] - value) > 1e-6
+               for key, value in zip(("medianMs", "meanMs", "p95Ms"), expected)):
+            raise Refusal("The comparison timing statistics do not match the observations")
+
+
 def verify_integrated(evidence, cases, request, pid, started, captures):
+    if GAMEPLAY_CASE in cases:
+        verify_gameplay_timings(gameplay_readings(evidence, started)["timings"])
     integrated = {case for case in cases if case.startswith("IntegratedNormalCases.")}
     if not integrated:
         return
@@ -1023,10 +1111,11 @@ def verify_integrated(evidence, cases, request, pid, started, captures):
 def runtime_cases(args, evidence, protected, cases, head):
     with sandbox_lock():
         run_child(["powershell.exe", "-NoProfile", "-Command",
-                   "if (Get-Process -Name RimWorld -ErrorAction SilentlyContinue) { exit 2 }"],
+                   "if (Get-Process -Name 'RimWorld*' -ErrorAction SilentlyContinue) { exit 2 }"],
                   evidence, "game-exclusion", protected)
         intake = any(case.startswith("AssetIntakeCases.") for case in cases)
-        runtime, save, product = stage_runtime(args, evidence, intake=intake)
+        comparison = "ModelStyleCases.GameplayComparisonAndPerf" in cases
+        runtime, save, product = stage_runtime(args, evidence, intake=intake, comparison=comparison)
         validator_results = validate_staged_intake(evidence, protected) if intake else None
         modules = {name: digest(runtime / name) for name in [*FINGERPRINTS, "System.Private.CoreLib.dll", "coreclr.dll"]}
         modules["0Harmony.dll"] = HARMONY_HASH
@@ -1047,6 +1136,9 @@ def runtime_cases(args, evidence, protected, cases, head):
             artifact_hash = verify_artifact_files(artifact_files)
             (evidence / "artifact-identity.json").write_text(json.dumps({
                 "head": head, "sha256": artifact_hash, "files": [str(path) for path in artifact_files]}, indent=2))
+        run_child(["powershell.exe", "-NoProfile", "-Command",
+                   "if (Get-Process -Name 'RimWorld*' -ErrorAction SilentlyContinue) { exit 2 }"],
+                  evidence, "game-exclusion-before-launch", protected)
         started = time.time()
         with (evidence / "runtime.stdout.log").open("wb") as stdout, (evidence / "runtime.stderr.log").open("wb") as stderr:
             environment = dict(os.environ)
@@ -1072,6 +1164,8 @@ def runtime_cases(args, evidence, protected, cases, head):
         expected_active = {"brrainz.harmony", "ludeon.rimworld", "connor.isorim"}
         if intake:
             expected_active.add("isorim.normalproof.external")
+        if comparison:
+            expected_active.add("ludeon.rimworld.biotech")
         if {node.text for node in active} != expected_active or len(active) != len(expected_active):
             raise Refusal("The runtime active package manifest changed")
         proofs = verify_proofs(list(evidence.glob("NormalProof-*.json")), cases, request, modules, child.pid, started)

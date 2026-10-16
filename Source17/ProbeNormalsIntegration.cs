@@ -368,7 +368,7 @@ namespace IsoRim
 
     internal static class ModelStyleCases
     {
-        internal static readonly string[] Cases = { "ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines" };
+        internal static readonly string[] Cases = { "ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines", "ModelStyleCases.GameplayComparisonAndPerf" };
 
         private static void Check(bool condition, string message)
         {
@@ -412,6 +412,268 @@ namespace IsoRim
                 return new { settingsDefaults = defaults, persisted = changed, frameSync = true, outlines = OutlineProof(request), uiProxy = SettingsUiProxy(request) };
             }
             finally { IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0, 0, 0); }
+        }
+
+        private sealed class ComparisonSample
+        {
+            internal string Name;
+            internal List<MeshDrawCommand> Commands = new List<MeshDrawCommand>();
+            internal int[] Bounds;
+        }
+
+        private static readonly string[] ComparisonPresets = { "Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines" };
+
+        private static object GameplayComparisonAndPerf(ProbeNormals.Request request)
+        {
+            IsoRimSettings previous = IsoRimMod.Settings;
+            bool cull = Cull.Enabled, batches = PartBatches.Enabled;
+            var owner = new GameObject("IsoRim gameplay style comparison");
+            Camera camera = owner.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 11; camera.aspect = 1; camera.cullingMask = 0;
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.magenta;
+            const int size = 512;
+            RenderTexture target = RenderTexture.GetTemporary(size, size, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            RenderTexture active = RenderTexture.active; camera.targetTexture = target;
+            var backend = UnityStubs.Rendering.CameraTextureRenderer.Current;
+            Check(backend?.GetType().FullName == "RimWorldWaylith.Rendering.CameraTextureBaker", "Comparison GPU backend unavailable");
+            FieldInfo serial = backend.GetType().GetField("_frameNumber", BindingFlags.Instance | BindingFlags.NonPublic);
+            FieldInfo immediate = typeof(Graphics).GetField("ImmediateCapture", Hidden);
+            Check(immediate != null, "Camera immediate submission seam unavailable");
+            var frames = new List<object>(); var timings = new List<object>();
+            var images = new Dictionary<string, byte[]>();
+            var layers = new List<SectionLayer>();
+            var restore = new List<Action>();
+            Building_Door door = null;
+            Pawn colonist = null;
+            Vector3 center = new Vector3(Find.CurrentMap.Center.x + .5f, 0, Find.CurrentMap.Center.z + .5f);
+            Camera.CameraCallback submit = null;
+            try
+            {
+                IsoRimMod.Settings = new IsoRimSettings { squash = .003f, texturedModels = true, workAnimations = false };
+                Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
+                colonist = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
+                if (colonist.apparel.WornApparel.Count == 0)
+                    colonist.apparel.Wear((Apparel)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Apparel_BasicShirt"), ThingDefOf.Cloth));
+                Check(colonist.apparel.WornApparel.Count > 0, "Comparison colonist is not dressed");
+                Pawn muffalo = PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("Muffalo"));
+                door = (Building_Door)ThingMaker.MakeThing(ThingDefOf.Door, ThingDefOf.Steel);
+                GenSpawn.Spawn(door, Find.CurrentMap.Center + new IntVec3(2, 0, 4), Find.CurrentMap);
+                var definitions = new[] { "Armchair", "Table2x2c", "ElectricStove", "StandingLamp", "Campfire", "Plant_TreeOak", "SmoothFixture", "Colonist", "Muffalo", "Turret_MiniTurret", "Door", "GrowthVat" };
+                // Keep the exact same Thing IDs and picked variants across every preset.
+                var things = definitions.Select(name =>
+                {
+                    if (name == "SmoothFixture" || name == "Colonist" || name == "Muffalo" || name == "Door") return null;
+                    ThingDef def = DefDatabase<ThingDef>.GetNamed(name);
+                    Thing thing = ThingMaker.MakeThing(def, def.MadeFromStuff ? (name == "Armchair" ? ThingDefOf.Cloth : ThingDefOf.WoodLog) : null);
+                    if (name == "Armchair")
+                    {
+                        thing.TryGetComp<CompColorable>()?.SetColor(new Color(.35f, .65f, .8f));
+                        Check(thing.Stuff != null && thing.DrawColor != Color.white, "Comparison Armchair lacks stuff tint");
+                    }
+                    return thing;
+                }).ToArray();
+                Model smooth = (Model)typeof(StaticNormalCases).GetMethod("Fixture", Hidden).Invoke(null, new object[] { request.fixtureDirectory, false, true });
+                for (int preset = 0; preset < ComparisonPresets.Length; preset++)
+                {
+                    IsoRimSettings st = IsoRimMod.Settings;
+                    st.modelStyle = preset == 0 ? 0 : preset == 2 ? 2 : 1;
+                    st.outlines = preset != 3; st.outlineWidth = preset == 0 ? 1f : .75f;
+                    st.clayWrap = .22f; st.clayHighlight = .04f; st.clayRoughness = .65f;
+                    DynamicModels.Forget(); People.ForgetAll();
+                    R3DMaterials.SyncModelStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
+                    var samples = new List<ComparisonSample>();
+                    for (int i = 0; i < definitions.Length; i++)
+                    {
+                        string name = definitions[i];
+                        Vector3 at = center + new Vector3((i % 4 - 1.5f) * 4, 0, (i / 4 - 1) * 4);
+                        var sample = new ComparisonSample { Name = name }; samples.Add(sample);
+                        void Bake(Thing thing, Model model, ModelEntry entry = null)
+                        {
+                            var layer = new SectionLayer_IsoRimBodies(new Section(Find.CurrentMap.Center, Find.CurrentMap)); layers.Add(layer);
+                            Vector3 scale = entry != null ? entry.Fit(thing.def) * entry.def.scale : Vector3.one;
+                            Check((bool)typeof(ModelBaker).GetMethod("Write", Hidden).Invoke(null, new object[] { layer, thing, model, at,
+                                Quaternion.identity, Quaternion.identity, Vector3.zero, scale, entry?.def.offset ?? Vector3.zero, 0f,
+                                thing.DrawColor, false, entry?.def.outline ?? 1f }), "Comparison static bake refused " + name);
+                            CutTags.Finish(layer); NormalStreams.Finish(layer);
+                            typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(layer, new object[] { MeshParts.All });
+                            foreach (LayerSubMesh sub in layer.subMeshes.Where(sub => sub.mesh.vertexCount > 0)) Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
+                        }
+                        using (MeshDrawSubmission.BeginCapture(sample.Commands))
+                        {
+                            if (i < 6 || name == "GrowthVat" || name == "Turret_MiniTurret")
+                            {
+                                Thing thing = things[i]; ThingDef def = thing.def;
+                                thing.Position = new IntVec3((int)at.x, 0, (int)at.z);
+                                Check(ModelLibrary.TryGet(def, out ModelEntry entry) && entry.HasModel, "Missing comparison model " + name);
+                                Bake(thing, entry.Pick(thing), entry);
+                                if (name == "Turret_MiniTurret")
+                                {
+                                    Check(entry.top != null, "Comparison turret lacks gun");
+                                    DynamicModels.Draw(entry.top, at + Vector3.up * entry.def.topHeight, 25, entry.Fit(def) * entry.def.scale, thing.DrawColor, R3DTextures.ModelSwatch(thing));
+                                }
+                                if (name == "GrowthVat")
+                                {
+                                    Check(thing is Building_GrowthVat && entry.glass != null, "Comparison lacks Growth Vat chamber");
+                                    typeof(Glass).GetMethod("Draw", Hidden).Invoke(null, new object[] { thing, entry });
+                                }
+                            }
+                            else if (name == "SmoothFixture") Bake(ThingMaker.MakeThing(ThingDefOf.Steel), smooth);
+                            else if (name == "Colonist") Check(People.Draw(colonist, at, out _, out _, out _), "Comparison People draw refused dressed colonist");
+                            else if (name == "Muffalo") Check(Animals.Draw(muffalo, at), "Comparison Muffalo draw refused body/legs");
+                            else if (name == "Door")
+                            {
+                                Check(Doors.Draw(door, .18f), "Comparison Door draw refused leaves");
+                            }
+                        }
+                        Check(sample.Commands.Count > 0, "Comparison omitted submissions for " + name);
+                        if (name == "Muffalo") Check(sample.Commands.Select(command => command.Matrix).Distinct().Count() >= 5, "Comparison Muffalo omitted legs");
+                        if (name == "GrowthVat") Check(sample.Commands.Any(command => command.Material.DebugName == "IsoRim_Glass"), "Comparison omitted Glass.Mat");
+                    }
+                    var commands = samples.SelectMany(sample => sample.Commands).ToList();
+                    // Camera.Render owns the approved baker's capture, render pass and fence. Replay
+                    // the actual production submissions into its immediate list, without recooking meshes.
+                    submit = rendering => { if (rendering == camera) ((List<MeshDrawCommand>)immediate.GetValue(null)).AddRange(commands); };
+                    Camera.onPreRender += submit;
+                    var materials = commands.Select(command => command.Material).Distinct().ToArray();
+                    foreach (var mat in materials)
+                    {
+                        var view = mat.GetVector(Shader.PropertyToID("_IsoView")); var sun = mat.GetVector(Shader.PropertyToID("_IsoSun"));
+                        var sky = mat.GetVector(Shader.PropertyToID("_IsoSky")); var cell = mat.GetVector(Shader.PropertyToID("_IsoCellMap"));
+                        float glow = mat.GetFloat("_GlowMode");
+                        restore.Add(() => { mat.SetVector("_IsoView", view); mat.SetVector("_IsoSun", sun); mat.SetVector("_IsoSky", sky); mat.SetVector("_IsoCellMap", cell); mat.SetFloat("_GlowMode", glow); });
+                        mat.SetVector("_IsoSun", new System.Numerics.Vector4(.3f, .8f, .52f, 0));
+                        mat.SetVector("_IsoSky", new System.Numerics.Vector4(1, 1, 1, 1)); mat.SetVector("_IsoCellMap", System.Numerics.Vector4.Zero); mat.SetFloat("_GlowMode", 0);
+                    }
+                    for (int angle = 0; angle < 2; angle++)
+                    {
+                        float pitch = angle == 0 ? 35.3f : 55f, yaw = angle == 0 ? 45f : 0f;
+                        camera.ResetWorldToCameraMatrix();
+                        camera.transform.rotation = Quaternion.Euler(pitch, yaw + 180, 0); camera.transform.position = center + Vector3.up - camera.transform.forward * 30;
+                        camera.worldToCameraMatrix = camera.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
+                        Vector3 direction = -camera.transform.forward;
+                        foreach (var mat in materials) mat.SetVector("_IsoView", new System.Numerics.Vector4(direction.x, direction.y, direction.z, View3D.Squash));
+                        foreach (ComparisonSample sample in samples)
+                        {
+                            try { sample.Bounds = ComparisonBounds(sample.Commands, camera, size); }
+                            catch (Exception error) { throw new InvalidOperationException(sample.Name + ": " + error.Message, error); }
+                        }
+                        int before = (int)serial.GetValue(backend); camera.Render(); int completed = (int)serial.GetValue(backend);
+                        Check(completed == before + 1, "Comparison has no completed GPU render");
+                        Check(backend.TryReadPixels(target, out byte[] raw), "Comparison GPU readback unavailable");
+                        Check(raw.Length == size * size * 4, "Comparison framebuffer dimensions differ");
+                        var visible = samples.Select(sample => new
+                        {
+                            name = sample.Name,
+                            commands = sample.Commands.Count,
+                            bounds = sample.Bounds,
+                            pixels = ComparisonPixels(raw, sample, samples, size)
+                        }).ToArray();
+                        Check(visible.All(sample => sample.pixels >= 5), "Comparison sample is empty, occluded or omitted: " + string.Join(",", visible.Where(sample => sample.pixels < 5).Select(sample => sample.name)));
+                        string stem = "gameplay-" + ComparisonPresets[preset] + "-" + (angle == 0 ? "isometric" : "straight");
+                        File.WriteAllBytes(Path.Combine(request.outputDirectory, stem + ".rgba"), raw);
+                        RenderTexture.active = target; var image = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                        image.ReadPixels(new Rect(0, 0, size, size), 0, 0); image.Apply(); byte[] png = image.EncodeToPNG(); UnityEngine.Object.Destroy(image);
+                        File.WriteAllBytes(Path.Combine(request.outputDirectory, stem + ".png"), png); images.Add(stem, raw);
+                        frames.Add(new
+                        {
+                            name = stem,
+                            preset = ComparisonPresets[preset],
+                            pitch,
+                            yaw,
+                            orthographicSize = 11,
+                            width = size,
+                            height = size,
+                            samples = visible,
+                            commands = commands.Count,
+                            gpuFrameBefore = before,
+                            gpuFrameCompleted = completed,
+                            rawPath = stem + ".rgba",
+                            rawHash = Convert.ToHexString(SHA256.HashData(raw)),
+                            pngPath = stem + ".png",
+                            pngHash = Convert.ToHexString(SHA256.HashData(png))
+                        });
+                        if (angle == 0 && preset < 3)
+                        {
+                            for (int warm = 0; warm < 3; warm++) camera.Render();
+                            int start = (int)serial.GetValue(backend); var ms = new List<double>();
+                            for (int warm = 0; warm < 60; warm++)
+                            {
+                                long ticks = System.Diagnostics.Stopwatch.GetTimestamp(); camera.Render();
+                                ms.Add((System.Diagnostics.Stopwatch.GetTimestamp() - ticks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency);
+                            }
+                            int finish = (int)serial.GetValue(backend); double[] sorted = ms.OrderBy(value => value).ToArray();
+                            Check(finish == start + 60 && ms.All(value => value > 0), "Comparison lacks 60 completed warm render timings");
+                            timings.Add(new
+                            {
+                                preset = ComparisonPresets[preset],
+                                commands = commands.Count,
+                                gpuFrameBefore = start,
+                                gpuFrameCompleted = finish,
+                                samplesMs = ms,
+                                medianMs = (sorted[29] + sorted[30]) / 2,
+                                meanMs = ms.Average(),
+                                p95Ms = sorted[56]
+                            });
+                        }
+                    }
+                    Camera.onPreRender -= submit; submit = null;
+                    foreach (Action reset in restore) reset(); restore.Clear();
+                    foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh); layers.Clear();
+                }
+                foreach (string angle in new[] { "isometric", "straight" })
+                    for (int a = 0; a < 4; a++) for (int b = a + 1; b < 4; b++)
+                    {
+                        byte[] first = images["gameplay-" + ComparisonPresets[a] + "-" + angle], second = images["gameplay-" + ComparisonPresets[b] + "-" + angle];
+                        if (a == 1 && b == 2)
+                            Check(Enumerable.Range(0, size * size).All(pixel => IsComparisonBackground(first, pixel * 4) == IsComparisonBackground(second, pixel * 4)),
+                                "Wrapped/Oren-Nayar changed comparison geometry instead of shading");
+                        int changed = Enumerable.Range(0, size * size).Count(pixel => Enumerable.Range(0, 3).Any(c => Math.Abs(first[pixel * 4 + c] - second[pixel * 4 + c]) > 2));
+                        Check(changed >= 20, "Comparison presets are not visibly distinct: " + ComparisonPresets[a] + "/" + ComparisonPresets[b]);
+                    }
+                return new { frames, timings, dressedApparel = colonist.apparel.WornApparel.Select(item => item.def.defName).ToArray(), backend = backend.GetType().FullName, timingMethod = "Stopwatch.GetTimestamp around Camera.Render; completed native GPU fence" };
+            }
+            finally
+            {
+                if (submit != null) Camera.onPreRender -= submit;
+                foreach (Action reset in restore) reset();
+                foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh);
+                if (door?.Spawned == true) door.DeSpawn();
+                DynamicModels.Forget(); People.ForgetAll(); Cull.Enabled = cull; PartBatches.Enabled = batches;
+                IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0f, 0f, 0f);
+                RenderTexture.active = active; RenderTexture.ReleaseTemporary(target); UnityEngine.Object.Destroy(owner);
+            }
+        }
+
+        private static int[] ComparisonBounds(List<MeshDrawCommand> commands, Camera camera, int size)
+        {
+            var points = new List<Vector3>(); Matrix4x4 projection = camera.projectionMatrix * camera.worldToCameraMatrix;
+            foreach (MeshDrawCommand command in commands)
+            {
+                var bounds = command.Mesh.Bounds;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    var p = System.Numerics.Vector3.Transform(new System.Numerics.Vector3((corner & 1) == 0 ? bounds.Min.X : bounds.Max.X,
+                        (corner & 2) == 0 ? bounds.Min.Y : bounds.Max.Y, (corner & 4) == 0 ? bounds.Min.Z : bounds.Max.Z), System.Numerics.Matrix4x4.Transpose(command.Matrix));
+                    Vector4 clip = projection * new Vector4(p.X, p.Y, p.Z, 1);
+                    points.Add(new Vector3((clip.x / clip.w + 1) * size / 2, (clip.y / clip.w + 1) * size / 2, clip.z / clip.w));
+                }
+            }
+            Check(points.All(point => point.x > 2 && point.x < size - 3 && point.y > 2 && point.y < size - 3 && point.z > -1 && point.z < 1), "Comparison clips a submitted sample: " + string.Join(";", points.Where(point => point.x <= 2 || point.x >= size - 3 || point.y <= 2 || point.y >= size - 3 || point.z <= -1 || point.z >= 1).Take(3).Select(point => point.ToString())));
+            return new[] { (int)Math.Floor(points.Min(p => p.x)), (int)Math.Floor(points.Min(p => p.y)), (int)Math.Ceiling(points.Max(p => p.x)), (int)Math.Ceiling(points.Max(p => p.y)) };
+        }
+
+        private static bool IsComparisonBackground(byte[] raw, int offset) => raw[offset] == 255 && raw[offset + 1] == 0 && raw[offset + 2] == 255;
+
+        private static int ComparisonPixels(byte[] raw, ComparisonSample sample, List<ComparisonSample> samples, int size)
+        {
+            int count = 0; int[] b = sample.Bounds;
+            for (int y = b[1]; y <= b[3]; y++) for (int x = b[0]; x <= b[2]; x++)
+            {
+                if (samples.Any(other => other != sample && x >= other.Bounds[0] && x <= other.Bounds[2] && y >= other.Bounds[1] && y <= other.Bounds[3])) continue;
+                int offset = (y * size + x) * 4;
+                if (!IsComparisonBackground(raw, offset)) count++;
+            }
+            return count;
         }
 
         private const BindingFlags Hidden = BindingFlags.Static | BindingFlags.NonPublic;
@@ -726,6 +988,10 @@ namespace IsoRim
         {
             switch (id)
             {
+                case "ModelStyleCases.GameplayComparisonAndPerf":
+                    string comparisonPath = Path.Combine(request.outputDirectory, id + ".json");
+                    File.WriteAllText(comparisonPath, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = GameplayComparisonAndPerf(request) }));
+                    return comparisonPath;
                 case "ModelStyleCases.ControlledOutlines":
                     string controlledPath = Path.Combine(request.outputDirectory, id + ".json");
                     File.WriteAllText(controlledPath, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = ControlledOutlines(request) }));
