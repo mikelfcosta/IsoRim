@@ -350,7 +350,7 @@ class GateHostTests(unittest.TestCase):
         import prepared_models_gate as gate
 
         self.assertEqual({case: len(rows) for case, rows in gate.style_frame_requirements(gate.case_manifest()["cases"]).items()}, {
-            "ModelStyleCases.DiffuseAndHighlightModes": 64, "ModelStyleCases.ProtectedExceptions": 33})
+            "ModelStyleCases.DiffuseAndHighlightModes": 66, "ModelStyleCases.ProtectedExceptions": 33})
         required = gate.static_frame_requirements(gate.case_manifest()["cases"])
         moving = gate.moving_frame_requirements(gate.case_manifest()["cases"])
         self.assertEqual({case: len(rows) for case, rows in moving.items()}, {

@@ -165,7 +165,7 @@ namespace IsoRim
         }
 
         private static object Capture(string caseId, string evidence, string path, Spec spec, Model model, List<DynamicModels.Part> merged,
-            bool diagnostic, int transport, int lighting, int expected, string variant = "", int style = 0, double referenceRgb = -1, float highlight = 0)
+            bool diagnostic, int transport, int lighting, int expected, string variant = "", int style = 0, double referenceRgb = -1, float highlight = 0, bool alignedHighlight = false)
         {
             const int width = 1024, height = 256;
             bool instanced = path.StartsWith("instanced", StringComparison.Ordinal), textured = path.EndsWith("texture", StringComparison.Ordinal);
@@ -182,9 +182,10 @@ namespace IsoRim
             var owner = new GameObject("IsoRim moving normal proof");
             Camera camera = owner.AddComponent<Camera>();
             Vector3 origin = new Vector3(0, 10, 0);
+            Vector3 view = alignedHighlight ? spec.N : spec.G;
             camera.enabled = false; camera.orthographic = true; camera.aspect = 4; camera.cullingMask = -1;
-            camera.transform.rotation = Quaternion.LookRotation(-spec.G, Mathf.Abs(spec.G.y) > .9f ? Vector3.forward : Vector3.up);
-            camera.transform.position = origin + spec.G * 10;
+            camera.transform.rotation = Quaternion.LookRotation(-view, Mathf.Abs(view.y) > .9f ? Vector3.forward : Vector3.up);
+            camera.transform.position = origin + view * 10;
             camera.worldToCameraMatrix = camera.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
             camera.orthographicSize = triangle.Max(v => (v - centroid).magnitude) * 1.25f;
             var target = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
@@ -208,6 +209,12 @@ namespace IsoRim
                 {
                     part.material.SetFloat("_ClayMode", style); part.material.SetFloat("_ClayWrap", .22f); part.material.SetFloat("_ClayRoughness", .65f);
                     part.material.SetFloat("_ClayHighlight", highlight);
+                    if (alignedHighlight)
+                    {
+                        part.material.SetVector("_IsoSun", new Vector4(view.x, view.y, view.z, 0));
+                        part.material.SetVector("_IsoView", new Vector4(view.x, view.y, view.z, View3D.Squash));
+                        IsoGlow.MarkFor(part.material).SetVector("_IsoView", part.material.GetVector("_IsoView"));
+                    }
                 }
             if (ownCell)
             {
@@ -331,7 +338,7 @@ namespace IsoRim
                     expectedN = V(spec.N),
                     expectedG = V(spec.G),
                     expectedBinN = V(spec.Q),
-                    sun = V(spec.L),
+                    sun = V(face.material.GetVector("_IsoSun")),
                     expectedShades = shades,
                     squash = View3D.Squash,
                     baseRgb = .6,
@@ -499,7 +506,7 @@ namespace IsoRim
                                     style: mode, referenceRgb: ModelStyleCases.Reference(spec.Part + 1, authored, mode)));
                                 rows.Add(Capture(id, evidence, path, spec, path.EndsWith("texture", StringComparison.Ordinal) ? tex : plain,
                                     spec.Part >= 0 ? combined : null, false, 0, 0, 0, (authored ? "authored" : "missing") + "-highlight-mode" + mode,
-                                    style: mode, referenceRgb: ModelStyleCases.HighlightReference(spec.Part + 1, authored, mode), highlight: .04f));
+                                    style: mode, referenceRgb: ModelStyleCases.HighlightReference(spec.Part + 1, authored, mode), highlight: .04f, alignedHighlight: authored && mode == 2));
                             }
                 }
                 return rows;

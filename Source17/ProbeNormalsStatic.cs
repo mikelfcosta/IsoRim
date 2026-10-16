@@ -445,6 +445,9 @@ namespace IsoRim
                     foreach (int mode in new[] { 1, 2 })
                         rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-mode" + mode,
                             style: mode, referenceRgb: ModelStyleCases.Reference(0, authored, mode)));
+                    if (authored)
+                        rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-highlight-mode2",
+                            style: 2, highlight: .04f, referenceRgb: .503309813865, alignedHighlight: true));
                     if (!authored)
                     {
                         pair.L = pair.G;
@@ -502,7 +505,7 @@ namespace IsoRim
 
         private static object Capture(string evidence, Pair pair, LayerSubMesh sub, bool textured, bool diagnostic,
             int transportFault, int lightingFault, int expectedIndex, string suffix = "", bool legacy = false, bool ownCell = false, bool cutaway = false,
-            int style = 0, float highlight = 0, float albedo = .6f, double referenceRgb = -1, int lightMode = 1, float sky = 1, string blend = "")
+            int style = 0, float highlight = 0, float albedo = .6f, double referenceRgb = -1, int lightMode = 1, float sky = 1, string blend = "", bool alignedHighlight = false)
         {
             const int width = 1024, height = 256;
             string name = (diagnostic ? "direction" : "lighting") + "-" + pair.Name + (textured ? "-texture" : "-solid")
@@ -514,7 +517,8 @@ namespace IsoRim
             var owner = new GameObject("IsoRim normal framebuffer proof");
             Camera camera = owner.AddComponent<Camera>();
             camera.enabled = false; camera.orthographic = true; camera.aspect = 4; camera.cullingMask = 0;
-            Vector3 rasterG = pair.G;
+            Vector3 rasterG = alignedHighlight ? pair.N : pair.G;
+            Vector3 light = alignedHighlight ? pair.N : pair.L;
             camera.transform.rotation = Quaternion.LookRotation(-rasterG, Mathf.Abs(rasterG.y) > .9f ? Vector3.forward : Vector3.up);
             camera.transform.position = rasterG * 10;
             // Freeze a physical-space camera. The view matrix cancels only the artificial Y expansion.
@@ -539,8 +543,8 @@ namespace IsoRim
             actual.SetFloat("_LightMode", lightMode); actual.SetFloat("_GlowMode", 0); actual.SetFloat("_MarkPass", 0);
             actual.SetFloat("_NormalView", diagnostic ? 1 : 0);
             actual.SetFloat("_NormalTransportFault", transportFault); actual.SetFloat("_NormalLightingFault", lightingFault);
-            actual.SetVector("_IsoSun", new Vector4(pair.L.x, pair.L.y, pair.L.z, 0));
-            actual.SetVector("_IsoView", new Vector4(pair.G.x, pair.G.y, pair.G.z, View3D.Squash));
+            actual.SetVector("_IsoSun", new Vector4(light.x, light.y, light.z, 0));
+            actual.SetVector("_IsoView", new Vector4(rasterG.x, rasterG.y, rasterG.z, View3D.Squash));
             actual.SetVector("_IsoSky", new Vector4(sky, sky, sky, 1)); actual.SetVector("_IsoCellMap", Vector4.zero);
             Require(actual.GetFloat("_NormalView") == (diagnostic ? 1 : 0) && actual.GetFloat("_NormalTransportFault") == transportFault
                 && actual.GetFloat("_NormalLightingFault") == lightingFault && actual.GetFloat("_LightMode") == lightMode, "Requested shader state was not observed");
@@ -658,7 +662,7 @@ namespace IsoRim
                     expectedN = V(pair.N),
                     expectedG = V(pair.G),
                     expectedBinN = V(pair.Q),
-                    sun = V(pair.L),
+                    sun = V(light),
                     expectedShades = referenceShades,
                     ownCell,
                     cutaway,

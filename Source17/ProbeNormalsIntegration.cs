@@ -380,9 +380,11 @@ namespace IsoRim
 
         internal static double HighlightReference(int sample, bool authored, int mode)
         {
-            double[,,] rgb = { { { .552116131114, .450699256114 }, { .406951311423, .466614571774 } },
-                { { .3132, .3132 }, { .511319890787, .417534761112 } },
-                { { .560395576570, .457417538045 }, { .445642119697, .501504528199 } } };
+            // Authored Mode 2 uses L = V = N: diffuse .490514950166, highlighted .503309813865.
+            // The 3.262690243/255 lift rejects an omitted highlight at the unchanged 2/255 tolerance.
+            double[,,] rgb = { { { .552116131114, .450699256114 }, { .406951311423, .503309813865 } },
+                { { .3132, .3132 }, { .511319890787, .503309813865 } },
+                { { .560395576570, .457417538045 }, { .445642119697, .503309813865 } } };
             return rgb[sample, authored ? 1 : 0, mode - 1];
         }
 

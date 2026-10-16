@@ -762,9 +762,10 @@ def style_frame_requirements(cases):
         rgb = ((.543180084565, .444063253520, .406548999604, .466124226562),
                (.3132, .3132, .504641407082, .412556924411),
                (.550853781860, .450336692263, .445017746988, .500762121535))
-        highlights = ((.552116131114, .450699256114, .406951311423, .466614571774),
-                      (.3132, .3132, .511319890787, .417534761112),
-                      (.560395576570, .457417538045, .445642119697, .501504528199))
+        # Authored Mode 2 aligns L = V = N, with a 3.262690243/255 highlight signal.
+        highlights = ((.552116131114, .450699256114, .406951311423, .503309813865),
+                      (.3132, .3132, .511319890787, .503309813865),
+                      (.560395576570, .457417538045, .445642119697, .503309813865))
         for authored, validity in enumerate(("missing", "authored")):
             for surface in ("solid", "texture"):
                 for mode in (1, 2):
@@ -778,6 +779,7 @@ def style_frame_requirements(cases):
                     rows[f"moving-DiffuseAndHighlightModes-merged-solid-standing-part{part}-{validity}-mode{mode}-lighting-t0-l0"] = (mode, 1, rgb[part + 1][authored * 2 + mode - 1], 0, 1)
                     rows[f"moving-DiffuseAndHighlightModes-merged-solid-standing-part{part}-{validity}-highlight-mode{mode}-lighting-t0-l0"] = (mode, 1, highlights[part + 1][authored * 2 + mode - 1], .04, 1)
         for surface in ("solid", "texture"):
+            rows[f"lighting-style-authored-{surface}-t0-l0-highlight-mode2"] = (2, 1, .503309813865, .04, 1)
             rows[f"lighting-style-missing-{surface}-t0-l0-highlight"] = (1, 1, .617316, .04, 1)
             rows[f"lighting-style-missing-{surface}-t0-l0-dark"] = (1, 1, .122782, .04, 1)
             rows[f"lighting-style-missing-{surface}-t0-l0-highlight-mode2"] = (2, 1, .503309813865, .04, 1)
