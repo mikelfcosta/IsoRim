@@ -220,6 +220,8 @@ namespace IsoRim
 
         private static void SyncMark(Material m, Material mark)
         {
+            // Marks use derivative geometry for cell ownership, independent of face shading.
+            mark.SetFloat("_NormalSpace", 0f);
             mark.mainTexture = m.mainTexture;
             mark.SetVector(mainTexStId, m.GetVector(mainTexStId));
             mark.SetColor(colorId, m.color);

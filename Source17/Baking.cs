@@ -2097,7 +2097,7 @@ namespace IsoRim
                 {
                     if (plain == null)
                     {
-                        Material litMat = R3DMaterials.Lit(0);
+                        Material litMat = R3DMaterials.Lit(0, 0, ShadingNormalSpace.BakedTrueSpace);
                         plain = litMat != null ? MeshWriter.Sub(layer, litMat) : null;
                         if (plain == null || plain.verts.Count + n > MeshWriter.MaxVerts)
                         {
@@ -2121,7 +2121,7 @@ namespace IsoRim
                             c *= tint;
                         }
                         string path = mm.texture.Replace("{stuff}", swatch);
-                        Material tmat = glow ? R3DTextures.MaterialFor(path, c) : R3DMaterials.LitTexture(path, c);
+                        Material tmat = glow ? R3DTextures.MaterialFor(path, c) : R3DMaterials.LitTexture(path, c, 0, 0, ShadingNormalSpace.BakedTrueSpace);
                         texturedMeshes[slot] = tmat != null ? MeshWriter.Sub(layer, tmat) : null;
                     }
                     tm = texturedMeshes[slot];
@@ -2131,8 +2131,19 @@ namespace IsoRim
                     }
                 }
 
+                bool authored = m.authoredNormals != null && m.shadingNormals != null
+                    && m.authoredNormals.Length >= i + 3 && m.shadingNormals.Length >= i + 3
+                    && m.authoredNormals[i] && m.authoredNormals[i + 1] && m.authoredNormals[i + 2]
+                    && NormalStreams.Usable(m.shadingNormals[i]) && NormalStreams.Usable(m.shadingNormals[i + 1]) && NormalStreams.Usable(m.shadingNormals[i + 2])
+                    && scale.x != 0f && scale.y != 0f && scale.z != 0f;
                 for (int k = i; k < i + 3; k++)
                 {
+                    Vector3 shading = Vector3.zero;
+                    if (authored)
+                    {
+                        Vector3 local = lay * m.shadingNormals[k];
+                        shading = (turn * new Vector3(local.x / scale.x, local.y / scale.y, local.z / scale.z)).normalized;
+                    }
                     Vector3 hull = m.hull != null ? m.hull[k] * hullScale : Vector3.zero;
                     Color c = m.colors[k];
                     if (m.tinted[k])
@@ -2145,6 +2156,7 @@ namespace IsoRim
                     Vector3 p = turn * (Vector3.Scale(lay * inside + layLift, scale) + offset);
                     pm.tris.Add(pm.verts.Count);
                     pm.verts.Add(new Vector3(center.x + p.x, baseY + Mathf.Max(0f, p.y) / squash, center.z + p.z));
+                    NormalStreams.Stamp(pm, shading);
                     pm.colors.Add(R3DMaterials.Shaded(c, 1f));
                     pm.uvs.Add(default);
                     if (tagged)
@@ -2173,6 +2185,7 @@ namespace IsoRim
                         Vector2 uv = m.uvs[k];
                         tm.tris.Add(tm.verts.Count);
                         tm.verts.Add(new Vector3(center.x + q.x, baseY + Mathf.Max(0f, q.y) / squash, center.z + q.z));
+                        NormalStreams.Stamp(tm, shading);
                         tm.colors.Add(White);
                         tm.uvs.Add(new Vector3(uv.x, uv.y, 0f));
                         if (tagged)

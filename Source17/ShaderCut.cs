@@ -4,6 +4,52 @@ using Verse;
 
 namespace IsoRim
 {
+    public static class NormalStreams
+    {
+        public static bool Usable(Vector3 normal) => float.IsFinite(normal.x) && float.IsFinite(normal.y)
+            && float.IsFinite(normal.z) && float.IsFinite(normal.sqrMagnitude) && normal.normalized.sqrMagnitude > 0f;
+
+        private static bool Lowered(LayerSubMesh sub, int index) => index < sub.uvsChannelTwo.Count
+            && (((int)sub.uvsChannelTwo[index].z & ShaderCut.Lower) != 0);
+
+        private static bool Clear(LayerSubMesh sub, int index)
+        {
+            Vector3 n = sub.normals[index];
+            bool changed = n.x != 0f || n.y != 0f || n.z != 0f;
+            sub.normals[index] = Vector3.zero;
+            return changed;
+        }
+
+        public static void Stamp(LayerSubMesh sub, Vector3 normal)
+        {
+            while (sub.normals.Count < sub.verts.Count - 1) sub.normals.Add(Vector3.zero);
+            sub.normals.Add(Usable(normal) ? normal : Vector3.zero);
+        }
+
+        public static void Finish(SectionLayer layer)
+        {
+            foreach (LayerSubMesh sub in layer.subMeshes)
+            {
+                if (sub.normals.Count == 0) continue; // Geometric-only material and owned zero vertex default.
+                if (sub.normals.Count > sub.verts.Count) throw new System.InvalidOperationException("The shading stream exceeds its vertex count");
+                while (sub.normals.Count < sub.verts.Count) sub.normals.Add(Vector3.zero);
+                // Shared corners propagate fallback, so no triangle can retain a partially authored stream.
+                bool changed;
+                do
+                {
+                    changed = false;
+                    for (int i = 0; i + 2 < sub.tris.Count; i += 3)
+                    {
+                        int a = sub.tris[i], b = sub.tris[i + 1], c = sub.tris[i + 2];
+                        bool cut = Lowered(sub, a) || Lowered(sub, b) || Lowered(sub, c);
+                        if (!cut && Usable(sub.normals[a]) && Usable(sub.normals[b]) && Usable(sub.normals[c])) continue;
+                        changed |= Clear(sub, a) | Clear(sub, b) | Clear(sub, c);
+                    }
+                } while (changed);
+            }
+        }
+    }
+
     // Step 7: the cut-away done in the vertex stage, so it follows the pointer the same frame and rebuilds nothing.
     //
     // Walls, rock, hull corner pieces, trees and roofs are baked once, whole (full height, all leaves, every roof

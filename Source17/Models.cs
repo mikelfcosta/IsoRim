@@ -2285,6 +2285,8 @@ namespace IsoRim
         }
     }
 
+    public enum ShadingNormalSpace { GeometricOnly = 0, BakedTrueSpace = 1, ModelLocal = 2 }
+
     // The materials of all solid 3D geometry: colour from the vertices (stuff tint, fixed factors)
     // times the material colour, lit per pixel by IsoRim's sun (Shaders/IsoRimSolid.frag.glsl).
     [StaticConstructorOnStartup]
@@ -2435,7 +2437,7 @@ namespace IsoRim
         public const int LightModel = 1;   // _LightMode: model curve (curve 0)
         public const int LightWall = 2;    // _LightMode: wall and rock curve (curve 1)
         public const int LightRoof = 3;    // _LightMode: roof slates (model curve * 1.05, at most 1.1)
-        private static readonly Material[] litSolid = new Material[2];
+        private static readonly Material[] litSolid = new Material[6];
         private static readonly Dictionary<string, Material> litByKey = new Dictionary<string, Material>();
 
         // Which direction group a face pointing along normal belongs to.
@@ -2468,19 +2470,21 @@ namespace IsoRim
 
         // The plain solid material lit by the sun: vertex colours times the shade of the face's
         // direction. bin is ignored now (the shader finds each face's direction itself).
-        public static Material Lit(int bin, int curve = 0)
+        public static Material Lit(int bin, int curve = 0, ShadingNormalSpace normalSpace = ShadingNormalSpace.GeometricOnly)
         {
             if (Solid == null)
             {
                 return null;
             }
             curve = curve == 1 ? 1 : 0;
-            Material m = litSolid[curve];
+            int slot = curve * 3 + (int)normalSpace;
+            Material m = litSolid[slot];
             if (m == null)
             {
                 m = Make(SolidDef, curve == 1 ? "IsoRim_LitWall" : "IsoRim_LitModel", -1, ModeOf(curve));
                 IsoGlow.Use(m, IsoGlow.OwnCell);
-                litSolid[curve] = m;
+                if (m != null) m.SetFloat("_NormalSpace", (float)normalSpace);
+                litSolid[slot] = m;
             }
             return m;
         }
@@ -2493,11 +2497,11 @@ namespace IsoRim
 
         // A texture times a colour, lit by the sun. Shared by every face with the same texture,
         // colour and curve; bin is ignored (see Lit). Null if the texture is missing.
-        public static Material LitTexture(string path, Color baseColor, int bin = 0, int curve = 0)
+        public static Material LitTexture(string path, Color baseColor, int bin = 0, int curve = 0, ShadingNormalSpace normalSpace = ShadingNormalSpace.GeometricOnly)
         {
             curve = curve == 1 ? 1 : 0;
             Color32 c = baseColor;
-            string key = path + "|" + c.r + "," + c.g + "," + c.b + "|" + curve;
+            string key = path + "|" + c.r + "," + c.g + "," + c.b + "|" + curve + "|" + (int)normalSpace;
             Material m;
             if (litByKey.TryGetValue(key, out m))
             {
@@ -2511,6 +2515,7 @@ namespace IsoRim
             if (m != null)
             {
                 m.mainTexture = tex;
+                m.SetFloat("_NormalSpace", (float)normalSpace);
                 m.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
                 IsoGlow.Use(m, IsoGlow.OwnCell);
             }
