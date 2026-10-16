@@ -304,7 +304,38 @@ def validate_staged_intake(evidence, protected):
                 run(name, control, diagnostic)
             finally:
                 path.write_text(original)
-    report = {"nonce": evidence.name, "controls": rows}
+    from prepared_models.intake_fixtures import recovery_cases, recovery_mod
+    recovery = []
+    root = WORK / "recovery-validator" / evidence.name
+    recovery_mod(root, staged / "1.7/Assemblies/IsoRim.dll")
+    for case in recovery_cases():
+        obj = root / "1.7/Models/Diagnostics/internal.obj"
+        mtl = obj.with_name("sample.mtl")
+        obj.write_bytes(bytes.fromhex(case["objHex"]))
+        if case["mtlHex"] is None:
+            mtl.unlink(missing_ok=True)
+        else:
+            mtl.write_bytes(bytes.fromhex(case["mtlHex"]))
+        actual_hash = digest(obj)
+        if actual_hash != case["objHash"] or (mtl.is_file() and digest(mtl) != case["mtlHash"]):
+            raise Refusal("The recovery CLI input changed before validation: " + case["id"])
+        command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(root), "--check-assemblies"]
+        label = "recovery-" + case["id"]
+        case_inputs = {obj: actual_hash}
+        if mtl.is_file():
+            case_inputs[mtl] = digest(mtl)
+        child = run_child(command, evidence, label, {**protected, **case_inputs}, expected_exit=None)
+        output = (evidence / (label + ".stdout.log")).read_text()
+        error = (evidence / (label + ".stderr.log")).read_text()
+        bits = next((json.loads(line[len("Prepared scalar bits: "):]) for line in output.splitlines() if line.startswith("Prepared scalar bits: ")), [])
+        bit_match = case["bits"] is None or any(row["token"] == case["token"] and row["bits"] == case["bits"] for row in bits)
+        diagnostic = child.returncode == 0 or "Validation error:" in error
+        if case["id"].startswith(("R23-below-min-", "R23-above-max-")):
+            diagnostic = "signed Int32" in error
+        recovery.append(dict(case, actualInputHash=actual_hash, actualInputHex=obj.read_bytes().hex(),
+                             command=command, exit=child.returncode, diagnosticMatched=diagnostic,
+                             scalarBits=bits, bitMatched=bit_match))
+    report = {"nonce": evidence.name, "controls": rows, "recovery": recovery}
     (evidence / "validator-results.json").write_text(json.dumps(report, indent=2))
     return report
 
@@ -565,6 +596,8 @@ def runtime_cases(args, evidence, protected, cases, head):
         proofs = verify_proofs(list(evidence.glob("NormalProof-*.json")), cases, request, modules, child.pid, started)
         if validator_results and any((row["exit"] == 0) != row["expectedSuccess"] or not row["diagnosticMatched"] for row in validator_results["controls"]):
             raise Refusal("The staged validator accepted an invalid input or rejected the passing control")
+        if validator_results and any(row["exit"] != row["cli"] or not row["diagnosticMatched"] or not row["bitMatched"] for row in validator_results["recovery"]):
+            raise Refusal("A recovery full-CLI matrix control failed")
         return proofs
 
 

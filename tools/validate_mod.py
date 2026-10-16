@@ -15,6 +15,7 @@ Checks:
 """
 
 import argparse
+from decimal import Decimal, InvalidOperation
 import glob
 import json
 import math
@@ -115,94 +116,197 @@ def _float32(value: float) -> float:
     return struct.unpack("f", struct.pack("f", value))[0]
 
 
+SCALAR_TOKEN = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", re.ASCII)
+INDEX_TOKEN = re.compile(r"[+-]?[0-9]+", re.ASCII)
+
+
+def prepared_single(token: str) -> float:
+    """Round the exact decimal ratio directly to binary32, nearest/even."""
+    if not SCALAR_TOKEN.fullmatch(token):
+        raise ValueError("invalid prepared scalar")
+    sign = 0x80000000 if token.startswith("-") else 0
+    mantissa, _, exponent_text = token.lstrip("+-").lower().partition("e")
+    digits = mantissa.replace(".", "").lstrip("0")
+    offset = len(digits) - len(mantissa.partition(".")[2]) - 1
+    exponent_digits = exponent_text.lstrip("+-").lstrip("0") or "0"
+    # Saturate only when the exponent provably dominates the entire mantissa and
+    # both binary32 decimal bounds. No significant-digit or exponent-text cap.
+    bound = str(abs(offset) + 47)
+    dominates = len(exponent_digits) > len(bound) or (len(exponent_digits) == len(bound) and exponent_digits > bound)
+    exponent = (abs(offset) + 47) if dominates else int(exponent_digits)
+    if exponent_text.startswith("-"):
+        exponent = -exponent
+    adjusted = offset + exponent
+    if not digits or adjusted < -46:
+        bits = 0
+    elif adjusted > 38:
+        bits = 0x7f800000
+    else:
+        value = Decimal(token)
+        numerator, denominator = value.copy_abs().as_integer_ratio()
+        exponent = numerator.bit_length() - denominator.bit_length()
+        below = numerator < denominator << exponent if exponent >= 0 else numerator << -exponent < denominator
+        if below:
+            exponent -= 1
+        shift = 149 if exponent < -126 else 23 - exponent
+        scaled, divisor = (numerator << shift, denominator) if shift >= 0 else (numerator, denominator << -shift)
+        rounded, remainder = divmod(scaled, divisor)
+        if remainder * 2 > divisor or (remainder * 2 == divisor and rounded & 1):
+            rounded += 1
+        if exponent < -126:
+            bits = rounded  # Includes rounding up to the smallest normal.
+        else:
+            if rounded == 1 << 24:
+                exponent += 1
+                rounded >>= 1
+            bits = 0x7f800000 if exponent > 127 else ((exponent + 127) << 23) | (rounded - (1 << 23))
+    return struct.unpack("f", struct.pack("I", sign | bits))[0]
+
+
+def _prepared_index(token: str, count: int) -> int:
+    if not INDEX_TOKEN.fullmatch(token):
+        raise ValueError("invalid signed Int32 index")
+    digits = token.lstrip("+-").lstrip("0") or "0"
+    if len(digits) > 10:
+        raise ValueError("index outside signed Int32")
+    value = int(("-" if token.startswith("-") else "") + digits)
+    if not -2147483648 <= value <= 2147483647:
+        raise ValueError("index outside signed Int32")
+    resolved = count + value if value < 0 else value - 1
+    if value == 0 or not 0 <= resolved < count:
+        raise ValueError("unresolved index")
+    return resolved
+
+
+def _prepared_records(path: Path):
+    # File.ReadAllLines has physical CR/LF/CRLF boundaries; only SP/HT split tokens.
+    text = path.read_bytes().decode("utf-8-sig")
+    for number, raw in enumerate(re.split(r"\r\n|\r|\n", text), 1):
+        line = raw.strip(" \t")
+        if not line or line.startswith("#"):
+            continue
+        if any((ord(char) < 32 and char != "\t") or (char.isspace() and char not in " \t") for char in line):
+            yield number, line, [], "unsupported record separator/control"
+            continue
+        parts = re.split(r"[ \t]+", line)
+        consumed = parts[0] in {"v", "vt", "vn", "f", "mtllib", "usemtl", "Kd", "newmtl"}
+        yield number, line, parts, "inline comment on consumed record" if consumed and "#" in line else None
+
+
+def _prepared_triangle(a, b, c):
+    try:
+        u = [_float32(b[i] - a[i]) for i in range(3)]
+        v = [_float32(c[i] - a[i]) for i in range(3)]
+        n = [_float32(_float32(u[i] * v[j]) - _float32(u[j] * v[i])) for i, j in ((1, 2), (2, 0), (0, 1))]
+        square = [_float32(value * value) for value in n]
+        length = _float32(_float32(square[0] + square[1]) + square[2])
+        return not length < _float32(1e-12)
+    except OverflowError:
+        # The production geometric branch only skips a squared magnitude below its cutoff.
+        return True
+
+
 def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
     errors = []
     checked = []
+    scalar_bits = []
     for obj in sorted((root / "1.7/Models").rglob("*.obj", case_sensitive=False)):
         relative = obj.relative_to(root).as_posix()
         checked.append(relative)
-        positions = textures = normals = 0
-        faces = 0
-        defined = set()
-        used = set()
-        for number, raw in enumerate(obj.read_text(encoding="utf-8").splitlines(), 1):
-            parts = raw.split("#", 1)[0].split()
-            if not parts:
-                continue
+        positions, textures, normals = [], [], []
+        triangles = 0
+        defined, used = set(), set()
+        for number, line, parts, record_error in _prepared_records(obj):
             label = f"{relative}:{number}"
+            if record_error:
+                errors.append(f"{label}: {record_error}")
+                continue
             kind = parts[0]
             if kind in ("v", "vt", "vn"):
-                if kind == "v":
-                    positions += 1
-                elif kind == "vt":
-                    textures += 1
-                else:
-                    normals += 1
+                streams = {"v": positions, "vt": textures, "vn": normals}
+                streams[kind].append(None)  # Preserve declaration ordinals, including invalid vn.
                 count = 2 if kind == "vt" else 3
+                allowed = {"v": (4, 7), "vt": (3, 4), "vn": (4,)}
                 try:
-                    values = [float(token) for token in parts[1:count + 1]]
-                    if len(values) != count or not all(math.isfinite(value) for value in values):
-                        raise ValueError()
+                    if len(parts) not in allowed[kind]:
+                        raise ValueError("unsupported numeric arity")
+                    values = [prepared_single(token) for token in parts[1:]]
+                    scalar_bits.extend({"path": relative, "line": number, "kind": kind, "component": i,
+                                        "token": token, "bits": f"{struct.unpack('I', struct.pack('f', value))[0]:08X}"}
+                                       for i, (token, value) in enumerate(zip(parts[1:], values)))
+                    if not all(math.isfinite(value) for value in values):
+                        raise ValueError("nonfinite scalar")
                     if kind == "vn":
-                        # ObjLoader parses Singles and evaluates Vector3.sqrMagnitude in float32.
-                        values = [_float32(value) for value in values]
-                        squares = [_float32(value * value) for value in values]
-                        length_squared = _float32(_float32(squares[0] + squares[1]) + squares[2])
+                        square = [_float32(value * value) for value in values]
+                        length_squared = _float32(_float32(square[0] + square[1]) + square[2])
                         if not math.isfinite(length_squared) or length_squared < _float32(1e-12):
-                            raise ValueError()
-                        # Approved Vector3.normalized rounds sqrt to Single, then requires > 1e-5f.
+                            raise ValueError("unusable float32 magnitude")
                         if _float32(math.sqrt(length_squared)) <= _float32(1e-5):
-                            raise ValueError()
-                except (ValueError, OverflowError):
-                    errors.append(f"{label}: {kind} must contain finite" + (" nonzero normal values with usable float32 magnitude" if kind == "vn" else " coordinates"))
+                            raise ValueError("unusable float32 normalization")
+                    streams[kind][-1] = values[:count]
+                except (ValueError, OverflowError, InvalidOperation) as error:
+                    role = "finite nonzero normal values with usable float32 magnitude" if kind == "vn" else "finite coordinates/colour"
+                    errors.append(f"{label}: {kind} requires {role}; scalar/arity: {error}")
             elif kind == "mtllib":
-                library = obj.parent / raw.strip()[6:].strip()
-                if not library.resolve().is_relative_to(root.resolve()) or not library.is_file():
+                library = obj.parent / line[6:].strip(" \t")
+                if len(parts) < 2 or not library.resolve().is_relative_to(root.resolve()) or not library.is_file():
                     errors.append(f"{label}: adjacent material library missing or escaping: {library}")
                     continue
-                for line_number, line in enumerate(library.read_text(encoding="utf-8").splitlines(), 1):
-                    material = line.split("#", 1)[0].split()
-                    if not material:
-                        continue
-                    if material[0] == "newmtl":
-                        if len(material) < 2:
-                            errors.append(f"{library}:{line_number}: missing material name")
+                for line_number, material_line, material, material_error in _prepared_records(library):
+                    mlabel = f"{library.relative_to(root)}:{line_number}"
+                    if material_error:
+                        errors.append(f"{mlabel}: {material_error}")
+                    elif material[0] == "newmtl":
+                        if len(material) != 2:
+                            errors.append(f"{mlabel}: unsupported material name payload")
                         else:
                             defined.add(material[1])
                     elif material[0] == "Kd":
                         try:
-                            colour = [float(token) for token in material[1:4]]
-                            if len(colour) != 3 or not all(math.isfinite(value) for value in colour):
-                                raise ValueError()
-                        except ValueError:
-                            errors.append(f"{library}:{line_number}: invalid material colour")
-            elif kind == "usemtl" and len(parts) > 1:
-                used.add(parts[1])
+                            if len(material) != 4:
+                                raise ValueError("unsupported colour arity")
+                            colour = [prepared_single(token) for token in material[1:]]
+                            scalar_bits.extend({"path": library.relative_to(root).as_posix(), "line": line_number, "kind": "Kd", "component": i,
+                                                "token": token, "bits": f"{struct.unpack('I', struct.pack('f', value))[0]:08X}"}
+                                               for i, (token, value) in enumerate(zip(material[1:], colour)))
+                            if not all(math.isfinite(value) for value in colour):
+                                raise ValueError("nonfinite colour")
+                        except (ValueError, OverflowError, InvalidOperation) as error:
+                            errors.append(f"{mlabel}: invalid material colour scalar: {error}")
+            elif kind == "usemtl":
+                if len(parts) != 2:
+                    errors.append(f"{label}: unsupported material payload")
+                else:
+                    used.add(parts[1])
             elif kind == "f":
-                valid_positions = len(parts) >= 4
-                if len(parts) < 4:
-                    errors.append(f"{label}: face needs three corners")
+                face = []
                 for corner in parts[1:]:
                     indices = corner.split("/")
-                    for index, (name, count) in enumerate((("position", positions), ("texture", textures), ("normal", normals))):
+                    if len(indices) > 3:
+                        errors.append(f"{label}: unsupported slash payload")
+                    for index, (name, stream) in enumerate((("position", positions), ("texture", textures), ("normal", normals))):
                         token = indices[index] if index < len(indices) else ""
                         if not token and index > 0:
-                            continue  # Missing authored normals explicitly select geometric fallback.
+                            continue
                         try:
-                            value = int(token)
-                            resolved = count + value if value < 0 else value - 1
-                            if value == 0 or not 0 <= resolved < count:
-                                raise ValueError()
-                        except ValueError:
+                            resolved = _prepared_index(token, len(stream))
+                            if stream[resolved] is None:
+                                raise ValueError("invalid declaration ordinal")
                             if index == 0:
-                                valid_positions = False
-                            errors.append(f"{label}: invalid {name} index '{token}'")
-                if valid_positions:
-                    faces += 1
-        if faces == 0:
-            errors.append(f"{relative}: no face with at least three valid position references")
+                                face.append(resolved)
+                        except ValueError as error:
+                            errors.append(f"{label}: invalid {name} index '{token}': {error}")
+                if len(parts) < 4:
+                    errors.append(f"{label}: face needs three corners")
+                if len(face) == len(parts) - 1:
+                    triangles += sum(_prepared_triangle(positions[face[0]], positions[face[i]], positions[face[i + 1]])
+                                     for i in range(1, len(face) - 1))
+        if triangles == 0:
+            errors.append(f"{relative}: no face emits a triangle")
         for material in sorted(used - defined):
             errors.append(f"{relative}: undefined adjacent material '{material}'")
+    # Full CLI clients can compare independently specified Single bits even when normalizing hides them.
+    print("Prepared scalar bits: " + json.dumps(scalar_bits))
     return errors, checked
 
 
