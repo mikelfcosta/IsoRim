@@ -138,6 +138,8 @@ R16-vn-junk|1|A|-
 R16-v-surplus|1|A|-
 R16-vt-junk|1|A|-
 R16-kd-surplus|1|A|-
+R16-kd-numeric|1|A|-
+R16-vt-surplus|1|A|-
 R16-vt-third|0|A|-
 R17-spaces|0|A|-
 R17-crlf|0|A|-
@@ -394,6 +396,8 @@ class GateHostTests(unittest.TestCase):
                 ("int32", 'if not -2147483648 <= value <= 2147483647:', 'if False:', "R23-above-max-normal"),
                 ("cutoff", 'if _float32(math.sqrt(length_squared)) <= _float32(1e-5):', 'if False:', "R12-below"),
                 ("double-round", 'value = Decimal(token)', 'return _float32(float(token))\n        value = Decimal(token)', "R13-above"),
+                ("kd-arity", 'if len(material) != 4:', 'if False:', "R16-kd-numeric"),
+                ("vt-arity", 'if len(parts) not in allowed[kind]:', 'if False:', "R16-vt-surplus"),
             ]
             mutation_rows = []
             for name, old, new, case_id in mutations:

@@ -159,33 +159,35 @@ def recovery_cases():
         normal("R14", suffix, token + " 0 0", 1, "F", token=token, bits=bits)
     normal("R14", "long-leading-zeros", "0" * 5000 + "1 0 0", 0, "A", token="0" * 5000 + "1", bits="3F800000")
     normal("R15", "short", "1 0", 1, "F")
-    add("R15", "later-valid", base.replace("vn 1 0 0", "vn broken 0 0\nvn 1 0 0").replace("/1 ", "/2 ").replace("/1\n", "/2\n"), 1, "A")
-    add("R15", "invalid-first", base.replace("vn 1 0 0", "vn broken 0 0\nvn 1 0 0"), 1, "F")
+    add("R15", "later-valid", base.replace("vn 1 0 0", "vn broken 0 0\nvn 1 0 0").replace("/1 ", "/2 ").replace("/1\n", "/2\n"), 1, "A", field="vn.ordinal / face.normal")
+    add("R15", "invalid-first", base.replace("vn 1 0 0", "vn broken 0 0\nvn 1 0 0"), 1, "F", field="vn.ordinal / face.normal")
     for suffix, old, new in (("vn-numeric", "vn 1 0 0", "vn 1 0 0 4"), ("vn-junk", "vn 1 0 0", "vn 1 0 0 junk"),
                               ("v-surplus", "v 0 0 0", "v 0 0 0 1 1 1 9"), ("vt-junk", "vt 0 0", "vt 0 0 junk")):
-        add("R16", suffix, base.replace(old, new), 1, "A")
-    add("R16", "kd-surplus", base, 1, "A", mtl=material.replace("Kd 0.2 0.3 0.4", "Kd 0.2 0.3 0.4 junk"))
-    add("R16", "vt-third", base.replace("vt 0 0", "vt 0 0 +1e0"), 0, "A")
+        add("R16", suffix, base.replace(old, new), 1, "A", field=old.split(" ", 1)[0] + ".payload")
+    add("R16", "kd-surplus", base, 1, "A", mtl=material.replace("Kd 0.2 0.3 0.4", "Kd 0.2 0.3 0.4 junk"), field="Kd.payload")
+    add("R16", "kd-numeric", base, 1, "A", mtl=material.replace("Kd 0.2 0.3 0.4", "Kd 0.2 0.3 0.4 .5"), field="Kd.payload")
+    add("R16", "vt-surplus", base.replace("vt 0 0", "vt 0 0 .5 .25"), 1, "A", field="vt.payload")
+    add("R16", "vt-third", base.replace("vt 0 0", "vt 0 0 +1e0"), 0, "A", field="vt.third")
     for suffix, text in (("spaces", base.replace(" ", "  \t ")), ("crlf", base.replace("\n", "\r\n")), ("cr", base.replace("\n", "\r")),
                          ("bom", "\ufeff" + base), ("comments", "\n# full comment\n\t\n" + base)):
-        add("R17", suffix, text, 0, "A")
+        add("R17", suffix, text, 0, "A", field="physical records")
     for suffix, line, loader in (("nbsp-record", "vn\u00a01 0 0", "F"), ("nbsp-token", "vn 1\u00a0 0 0", "F"),
                                   ("nbsp-outer", "\u00a0vn 1 0 0\u00a0", "A"), ("nul-trailing", "vn 1 0 0\x00", "A"),
                                   ("nul-embedded", "vn 1 0\x00x 0", "F")):
-        add("R18", suffix, base.replace("vn 1 0 0", line), 1, loader)
+        add("R18", suffix, base.replace("vn 1 0 0", line), 1, loader, field="vn.physical record")
     for suffix, char in (("vt", "\v"), ("ff", "\f"), ("nel", "\u0085"), ("ls", "\u2028"), ("ps", "\u2029")):
-        normal("R18", suffix, "1" + char + "x 0 0", 1, "F")
+        normal("R18", suffix, "1" + char + "x 0 0", 1, "F", field="vn.physical record")
     for suffix, old, new, loader in (("attached", "vn 1 0 0", "vn 1#x 0 0", "F"), ("vn-inline", "vn 1 0 0", "vn 1 0 0 # note", "A"),
                                      ("face-inline", "f 1/1/1 2/2/1 3/3/1", "f 1/1/1 2/2/1 3/3/1 # note", "N"),
                                      ("mtl-inline", "mtllib sample.mtl", "mtllib sample.mtl # note", "A")):
-        add("R19", suffix, base.replace(old, new), 1, loader)
+        add("R19", suffix, base.replace(old, new), 1, loader, field=old.split(" ", 1)[0] + ".payload")
     for suffix, text in (("bare", base.replace("vn 1 0 0\n", "").replace("f 1/1/1 2/2/1 3/3/1", "f 1 2 3")),
                          ("uv", base.replace("vn 1 0 0\n", "").replace("/1 ", " ").replace("/1\n", "\n")),
                          ("mixed", base.replace("2/2/1", "2/2/"))):
-        add("R20", suffix, text, 0, "F")
+        add("R20", suffix, text, 0, "F", field="face.normal slots")
     for suffix, face in (("full", "1/1/1 2/2/1 3/3/1"), ("no-uv", "1//1 2//1 3//1"),
                          ("negative", "-3/-3/-1 -2/-2/-1 -1/-1/-1"), ("leading", "+001/+001/+01 +002/+002/+01 +003/+003/+01")):
-        add("R21", suffix, base.replace("1/1/1 2/2/1 3/3/1", face), 0, "A")
+        add("R21", suffix, base.replace("1/1/1 2/2/1 3/3/1", face), 0, "A", field="face.indices")
     for group, tokens in (("R22", (("underscore", "1_0"), ("unicode", "١"), ("exponent", "1e0"), ("decimal", "1.0"), ("empty", ""), ("zero", "0"), ("positive-zero", "+0"), ("negative-zero", "-0"))),
                           ("R23", (("min", "-2147483648"), ("max", "2147483647"), ("below-min", "-2147483649"), ("above-max", "2147483648"), ("forward", "4"), ("too-negative", "-4")))):
         for suffix, token in tokens:
@@ -198,8 +200,8 @@ def recovery_cases():
                 add(group, suffix + "-" + role, text, cli, loader, field=role, index=token)
     add("R23", "leading-zeros-position", base.replace("f 1/1/1", "f " + "0" * 5000 + "1/1/1"), 0, "A", index="0" * 5000 + "1", field="position")
     add("R23", "long-overflow-position", base.replace("f 1/1/1", "f 10000000000/1/1"), 1, "N", index="10000000000", field="position")
-    add("R24", "slash-surplus", base.replace("1/1/1", "1/1/1/junk"), 1, "A")
-    add("R24", "short-face", base.replace("f 1/1/1 2/2/1 3/3/1", "f 1/1/1 2/2/1"), 1, "N")
+    add("R24", "slash-surplus", base.replace("1/1/1", "1/1/1/junk"), 1, "A", field="face.corner layout")
+    add("R24", "short-face", base.replace("f 1/1/1 2/2/1 3/3/1", "f 1/1/1 2/2/1"), 1, "N", field="face.corners")
     for role in ("v", "vt", "rgb"):
         for suffix, token, cli in (("underscore", "1_0", 1), ("unicode", "１", 1), ("overflow", "1e39", 1), ("zero", "0", 0), ("underflow", "1e-50", 0), ("finite", ".25", 0)):
             text = base.replace("v 0 0 0", "v " + token + " 0 0") if role == "v" else base.replace("vt 0 0", "vt " + token + " 0")
@@ -207,13 +209,13 @@ def recovery_cases():
             add("R25", role + "-" + suffix, text, cli, "A", token=token, field=role + ".x")
     for suffix, token, cli in (("underscore", "1_0", 1), ("unicode", "１", 1), ("overflow", "1e39", 1), ("zero", "0", 0), ("underflow", "1e-50", 0), ("finite", ".25", 0), ("short", "", 1)):
         add("R26", suffix, base, cli, "A", mtl=material.replace("Kd 0.2 0.3 0.4", "Kd " + token + " 0 0"), token=token, field="Kd.x")
-    add("R27", "missing-mtl", base, 1, "A", mtl=None)
-    add("R27", "escaping-mtl", base.replace("sample.mtl", "../../../../../../outside.mtl"), 1, "A", mtl=None)
-    add("R27", "undefined", base.replace("usemtl sample", "usemtl absent"), 1, "A")
-    add("R28", "empty", "", 1, "N")
-    add("R28", "vertices", "v 0 0 0\nv 2 0 0\nv 0 1 0\n", 1, "N")
-    add("R29", "collinear", base.replace("v 0 1 0", "v 4 0 0"), 1, "N")
-    add("R29", "valid", base, 0, "A")
+    add("R27", "missing-mtl", base, 1, "A", mtl=None, field="mtllib.path")
+    add("R27", "escaping-mtl", base.replace("sample.mtl", "../../../../../../outside.mtl"), 1, "A", mtl=None, field="mtllib.path")
+    add("R27", "undefined", base.replace("usemtl sample", "usemtl absent"), 1, "A", field="usemtl.name")
+    add("R28", "empty", "", 1, "N", field="file.triangles")
+    add("R28", "vertices", "v 0 0 0\nv 2 0 0\nv 0 1 0\n", 1, "N", field="file.triangles")
+    add("R29", "collinear", base.replace("v 0 1 0", "v 4 0 0"), 1, "N", field="file.triangles")
+    add("R29", "valid", base, 0, "A", field="file.triangles")
     return result
 
 

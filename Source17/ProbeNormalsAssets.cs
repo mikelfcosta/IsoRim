@@ -138,6 +138,8 @@ R16-vn-junk|1|A|-
 R16-v-surplus|1|A|-
 R16-vt-junk|1|A|-
 R16-kd-surplus|1|A|-
+R16-kd-numeric|1|A|-
+R16-vt-surplus|1|A|-
 R16-vt-third|0|A|-
 R17-spaces|0|A|-
 R17-crlf|0|A|-
