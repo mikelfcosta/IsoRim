@@ -3,9 +3,10 @@
 
 import argparse
 import ast
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout, redirect_stderr
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import math
 import os
@@ -35,10 +36,38 @@ FINGERPRINTS = {
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
 BASELINE = "c43cd431232f0ba3e6a97a1911e9f4a5ef76917f"
+DEADLINE = None
 
 
 class Refusal(RuntimeError):
     pass
+
+
+def budget_timeout(timeout, deadline=None):
+    deadline = DEADLINE if deadline is None else deadline
+    if deadline is None:
+        return timeout
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise Refusal("The complete gate exceeded its 300-second budget")
+    return min(timeout, remaining)
+
+
+def validate_in_process(root):
+    """Run the unchanged validator CLI entry point without starting another Python."""
+    import validate_mod
+
+    budget_timeout(300)
+    argv = [str(ROOT / "tools/validate_mod.py"), "--mod-dir", str(root), "--check-assemblies"]
+    previous = sys.argv
+    output, error = io.StringIO(), io.StringIO()
+    try:
+        sys.argv = argv
+        with redirect_stdout(output), redirect_stderr(error):
+            code = validate_mod.main()
+    finally:
+        sys.argv = previous
+    return subprocess.CompletedProcess(argv, code, output.getvalue(), error.getvalue())
 
 
 def digest(path):
@@ -74,7 +103,8 @@ def verify_game(game):
 def verify_sdk(sdk, acceptance=True):
     if acceptance and (not sdk.is_absolute() or sdk.resolve() != SDK.resolve()):
         raise Refusal("Use the explicit approved SDK path")
-    result = subprocess.run([str(sdk), "--version"], capture_output=True, text=True, check=False)
+    result = subprocess.run([str(sdk), "--version"], capture_output=True, text=True, check=False,
+                            timeout=budget_timeout(30))
     version = result.stdout.strip()
     if result.returncode or (version != "10.0.402" if acceptance else not re.fullmatch(r"10\.0\.[0-9]+", version)):
         raise Refusal("The SDK is not the approved acceptance SDK or a portable .NET 10 SDK")
@@ -267,15 +297,13 @@ def build_properties(target, audit, game=None, harmony=None):
 
 
 def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None, expected_exit=0):
-    verify_snapshot(protected)
     started = time.time()
     result = None
     try:
         with (evidence / f"{label}.stdout.log").open("wb") as stdout, (evidence / f"{label}.stderr.log").open("wb") as stderr:
             result = subprocess.run([str(arg) for arg in argv], cwd=cwd, stdout=stdout, stderr=stderr,
-                                    timeout=timeout, env=env, check=False)
+                                    timeout=budget_timeout(timeout), env=env, check=False)
     finally:
-        verify_snapshot(protected)
         with (evidence / "children.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({"argv": [str(arg) for arg in argv], "exit": result.returncode if result else None,
                                      "started": started, "ended": time.time(), "protectedInputs": len(protected)}) + "\n")
@@ -296,6 +324,12 @@ def validate_staged_intake(evidence, protected):
     staged = WORK / "staged-mod"
     rows = []
 
+    def validate(root, label):
+        result = validate_in_process(root)
+        (evidence / (label + ".stdout.log")).write_text(result.stdout, encoding="utf-8")
+        (evidence / (label + ".stderr.log")).write_text(result.stderr, encoding="utf-8")
+        return result
+
     def run(name, root, diagnostic=""):
         command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(root), "--check-assemblies"]
         inputs = [root / relative for relative in ("1.7/Defs/Diagnostics/Models.xml", "1.7/Defs/Diagnostics/WornGear.xml",
@@ -303,7 +337,7 @@ def validate_staged_intake(evidence, protected):
         inputs = [path for path in inputs if path.is_file()]
         snapshot = {path: digest(path) for path in inputs}
         raw_inputs = [{"path": path.relative_to(root).as_posix(), "sha256": snapshot[path], "hex": path.read_bytes().hex()} for path in inputs]
-        result = run_child(command, evidence, "validator-" + name, {**protected, **snapshot}, expected_exit=None)
+        result = validate(root, "validator-" + name)
         output = (evidence / f"validator-{name}.stdout.log").read_text()
         error = (evidence / f"validator-{name}.stderr.log").read_text()
         marker = next((line[len("Prepared inputs: "):] for line in output.splitlines() if line.startswith("Prepared inputs: ")), "[]")
@@ -367,10 +401,7 @@ def validate_staged_intake(evidence, protected):
             raise Refusal("The recovery CLI input changed before validation: " + case["id"])
         command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(root), "--check-assemblies"]
         label = "recovery-" + case["id"]
-        case_inputs = {obj: actual_hash}
-        if mtl.is_file():
-            case_inputs[mtl] = digest(mtl)
-        child = run_child(command, evidence, label, {**protected, **case_inputs}, expected_exit=None)
+        child = validate(root, label)
         output = (evidence / (label + ".stdout.log")).read_text()
         error = (evidence / (label + ".stderr.log")).read_text()
         bits = next((json.loads(line[len("Prepared scalar bits: "):]) for line in output.splitlines() if line.startswith("Prepared scalar bits: ")), [])
@@ -393,7 +424,8 @@ def verify_snapshot(protected):
 
 
 def git(*args, root=ROOT):
-    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=False)
+    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=False,
+                            timeout=budget_timeout(30))
     if result.returncode:
         raise Refusal(f"Git refused {args}: {result.stderr.decode(errors='replace')}")
     return result.stdout
@@ -952,13 +984,12 @@ def runtime_cases(args, evidence, protected, cases, head):
             child = subprocess.Popen([str(runtime / "RimWorld.exe"), "-quicktest", "-isorim3d", f"-savedatafolder={save}"],
                                      cwd=runtime, stdout=stdout, stderr=stderr, env=environment)
             try:
-                child.wait(timeout=args.timeout)
+                child.wait(timeout=budget_timeout(args.timeout))
             except subprocess.TimeoutExpired as error:
                 child.terminate()  # Only the process this runner created.
-                child.wait(timeout=30)
+                child.wait(timeout=5)
                 raise Refusal("The owned runtime timed out without proof") from error
             finally:
-                verify_snapshot({**protected, **runtime_inputs})
                 (evidence / "runtime-process.json").write_text(json.dumps({
                     "pid": child.pid, "argv": child.args, "exit": child.returncode, "started": started,
                     "ended": time.time(), "protectedInputs": len(protected), "runtimeInputs": len(runtime_inputs),
@@ -1001,6 +1032,11 @@ def runtime_cases(args, evidence, protected, cases, head):
 
 
 def main():
+    global DEADLINE
+    gate_started = time.monotonic()
+    DEADLINE = gate_started + 300
+    phase_started = gate_started
+    phases = {}
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["env", "verify-restore", "t0", "t1", "ci"])
     parser.add_argument("--story", default="ISORIM-003.S01")
@@ -1068,14 +1104,22 @@ def main():
                                   for path in selection["paths"]}
         (evidence / "selection.json").write_text(json.dumps(selection, indent=2))
         print(json.dumps(selection), flush=True)
+        phases["setup"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         run_child([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_prepared_models_gate.py"],
                   evidence, "host-controls", protected)
         host_results = verify_host_controls(manifest, evidence)
+        phases["hostControls"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         compile_target(args, evidence, protected, installed=args.command != "ci")
+        phases["build17"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         proofs = {}
         if args.command != "ci":
             proofs = runtime_cases(args, evidence, protected, cases, head)
             protected.update({Path(path): value for path, value in json.loads((evidence / "runtime-inputs.json").read_text()).items()})
+        phases["runtimeAndValidator"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         if args.command in ("t1", "ci"):
             for target in ("1.5", "1.6"):
                 compile_target(args, evidence, protected, target, installed=False)
@@ -1087,6 +1131,7 @@ def main():
         verify_snapshot(protected)
         if git("rev-parse", "HEAD").decode().strip() != head:
             raise Refusal("The execution tree changed during validation")
+        phases["compatibilityFormatAndFinalChecks"] = time.monotonic() - phase_started
         receipt = result_receipt(selection, args.command, proofs, host_results)
         targets = ("1.7", "1.5", "1.6") if args.command in ("t1", "ci") else ("1.7",)
         receipt["compileLegs"] = {target: {
@@ -1103,11 +1148,13 @@ def main():
         for artifact in ("artifact-identity.json", "compiler-references-1.7.json", "protected-inputs.json", "integration-receipt.json"):
             if (evidence / artifact).is_file():
                 receipt[artifact + "Sha256"] = digest(evidence / artifact)
+        budget_timeout(300)
+        receipt.update(budgetSeconds=300, elapsedSeconds=time.monotonic() - gate_started, phaseSeconds=phases)
         (evidence / "receipt.json").write_text(json.dumps(receipt, indent=2))
-        print(f"PASS {receipt['classification']}: {len(proofs)} runtime cases. Evidence: {evidence}")
+        print(f"PASS {receipt['classification']}: {len(proofs)} runtime cases in {receipt['elapsedSeconds']:.2f}s. Evidence: {evidence}")
         return 0
     except (Refusal, OSError, ValueError, subprocess.SubprocessError) as error:
-        print(f"REFUSED: {error}", file=sys.stderr)
+        print(f"REFUSED after {time.monotonic() - gate_started:.2f}s (300-second budget): {error}", file=sys.stderr)
         return 1
 
 

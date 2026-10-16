@@ -325,6 +325,11 @@ class GateHostTests(unittest.TestCase):
     def test_final_gate_selection(self):
         import prepared_models_gate as gate
 
+        with mock.patch("time.monotonic", return_value=10):
+            self.assertEqual(gate.budget_timeout(60, deadline=25), 15)
+            self.assertEqual(gate.budget_timeout(5, deadline=25), 5)
+            with self.assertRaisesRegex(gate.Refusal, "300-second"):
+                gate.budget_timeout(60, deadline=10)
         manifest = gate.case_manifest()
         baseline = "c43cd431232f0ba3e6a97a1911e9f4a5ef76917f"
         # A frozen integrated head can equal its epic ref. Whole selection uses base..head.
@@ -448,6 +453,7 @@ class GateHostTests(unittest.TestCase):
                     gate.verify_static_pixels(root, [case], request, 0, 0)
 
     def test_prepared_asset_validation(self):
+        import prepared_models_gate as gate
         from prepared_models.intake_fixtures import stage_intake
 
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
@@ -559,7 +565,7 @@ class GateHostTests(unittest.TestCase):
                 else:
                     mtl.write_bytes(bytes.fromhex(case["mtlHex"]))
                 command = argv if script is None else [sys.executable, str(script), *argv[2:]]
-                result = subprocess.run(command, capture_output=True, text=True, check=False)
+                result = gate.validate_in_process(root) if script is None else subprocess.run(command, capture_output=True, text=True, check=False)
                 return command, result
 
             def assert_result(case, result):
@@ -619,9 +625,22 @@ class GateHostTests(unittest.TestCase):
             directory = Path(tmp)
             protected = directory / "protected"
             protected.write_text("original")
+            snapshot = {protected: gate.digest(protected)}
+            deadline = gate.DEADLINE
+            try:
+                gate.DEADLINE = 10
+                with mock.patch("time.monotonic", return_value=10):
+                    with self.assertRaisesRegex(gate.Refusal, "300-second"):
+                        gate.run_child([sys.executable, "-c", "from pathlib import Path; Path('late-child').touch()"],
+                                       directory, "expired", {}, cwd=directory)
+                self.assertFalse((directory / "late-child").exists())
+            finally:
+                gate.DEADLINE = deadline
+            gate.run_child([sys.executable, "-c", "from pathlib import Path; Path('protected').write_text('changed')"],
+                           directory, "mutation", snapshot, cwd=directory)
+            # The Captain replaced per-child hashing with the final boundary check.
             with self.assertRaises(gate.Refusal):
-                gate.run_child([sys.executable, "-c", "from pathlib import Path; Path('protected').write_text('changed')"],
-                               directory, "mutation", {protected: gate.digest(protected)}, cwd=directory)
+                gate.verify_snapshot(snapshot)
             gate.run_child([sys.executable, "-c", "print('captured')"], directory, "success", {})
             self.assertEqual((directory / "success.stdout.log").read_text().strip(), "captured")
             with self.assertRaises(gate.Refusal):
