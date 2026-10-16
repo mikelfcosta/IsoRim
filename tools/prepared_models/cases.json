@@ -1,0 +1,25 @@
+{
+  "hostCases": ["test_reference_identity", "test_fail_closed_selection_and_receipts", "test_output_isolation", "test_ignore_before_capture"],
+  "cases": {
+    "NormalDataCases.AuthoredIndices": {"story": 1},
+    "NormalDataCases.InvalidTriangleFallback": {"story": 1},
+    "NormalDataCases.GeometricChannelsPreserved": {"story": 1},
+    "NormalDataCases.DerivedModels": {"story": 1}
+  },
+  "groups": {
+    "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
+    "intake": [], "static": [], "moving": [], "integrated": []
+  },
+  "paths": {
+    "Source17/Models.cs": ["data", "intake", "static", "moving"],
+    "Source17/IsoRim.csproj": ["all"],
+    "Source17/Probe.cs": ["all"],
+    "Source17/ProbeNormals.cs": ["all"],
+    "Source17/ProbeNormalsData.cs": ["all"],
+    "tools/prepared_models_gate.py": ["all"],
+    "tools/prepared_models/cases.json": ["all"],
+    "tools/prepared_models/format-isolation.targets": ["all"],
+    "tests/test_prepared_models_gate.py": ["all"],
+    ".gitignore": ["all"]
+  }
+}
