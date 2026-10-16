@@ -1,0 +1,33 @@
+newmtl glass
+Kd 0.520 0.700 0.780
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl glow_screen
+Kd 0.480 0.860 0.960
+map_Kd IsoRim/Clay/Swatches/Glow
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl gun_light
+Kd 0.660 0.680 0.700
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl hull
+Kd 0.700 0.730 0.760
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

@@ -1,0 +1,18 @@
+# Source semantic material blocks preserved exactly. No baked lighting.
+newmtl instrument_dark
+Kd 0.15 0.14 0.13
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl instrument_soundboard
+Kd 0.48 0.36 0.2
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl instrument_string
+Kd 0.63 0.61 0.51
+
+newmtl paper
+Kd 0.920 0.900 0.820
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal

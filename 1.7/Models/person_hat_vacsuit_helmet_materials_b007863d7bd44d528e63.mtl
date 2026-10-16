@@ -1,0 +1,9 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl vac_white
+Kd 0.930 0.930 0.940
+
+newmtl vac_dark
+Kd 0.220 0.230 0.250
+
+newmtl vac_grey
+Kd 0.620 0.630 0.650

@@ -1,0 +1,3 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl pollution_window
+Kd 0.16 0.17 0.17

@@ -1,0 +1,16 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl bottle
+Kd 0.320 0.220 0.120
+
+newmtl gun_light
+Kd 0.660 0.680 0.700
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl log
+Kd 0.500 0.340 0.210
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl log_burnt
+Kd 0.200 0.160 0.140
+map_Kd IsoRim/Clay/Swatches/Wood

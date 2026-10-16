@@ -1,0 +1,3 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl mech_prod_glass
+Kd 0.53 0.34 0.32

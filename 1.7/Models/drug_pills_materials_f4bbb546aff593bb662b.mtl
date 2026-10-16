@@ -1,0 +1,11 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl gun_white
+Kd 0.840 0.860 0.880
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl label
+Kd 0.880 0.860 0.780
+
+newmtl pill
+Kd 0.920 0.880 0.800

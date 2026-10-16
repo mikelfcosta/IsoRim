@@ -1,0 +1,21 @@
+newmtl stuff_fabric
+Kd 0.920 0.920 0.920
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_fabric_dark
+Kd 0.720 0.720 0.720
+map_Kd IsoRim/Clay/Swatches/Fabric
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl wood_end
+Kd 0.780 0.620 0.400
+map_Kd IsoRim/Clay/Swatches/Wood
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+

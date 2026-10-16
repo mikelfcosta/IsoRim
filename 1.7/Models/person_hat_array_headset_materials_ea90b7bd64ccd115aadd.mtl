@@ -1,0 +1,12 @@
+# Exact source material blocks; no lighting, AO or tint baking.
+newmtl stuff_mask_dark
+Kd 0.200 0.200 0.200
+# stuff_hat_band: same as hats.mtl (bands, rods, earpieces), repeated so these files need only masks.mtl
+
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+newmtl stuff_hat_band
+Kd 0.420 0.420 0.420
+# fixed colours, for items vanilla draws untinted (no stuff, no colour generator: gas mask, vacsuit helmet) and the
+# whisperer mask's black face

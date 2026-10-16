@@ -1,0 +1,8 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl ember
+Kd 0.960 0.420 0.180
+map_Kd IsoRim/Clay/Swatches/Glow
+
+newmtl paper
+Kd 0.920 0.900 0.820

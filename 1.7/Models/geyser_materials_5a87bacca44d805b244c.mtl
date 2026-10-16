@@ -1,0 +1,19 @@
+newmtl geyser_crust
+Kd 0.840 0.800 0.620
+map_Kd IsoRim/Clay/Swatches/Rock
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl geyser_rock
+Kd 0.440 0.420 0.400
+map_Kd IsoRim/Clay/Swatches/Rock
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl pit
+Kd 0.100 0.080 0.070
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

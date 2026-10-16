@@ -1,0 +1,4 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl stuff_plain
+Kd 1.000 1.000 1.000

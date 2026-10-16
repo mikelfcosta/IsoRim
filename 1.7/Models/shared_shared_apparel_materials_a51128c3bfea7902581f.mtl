@@ -1,0 +1,4 @@
+# Source-authoritative runtime tint material; no added texture or gloss.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+

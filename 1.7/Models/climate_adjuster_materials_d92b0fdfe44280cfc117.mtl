@@ -1,0 +1,29 @@
+# Source semantic material blocks preserved exactly. No baked lighting.
+newmtl metal_dark
+Kd 0.320 0.330 0.360
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl env_orange
+Kd 0.68 0.35 0.24
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl env_teal
+Kd 0.32 0.52 0.52
+
+newmtl metal
+Kd 0.600 0.620 0.650
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl env_shell
+Kd 0.55 0.56 0.43
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl env_display
+Kd 0.12 0.51 0.63
+
+newmtl env_core
+Kd 0.72 0.76 0.48

@@ -1,0 +1,5 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl stuff_wool
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/Fabric

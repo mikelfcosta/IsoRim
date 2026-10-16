@@ -1,0 +1,3 @@
+# Unmodified source material semantics; no baked illumination.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000

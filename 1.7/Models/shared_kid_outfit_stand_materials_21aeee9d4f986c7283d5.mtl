@@ -1,0 +1,6 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl stuff_orbital_dark
+Kd 0.8 0.8 0.8
+
+newmtl stuff_plain
+Kd 1.000 1.000 1.000

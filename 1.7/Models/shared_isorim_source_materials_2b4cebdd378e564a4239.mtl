@@ -1,0 +1,61 @@
+newmtl blanket
+Kd 0.44 0.52 0.64
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl gun_dark
+Kd 0.2 0.2 0.22
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_light
+Kd 0.66 0.68 0.7
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_metal
+Kd 0.36 0.37 0.4
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_white
+Kd 0.84 0.86 0.88
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl linen
+Kd 0.9 0.88 0.82
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl paint_red
+Kd 0.56 0.24 0.2
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl pillow
+Kd 0.98 0.97 0.94
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl rubber
+Kd 0.13 0.13 0.14
+
+newmtl screen_off
+Kd 0.04 0.042 0.048
+
+newmtl soil
+Kd 1.0 1.0 1.0
+map_Kd IsoRim/Clay/Swatches/Soil
+
+newmtl stuff
+Kd 1.0 1.0 1.0
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl stuff_dark
+Kd 0.8 0.8 0.8
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl stuff_deep
+Kd 0.62 0.62 0.62
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl stuff_fabric
+Kd 0.92 0.92 0.92
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl stuff_fabric_dark
+Kd 0.72 0.72 0.72
+map_Kd IsoRim/Clay/Swatches/Fabric

@@ -1,0 +1,9 @@
+# Original semantic materials. No tint baking.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+newmtl sealed_trim
+Kd 0.1 0.11 0.12
+
+newmtl marine_window
+Kd 0.14 0.18 0.21

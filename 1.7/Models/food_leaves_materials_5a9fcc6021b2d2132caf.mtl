@@ -1,0 +1,9 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl herb_green
+Kd 0.380 0.540 0.280
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+newmtl string
+Kd 0.860 0.820 0.720
+map_Kd IsoRim/Clay/Swatches/Fabric

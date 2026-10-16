@@ -1,0 +1,3 @@
+# Exact used source semantic material blocks; no color/light baking.
+newmtl ghoul_hair
+Kd 0.65 0.65 0.65

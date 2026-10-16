@@ -1,0 +1,19 @@
+newmtl rubber
+Kd 0.130 0.130 0.140
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl rust
+Kd 0.500 0.320 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl rust_dark
+Kd 0.300 0.210 0.160
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

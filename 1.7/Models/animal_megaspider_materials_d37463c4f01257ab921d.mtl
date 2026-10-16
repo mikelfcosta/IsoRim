@@ -1,0 +1,16 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_megaspider_acc
+Kd 0.720 0.620 0.420
+
+newmtl an_megaspider_body
+Kd 0.560 0.420 0.280
+
+newmtl an_megaspider_leg
+Kd 0.392 0.294 0.196
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_horn
+Kd 0.850 0.810 0.690

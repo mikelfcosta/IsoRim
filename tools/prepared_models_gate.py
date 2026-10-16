@@ -1123,7 +1123,7 @@ def main():
         if args.command in ("t1", "ci"):
             for target in ("1.5", "1.6"):
                 compile_target(args, evidence, protected, target, installed=False)
-            run_child([sys.executable, "tools/validate_mod.py", "--check-assemblies"], evidence, "validator-distribution", protected)
+            run_child([sys.executable, "tools/validate_mod.py", "--check-assemblies", "--summary"], evidence, "validator-distribution", protected)
         if args.command == "t1":
             for target in ("1.7", "1.6"):
                 format_sources(args, evidence, protected, target)

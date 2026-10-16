@@ -1,0 +1,13 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_bear_grizzly_body
+Kd 0.420 0.300 0.220
+
+newmtl an_bear_grizzly_head
+Kd 0.420 0.300 0.220
+
+newmtl an_bear_grizzly_muzzle
+Kd 0.620 0.480 0.340
+
+newmtl an_dark
+Kd 0.110 0.100 0.100

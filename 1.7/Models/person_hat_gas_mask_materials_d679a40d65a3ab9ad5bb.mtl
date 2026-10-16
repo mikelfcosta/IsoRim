@@ -1,0 +1,9 @@
+# Exact source material blocks; no lighting, AO or tint baking.
+newmtl gas_rubber
+Kd 0.300 0.305 0.310
+
+newmtl gas_rim
+Kd 0.120 0.120 0.125
+
+newmtl gas_band
+Kd 0.480 0.400 0.260

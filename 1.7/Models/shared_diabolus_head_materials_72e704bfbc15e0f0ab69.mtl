@@ -1,0 +1,6 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl worker_shell
+Kd 0.83 0.84 0.81
+
+newmtl worker_lens
+Kd 0.27 0.31 0.30

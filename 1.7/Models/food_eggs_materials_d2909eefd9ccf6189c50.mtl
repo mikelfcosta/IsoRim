@@ -1,0 +1,8 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl egg
+Kd 0.940 0.900 0.820
+
+newmtl hay
+Kd 0.800 0.720 0.380
+map_Kd IsoRim/Clay/Swatches/Fabric

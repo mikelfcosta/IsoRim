@@ -1,0 +1,10 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_bear_polar_body
+Kd 0.940 0.930 0.890
+
+newmtl an_bear_polar_head
+Kd 0.940 0.930 0.890
+
+newmtl an_dark
+Kd 0.110 0.100 0.100

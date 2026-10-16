@@ -1,0 +1,40 @@
+newmtl ember
+Kd 0.960 0.420 0.180
+map_Kd IsoRim/Clay/Swatches/Glow
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl gun_metal
+Kd 0.360 0.370 0.400
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl pit
+Kd 0.100 0.080 0.070
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_block
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/Stone
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl stuff_block_dark
+Kd 0.800 0.800 0.800
+map_Kd IsoRim/Clay/Swatches/Stone
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

@@ -1,0 +1,4 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_rhinoceros_leg
+Kd 0.437 0.420 0.403

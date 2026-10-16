@@ -1,0 +1,5 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl rawmat_jade
+Kd 0.340 0.580 0.280
+map_Kd IsoRim/Clay/Swatches/Stone

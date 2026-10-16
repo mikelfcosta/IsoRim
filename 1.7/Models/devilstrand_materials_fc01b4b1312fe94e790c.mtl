@@ -1,0 +1,8 @@
+# Original semantic material definitions retained.
+newmtl cap_red
+Kd 0.720 0.210 0.190
+
+
+newmtl petal_white
+Kd 0.960 0.960 0.910
+

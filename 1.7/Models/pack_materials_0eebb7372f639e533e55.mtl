@@ -1,0 +1,17 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl gun_light
+Kd 0.660 0.680 0.700
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl strap
+Kd 0.340 0.260 0.180
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl stuff_fabric
+Kd 0.920 0.920 0.920
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl stuff_fabric_dark
+Kd 0.720 0.720 0.720
+map_Kd IsoRim/Clay/Swatches/Fabric

@@ -1,0 +1,5 @@
+# Original material block, copied without semantic edits.
+newmtl flame
+Kd 1.000 0.900 0.480
+map_Kd IsoRim/Clay/Swatches/Flame
+

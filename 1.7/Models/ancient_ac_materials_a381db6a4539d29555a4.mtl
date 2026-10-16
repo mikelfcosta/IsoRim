@@ -1,0 +1,23 @@
+newmtl street_dark
+Kd 0.19 0.20 0.18
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl street_rust
+Kd 0.39 0.24 0.19
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl street_shell
+Kd 0.52 0.51 0.47
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl street_trim
+Kd 0.40 0.40 0.36
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

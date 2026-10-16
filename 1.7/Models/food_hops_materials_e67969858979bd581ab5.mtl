@@ -1,0 +1,9 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl sack_dark
+Kd 0.560 0.470 0.330
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl string
+Kd 0.860 0.820 0.720
+map_Kd IsoRim/Clay/Swatches/Fabric

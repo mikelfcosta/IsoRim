@@ -1,0 +1,9 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl crop_pale
+Kd 0.500 0.620 0.380
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+newmtl string
+Kd 0.860 0.820 0.720
+map_Kd IsoRim/Clay/Swatches/Fabric

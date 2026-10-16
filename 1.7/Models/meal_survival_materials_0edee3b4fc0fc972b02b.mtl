@@ -1,0 +1,9 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl foil
+Kd 0.760 0.760 0.720
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl paint_olive
+Kd 0.400 0.420 0.300
+map_Kd IsoRim/Clay/Swatches/Metal

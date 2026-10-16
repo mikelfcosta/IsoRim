@@ -1,0 +1,20 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl bowl
+Kd 0.780 0.700 0.580
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl food_green
+Kd 0.440 0.620 0.300
+
+newmtl food_stew
+Kd 0.660 0.440 0.260
+
+newmtl food_yellow
+Kd 0.920 0.780 0.360
+
+newmtl glass
+Kd 0.520 0.700 0.780
+
+newmtl meat
+Kd 0.700 0.260 0.240

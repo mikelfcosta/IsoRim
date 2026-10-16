@@ -1,0 +1,15 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl anomaly_trim
+Kd 0.64 0.64 0.59
+
+newmtl flight_seam
+Kd 0.28 0.11 0.11
+
+newmtl flight_red
+Kd 0.37 0.15 0.15
+
+newmtl anomaly_shell
+Kd 0.48 0.49 0.46
+
+newmtl anomaly_dark
+Kd 0.23 0.25 0.23

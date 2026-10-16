@@ -1,0 +1,9 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_metal
+Kd 0.360 0.370 0.400
+map_Kd IsoRim/Clay/Swatches/Metal

@@ -1,0 +1,12 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl rust
+Kd 0.500 0.320 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl concrete
+Kd 0.620 0.610 0.580
+map_Kd IsoRim/Clay/Swatches/Stone
+
+newmtl rust_dark
+Kd 0.300 0.210 0.160
+map_Kd IsoRim/Clay/Swatches/Metal

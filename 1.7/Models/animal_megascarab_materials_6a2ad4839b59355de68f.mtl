@@ -1,0 +1,13 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_megascarab_body
+Kd 0.260 0.300 0.380
+
+newmtl an_megascarab_leg
+Kd 0.182 0.210 0.266
+
+newmtl an_dark
+Kd 0.110 0.100 0.100
+
+newmtl an_horn
+Kd 0.850 0.810 0.690

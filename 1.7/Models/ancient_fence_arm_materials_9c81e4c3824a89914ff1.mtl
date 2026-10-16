@@ -1,0 +1,5 @@
+newmtl fence_concrete
+Kd 0.39 0.38 0.35
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

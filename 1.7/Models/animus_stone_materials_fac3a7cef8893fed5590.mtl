@@ -1,0 +1,7 @@
+# Source semantic material blocks preserved exactly. No baked lighting.
+newmtl meditation_jade
+Kd 0.333333 0.462745 0.270588
+map_Kd IsoRim/Clay/Swatches/Stone
+
+newmtl meditation_carving
+Kd 0.21 0.31 0.17

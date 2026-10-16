@@ -44,7 +44,7 @@ jobs:
         run: dotnet build Source/IsoRim.csproj -c Release -nologo -p:RimWorldVersion=1.5
 
       - name: Validate mod and assemblies
-        run: python3 tools/validate_mod.py --check-assemblies
+        run: python3 tools/validate_mod.py --check-assemblies --summary
 
       # Package 1.7.4979-alpha is portable compatibility. Exact 4980 acceptance
       # runs locally on the frozen epic head with the approved game and bundled CLR.

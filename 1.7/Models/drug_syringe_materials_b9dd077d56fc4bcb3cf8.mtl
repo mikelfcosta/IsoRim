@@ -1,0 +1,16 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl glass
+Kd 0.520 0.700 0.780
+
+newmtl glow_green
+Kd 0.460 0.940 0.520
+map_Kd IsoRim/Clay/Swatches/Glow
+
+newmtl gun_light
+Kd 0.660 0.680 0.700
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_white
+Kd 0.840 0.860 0.880
+map_Kd IsoRim/Clay/Swatches/Metal

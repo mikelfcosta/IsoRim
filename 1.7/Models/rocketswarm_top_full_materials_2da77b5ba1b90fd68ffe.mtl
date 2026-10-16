@@ -1,0 +1,21 @@
+# Source semantic material names, Kd and map_Kd are unchanged.
+newmtl defense_red
+Kd 0.60 0.27 0.23
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl metal
+Kd 0.600 0.620 0.650
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl metal_dark
+Kd 0.320 0.330 0.360
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl silver
+Kd 0.820 0.840 0.860
+map_Kd IsoRim/Clay/Swatches/Metal
+

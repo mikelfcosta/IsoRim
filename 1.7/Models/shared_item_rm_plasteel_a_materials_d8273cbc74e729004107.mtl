@@ -1,0 +1,5 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl rawmat_plasteel
+Kd 0.420 0.620 0.640
+map_Kd IsoRim/Clay/Swatches/Metal

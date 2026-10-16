@@ -1,0 +1,24 @@
+newmtl ancient_trim
+Kd 0.63 0.61 0.55
+map_Kd IsoRim/Clay/Swatches/Metal
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl ruin_inner
+Kd 0.20 0.23 0.17
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl ruin_shell
+Kd 0.46 0.48 0.37
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2
+
+newmtl ruin_steel
+Kd 0.27 0.28 0.25
+Ks 0.035 0.035 0.035
+Ns 12
+illum 2

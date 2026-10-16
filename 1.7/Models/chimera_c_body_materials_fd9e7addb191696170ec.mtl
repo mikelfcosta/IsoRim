@@ -1,0 +1,6 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl chimera_c_skin
+Kd 0.68 0.42 0.44
+
+newmtl chimera_c_coat
+Kd 0.56 0.47 0.37

@@ -1,0 +1,9 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl anomaly_dark
+Kd 0.23 0.25 0.23
+
+newmtl anomaly_panel
+Kd 0.38 0.35 0.32
+
+newmtl anomaly_amber
+Kd 0.61 0.41 0.13

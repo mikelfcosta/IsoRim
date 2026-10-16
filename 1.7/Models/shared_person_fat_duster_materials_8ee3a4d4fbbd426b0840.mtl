@@ -1,0 +1,9 @@
+# Source-compatible uniform tint materials. No new texture dependency.
+newmtl stuff_plain
+Kd 1.000000 1.000000 1.000000
+
+newmtl stuff_plain_dark
+Kd 0.800000 0.800000 0.800000
+
+newmtl stuff_plain_deep
+Kd 0.600000 0.600000 0.600000

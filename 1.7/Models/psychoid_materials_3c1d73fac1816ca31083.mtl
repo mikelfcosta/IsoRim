@@ -1,0 +1,13 @@
+# Original semantic material definitions retained.
+newmtl crop_pale
+Kd 0.500 0.620 0.380
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+
+newmtl petal_white
+Kd 0.960 0.960 0.910
+
+
+newmtl stem
+Kd 0.360 0.500 0.240
+

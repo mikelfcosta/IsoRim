@@ -1,0 +1,13 @@
+# Source IsoRim material definitions; names, tints and texture paths preserved.
+
+newmtl an_monkey_body
+Kd 0.500 0.360 0.260
+
+newmtl an_monkey_head
+Kd 0.500 0.360 0.260
+
+newmtl an_monkey_muzzle
+Kd 0.840 0.680 0.540
+
+newmtl an_dark
+Kd 0.110 0.100 0.100

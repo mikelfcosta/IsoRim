@@ -1,0 +1,6 @@
+# Source semantic material blocks, no invented shading semantics.
+newmtl entity_shadow
+Kd 0.32 0.29 0.29
+
+newmtl entity_grey
+Kd 0.4 0.43 0.45

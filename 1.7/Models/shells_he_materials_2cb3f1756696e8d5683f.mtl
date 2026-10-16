@@ -1,0 +1,13 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl brass
+Kd 0.800 0.640 0.300
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl paint_red
+Kd 0.560 0.240 0.200
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl shell_olive
+Kd 0.400 0.440 0.300
+map_Kd IsoRim/Clay/Swatches/Metal

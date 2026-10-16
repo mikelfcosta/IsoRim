@@ -1,0 +1,18 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl gene_trim
+Kd 0.40 0.43 0.43
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gene_shell
+Kd 0.65 0.66 0.64
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gene_blue
+Kd 0.20 0.65 0.80
+
+newmtl gene_cushion
+Kd 0.73 0.75 0.72
+map_Kd IsoRim/Clay/Swatches/Fabric
+
+newmtl gene_teal
+Kd 0.39 0.58 0.56

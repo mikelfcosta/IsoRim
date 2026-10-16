@@ -1,0 +1,13 @@
+# Exact used source semantic material blocks; no color/light baking.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
+
+newmtl stuff_plain_deep
+Kd 0.600 0.600 0.600
+
+newmtl cult_mask
+Kd 0.380 0.340 0.340
+
+newmtl cult_black
+Kd 0.100 0.090 0.090
+# whisperer skull: the sprite's untinted face (its colour mask leaves it out of the fabric tint)

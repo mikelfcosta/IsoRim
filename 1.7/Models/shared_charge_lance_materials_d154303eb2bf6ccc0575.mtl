@@ -1,0 +1,13 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl charge
+Kd 0.450 0.900 1.000
+map_Kd IsoRim/Clay/Swatches/Glow
+
+newmtl gun_dark
+Kd 0.200 0.200 0.220
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl gun_white
+Kd 0.840 0.860 0.880
+map_Kd IsoRim/Clay/Swatches/Metal

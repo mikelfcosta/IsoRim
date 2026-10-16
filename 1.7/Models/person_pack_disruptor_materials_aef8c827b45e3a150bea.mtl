@@ -1,0 +1,15 @@
+# Exact used source semantic material blocks; no color/light baking.
+newmtl utility_dark
+Kd 0.22 0.25 0.26
+
+newmtl utility_steel
+Kd 0.49 0.53 0.53
+
+newmtl utility_capsule
+Kd 0.4 0.23 0.25
+
+newmtl utility_bio
+Kd 0.4 0.41 0.39
+
+newmtl utility_cyan
+Kd 0.27 0.68 0.74

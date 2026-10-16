@@ -1,0 +1,3 @@
+# Exact used source semantic material blocks; no color/light baking.
+newmtl mutant_wound
+Kd 0.27 0.29 0.22

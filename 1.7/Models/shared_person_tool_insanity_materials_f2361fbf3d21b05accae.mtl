@@ -1,0 +1,10 @@
+# Original semantic material definitions, isolated per asset to avoid batch collisions.
+
+newmtl utility_dark
+Kd 0.22 0.25 0.26
+
+newmtl utility_olive
+Kd 0.51 0.54 0.39
+
+newmtl utility_yellow
+Kd 0.84 0.85 0.29

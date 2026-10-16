@@ -1,0 +1,7 @@
+# Source semantic material names, Kd and map_Kd are unchanged.
+newmtl worker_edge
+Kd 0.48 0.51 0.44
+
+newmtl worker_steel
+Kd 0.80 0.82 0.76
+

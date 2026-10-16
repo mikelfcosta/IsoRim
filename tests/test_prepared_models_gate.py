@@ -453,6 +453,31 @@ class GateHostTests(unittest.TestCase):
                     gate.verify_static_pixels(root, [case], request, 0, 0)
 
     def test_prepared_asset_validation(self):
+        from prepared_models.intake_fixtures import recovery_mod, write_model
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            recovery_mod(root, ROOT / "1.7/Assemblies/IsoRim.dll")
+            model = root / "1.7/Models/Diagnostics/internal.obj"
+            write_model(model.parent, model.name, 2)
+            command = [sys.executable, str(ROOT / "tools/validate_mod.py"),
+                       "--mod-dir", str(root), "--check-assemblies", "--summary"]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Prepared inputs checked:", result.stdout)
+            self.assertNotIn("Prepared scalar bits:", result.stdout)
+            self.assertNotIn("Prepared inputs:", result.stdout)
+            self.assertLess(max(map(len, result.stdout.splitlines())), 512)
+            original = model.read_text()
+            model.write_text(original.replace("vn 0 0.6 -0.8", "vn 0 0 0"))
+            invalid = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertEqual(invalid.returncode, 1)
+            self.assertIn("normal", invalid.stderr)
+            model.write_text(original.replace("sample.mtl", "missing.mtl"))
+            missing = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertEqual(missing.returncode, 1)
+            self.assertIn("material library missing", missing.stderr)
+
         import prepared_models_gate as gate
         from prepared_models.intake_fixtures import stage_intake
 
