@@ -195,6 +195,8 @@ namespace IsoRim
 
             if (Active)
             {
+                IsoRimSettings st = IsoRimMod.Settings;
+                R3DMaterials.SyncModelStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
                 ApplyCamera(main);
                 Grade.Draw(main);
             }
@@ -431,6 +433,7 @@ namespace IsoRim
                 h = h * 31 + (st.mapEdge3D ? 1 : 0);
                 h = h * 31 + (st.damage3D ? 1 : 0);
                 h = h * 31 + (st.outlines ? 1 : 0);
+                h = h * 31 + (st.outlines && st.outlineWidth > 0.001f ? Mathf.RoundToInt(Mathf.Clamp(st.outlineWidth, 0.25f, 1.50f) * 100f) : 0);
                 h = h * 31 + (st.texturedModels ? 1 : 0);
                 h = h * 31 + (st.ruggedRock ? 1 : 0);
                 h = h * 31 + (st.trees3D ? 1 : 0);
@@ -479,6 +482,8 @@ namespace IsoRim
             pendingSig = sig;
             R3DMaterials.SetLight(LightNow());
             MapSections.Clear();
+            DynamicModels.Forget();
+            People.ForgetAll();
             RegenerateAllMaps();
         }
 

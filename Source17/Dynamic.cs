@@ -225,9 +225,9 @@ namespace IsoRim
                                 c *= tint;
                             }
                             into.Add(local.MultiplyPoint3x4(m.positions[v]), R3DMaterials.Shaded(c, 1f), Vector2.zero, authored ? normalTransform.MultiplyVector(m.shadingNormals[v]).normalized : Vector3.zero);
-                            if (m.hull != null && (m.noOutline == null || !m.noOutline[v]))
+                            if (IsoRimMod.Settings.outlines && IsoRimMod.Settings.outlineWidth > 0.001f && m.hull != null && (m.noOutline == null || !m.noOutline[v]))
                             {
-                                outline.Add(local.MultiplyPoint3x4(m.positions[v] + m.hull[v]), R3DMaterials.Shaded(c, ModelBaker.OutlineShade), Vector2.zero);
+                                outline.Add(local.MultiplyPoint3x4(m.positions[v] + m.hull[v] * Mathf.Clamp(IsoRimMod.Settings.outlineWidth, 0.25f, 1.50f)), R3DMaterials.Shaded(c, ModelBaker.OutlineShade), Vector2.zero);
                             }
                         }
                     }
@@ -285,7 +285,7 @@ namespace IsoRim
             {
                 Sweep();
             }
-            bool outlines = IsoRimMod.Settings.outlines;
+            bool outlines = IsoRimMod.Settings.outlines && IsoRimMod.Settings.outlineWidth > 0.001f;
             for (int i = 0; i < parts.Count; i++)
             {
                 Part p = parts[i];
@@ -407,9 +407,9 @@ namespace IsoRim
                         c *= tint;
                     }
                     into.Add(tl != null ? m.positions[k] - hull * ModelBaker.Inset : m.positions[k], R3DMaterials.Shaded(c, 1f), Vector2.zero, authored ? m.shadingNormals[k] : Vector3.zero);
-                    if (m.hull != null && (m.noOutline == null || !m.noOutline[k]))
+                    if (IsoRimMod.Settings.outlines && IsoRimMod.Settings.outlineWidth > 0.001f && m.hull != null && (m.noOutline == null || !m.noOutline[k]))
                     {
-                        outline.Add(m.positions[k] + hull, R3DMaterials.Shaded(c, ModelBaker.OutlineShade), Vector2.zero);
+                        outline.Add(m.positions[k] + hull * Mathf.Clamp(IsoRimMod.Settings.outlineWidth, 0.25f, 1.50f), R3DMaterials.Shaded(c, ModelBaker.OutlineShade), Vector2.zero);
                     }
                     if (tl != null)
                     {

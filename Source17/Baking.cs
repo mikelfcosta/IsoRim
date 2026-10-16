@@ -2033,7 +2033,7 @@ namespace IsoRim
             IsoRimSettings st = IsoRimMod.Settings;
 
             LayerSubMesh outline = null;
-            if (st.outlines && m.hull != null && outlineBold > 0f)
+            if (st.outlines && st.outlineWidth > 0.001f && m.hull != null && outlineBold > 0f)
             {
                 Material outlineMat = R3DMaterials.Outline;
                 outline = outlineMat != null ? MeshWriter.Sub(layer, outlineMat) : null;
@@ -2167,7 +2167,7 @@ namespace IsoRim
                     // 2. outline
                     if (outline != null && (m.noOutline == null || !m.noOutline[k]))
                     {
-                        Vector3 h = turn * (Vector3.Scale(lay * (m.positions[k] + hull) + layLift, scale) + offset);
+                        Vector3 h = turn * (Vector3.Scale(lay * (m.positions[k] + hull * Mathf.Clamp(st.outlineWidth, 0.25f, 1.50f)) + layLift, scale) + offset);
                         outline.tris.Add(outline.verts.Count);
                         outline.verts.Add(new Vector3(center.x + h.x, baseY + Mathf.Max(0f, h.y) / squash, center.z + h.z));
                         outline.colors.Add(R3DMaterials.Shaded(c, OutlineShade));
