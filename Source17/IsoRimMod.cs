@@ -36,6 +36,11 @@ namespace IsoRim
         public bool workAnimations = true;
         public bool damage3D = true;
         public bool outlines = true;
+        public int modelStyle = 1;
+        public float clayWrap = 0.22f;
+        public float clayHighlight = 0.04f;
+        public float clayRoughness = 0.65f;
+        public float outlineWidth = 0.75f;
         public bool texturedModels = true;
         public bool ruggedRock = true;
         public bool trees3D = true;
@@ -82,7 +87,7 @@ namespace IsoRim
             Scribe_Values.Look(ref isometric, "isometric", true);
             Scribe_Values.Look(ref isoPitch, "isoPitch", 35.3f);
             Scribe_Values.Look(ref wallHeight, "wallHeight", 1.2f);
-            Scribe_Values.Look(ref squash, "squash", 0.02f);
+            Scribe_Values.Look(ref squash, "squash", 0.003f);
             Scribe_Values.Look(ref feetOffset, "feetOffset", 0.3f);
             Scribe_Values.Look(ref saturation, "saturation", 0.85f);
             Scribe_Values.Look(ref brightness, "brightness", 0.95f);
@@ -102,6 +107,11 @@ namespace IsoRim
             Scribe_Values.Look(ref workAnimations, "workAnimations", true);
             Scribe_Values.Look(ref damage3D, "damage3D", true);
             Scribe_Values.Look(ref outlines, "outlines", true);
+            Scribe_Values.Look(ref modelStyle, "modelStyle", 1);
+            Scribe_Values.Look(ref clayWrap, "clayWrap", 0.22f);
+            Scribe_Values.Look(ref clayHighlight, "clayHighlight", 0.04f);
+            Scribe_Values.Look(ref clayRoughness, "clayRoughness", 0.65f);
+            Scribe_Values.Look(ref outlineWidth, "outlineWidth", 0.75f);
             Scribe_Values.Look(ref texturedModels, "texturedModels", true);
             Scribe_Values.Look(ref ruggedRock, "ruggedRock", true);
             Scribe_Values.Look(ref trees3D, "trees3D", true);
@@ -201,6 +211,8 @@ namespace IsoRim
     public static class SettingsWindow
     {
         private static int tab;
+        private static Vector2 objectsScroll;
+        private static float objectsHeight = 800f;
         private static readonly Color Muted = new Color(0.72f, 0.72f, 0.72f);
         private static readonly Color Rule = new Color(1f, 1f, 1f, 0.18f);
         private static readonly Color Accent = new Color(0.55f, 0.78f, 0.95f);
@@ -229,6 +241,13 @@ namespace IsoRim
             TabDrawer.DrawTabs(body, tabs);
 
             Rect inner = body.ContractedBy(14f);
+            bool scrollObjects = tab == 3;
+            if (scrollObjects)
+            {
+                Rect content = new Rect(0, 0, inner.width - 16f, Mathf.Max(inner.height, objectsHeight));
+                Widgets.BeginScrollView(inner, ref objectsScroll, content);
+                inner = content;
+            }
             float gap = 24f;
             float colW = (inner.width - gap) / 2f;
             Rect left = new Rect(inner.x, inner.y, colW, inner.height);
@@ -247,6 +266,11 @@ namespace IsoRim
             r.Begin(right);
             Tab(null, r, st);
             r.End();
+            if (scrollObjects)
+            {
+                objectsHeight = Mathf.Max(l.CurHeight, r.CurHeight) + 8f;
+                Widgets.EndScrollView();
+            }
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
@@ -641,8 +665,29 @@ namespace IsoRim
                 Check(r, "Sprites stand upright", ref st.uprightPawns, "For people and animals without a model.");
 
                 Section(r, "Model style");
+                string[] styles = { "Classic faceted", "Matte clay (wrapped)", "Matte clay (Oren-Nayar)" };
+                Rect shading = r.GetRect(30f);
+                if (Widgets.ButtonText(shading, "Model shading: " + styles[Mathf.Clamp(st.modelStyle, 0, 2)]))
+                {
+                    var options = new List<FloatMenuOption>();
+                    for (int i = 0; i < styles.Length; i++)
+                    {
+                        int chosen = i;
+                        options.Add(new FloatMenuOption(styles[i], delegate { st.modelStyle = chosen; }));
+                    }
+                    Find.WindowStack.Add(new FloatMenu(options));
+                }
+                if (st.modelStyle > 0)
+                {
+                    st.clayWrap = Slider(r, "Soft light wrap", st.clayWrap, 0f, 0.5f, st.clayWrap.ToString("0.00"));
+                    st.clayHighlight = Slider(r, "Matte highlight", st.clayHighlight, 0f, 0.10f, st.clayHighlight.ToString("0.00"));
+                    if (st.modelStyle == 2)
+                        st.clayRoughness = Slider(r, "Roughness", st.clayRoughness, 0f, 1f, st.clayRoughness.ToString("0.00"));
+                }
                 Check(r, "Textures on models", ref st.texturedModels);
                 Check(r, "Dark outlines on models", ref st.outlines);
+                if (st.outlines)
+                    st.outlineWidth = Slider(r, "Outline width", st.outlineWidth, 0.25f, 1.50f, st.outlineWidth.ToString("0.00"));
             }
         }
 
