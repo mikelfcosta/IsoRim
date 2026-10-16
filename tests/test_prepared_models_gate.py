@@ -3,6 +3,7 @@
 from copy import deepcopy
 import json
 import hashlib
+import io
 from pathlib import Path
 import subprocess
 import struct
@@ -420,6 +421,22 @@ class GateHostTests(unittest.TestCase):
             self.assertEqual(gate.budget_timeout(5, deadline=25), 5)
             with self.assertRaisesRegex(gate.Refusal, "300-second"):
                 gate.budget_timeout(60, deadline=10)
+        # Exercise the real entry point from an unset deadline. The first external
+        # operation must be refused when the clock advances past the whole-gate limit.
+        previous_deadline = gate.DEADLINE
+        try:
+            gate.DEADLINE = None
+            argv = ["prepared_models_gate.py", "t0", "--story", "ISORIM-004.S03",
+                    "--epic-ref", "feat/ISORIM-004-matte-clay-model-style", "--dotnet", str(gate.SDK.resolve())]
+            with mock.patch("sys.argv", argv), mock.patch("time.monotonic", side_effect=(10, 311, 311)), \
+                    mock.patch("sys.stderr", new_callable=io.StringIO) as error, \
+                    mock.patch("subprocess.run", side_effect=AssertionError("Expired main launched external work")) as launch:
+                self.assertEqual(gate.main(), 1)
+                self.assertIn("The complete gate exceeded its 300-second budget", error.getvalue())
+                launch.assert_not_called()
+        finally:
+            gate.DEADLINE = previous_deadline
+
         manifest = gate.case_manifest()
         baseline = "1e94da595494948f4aed0cba599fae17ee3ce6ee"
         self.assertEqual(gate.BASELINE, baseline)
