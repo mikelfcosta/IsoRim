@@ -16,7 +16,7 @@
 //    front of a wall loses its outline where the wall is less than that far behind it.
 
 layout(location = 0) in vec3 inPosition; // @vertex Position required
-layout(location = 1) in vec3 inNormal;   // @vertex Normal optional @default = vec4(0.0, 1.0, 0.0, 0.0)
+layout(location = 1) in vec3 inNormal;   // @vertex Normal optional @default = vec4(0.0, 0.0, 0.0, 0.0)
 layout(location = 2) in vec4 inColor; // @vertex Color optional @default = vec4(1.0, 1.0, 1.0, 1.0)
 layout(location = 3) in vec4 inUv0; // @vertex TexCoord0 optional @default = vec4(0.0, 0.0, 0.0, 0.0)
 layout(location = 4) in vec4 inUv1; // @vertex TexCoord1 optional @default = vec4(0.0, 0.0, 0.0, 0.0)
@@ -60,6 +60,10 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _OutlinePush; // @default = 0.0   vertex stage only (IsoRim.vert.glsl): moving outlines
     vec4 _IsoCellMap; // global, no default: (origin x, origin z, W, H) of the cell texture (IsoCellMap)
     vec4 _IsoLevel;   // global, no default: x = the map's ground height in cells, y = what is left of a cut wall
+    float _NormalSpace; // @default = 0.0  0 geometric, 1 baked true space, 2 model local
+    float _NormalView; // @default = 0.0  guarded proof controller only
+    float _NormalTransportFault; // @default = 0.0  guarded proof controller only
+    float _NormalLightingFault; // @default = 0.0  1 G, 2 quantized N; ordinary lighting only
 } uMaterial;
 
 // ---- Step 7: the cut-away in the vertex stage (C# ShaderCut, Source\ShaderCut.cs). IsoRim's walls, damage,
@@ -208,5 +212,23 @@ void main()
     vColor = inColor;
     vUv = uv;
     vWorldPos = world.xyz;
-    vNormal = inNormal;
+    vNormal = vec3(0.0);
+    if (uMaterial._NormalSpace > 0.5 && uMaterial._NormalTransportFault < 0.5 && dot(inNormal, inNormal) > 1e-12)
+    {
+        if (uMaterial._NormalSpace < 1.5)
+            vNormal = inNormal; // CPU baker already used inverse transpose before artificial Y expansion.
+        else
+        {
+#ifdef INSTANCED
+            mat3 physical = mat3(instanceTransforms[gl_InstanceIndex]);
+#else
+            mat3 physical = mat3(push.modelMatrix);
+#endif
+            physical[0].y *= squash;
+            physical[1].y *= squash;
+            physical[2].y *= squash;
+            if (abs(determinant(physical)) > 1e-12)
+                vNormal = transpose(inverse(physical)) * inNormal;
+        }
+    }
 }

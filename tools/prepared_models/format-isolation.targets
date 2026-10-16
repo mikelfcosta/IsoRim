@@ -1,0 +1,11 @@
+<Project>
+  <!-- dotnet format uses MSBuildWorkspace rather than accepting CLI -p arguments. -->
+  <PropertyGroup Condition="'$(PreparedModelsFormatDirectory)' != ''">
+    <OutputPath>$(PreparedModelsFormatDirectory)/bin/</OutputPath>
+    <BaseIntermediateOutputPath>$(PreparedModelsFormatDirectory)/obj/</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(PreparedModelsFormatDirectory)/obj/</IntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(PreparedModelsFormatDirectory)/obj/</MSBuildProjectExtensionsPath>
+    <TargetDir>$(PreparedModelsFormatDirectory)/bin/</TargetDir>
+    <TargetPath>$(PreparedModelsFormatDirectory)/bin/IsoRim.dll</TargetPath>
+  </PropertyGroup>
+</Project>

@@ -109,6 +109,7 @@ namespace IsoRim
             {
                 return;
             }
+            ProbeNormals.Tick();
             int ticks = Find.TickManager.TicksGame;
             if (lastTicks >= 0 && Math.Abs(ticks - lastTicks) > 1000)
             {

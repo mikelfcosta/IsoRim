@@ -241,6 +241,8 @@ namespace IsoRim
     {
         public Vector3[] positions;
         public Vector3[] normals;
+        public Vector3[] shadingNormals; // authored corner normals, separate from geometric face normals
+        public bool[] authoredNormals;  // all three corners are valid or all fall back; null for procedural geometry
         public Color[] colors;
         public bool[] tinted;   // true where the colour is multiplied by the thing's stuff colour
         public Vector2[] uvs;   // texture coordinates
@@ -583,6 +585,7 @@ namespace IsoRim
     {
         private static readonly Dictionary<ThingDef, ModelEntry> byThing = new Dictionary<ThingDef, ModelEntry>();
         private static readonly Dictionary<string, Model> byPath = new Dictionary<string, Model>();
+        private static readonly Dictionary<string, string> internalPaths = new Dictionary<string, string>();
         private static readonly Dictionary<ThingDef, string> how = new Dictionary<ThingDef, string>();
 
         public static bool TryGet(ThingDef def, out ModelEntry entry)
@@ -629,16 +632,40 @@ namespace IsoRim
             }
         }
 
+        // Internal parts have a prepared 1.7 override. Definition-owned paths never use this lookup.
+        internal static string InternalPath(string file)
+        {
+            if (IsoRimMod.RootDir == null)
+            {
+                return null;
+            }
+            string prepared = Path.GetFullPath(Path.Combine(IsoRimMod.RootDir, "1.7", "Models", file));
+            string resolved;
+            if (!internalPaths.TryGetValue(prepared, out resolved))
+            {
+                resolved = File.Exists(prepared) ? prepared : Path.GetFullPath(Path.Combine(IsoRimMod.RootDir, "Models", file));
+                internalPaths[prepared] = resolved;
+            }
+            return resolved;
+        }
+
+        internal static Model LoadInternal(string file)
+        {
+            string path = InternalPath(file);
+            return path != null ? LoadFile(path) : null;
+        }
+
         // Loads a model file once; null if it is missing or unreadable.
         public static Model LoadFile(string path)
         {
             Model model;
-            if (byPath.TryGetValue(path, out model))
-            {
-                return model;
-            }
             try
             {
+                path = Path.GetFullPath(path);
+                if (byPath.TryGetValue(path, out model))
+                {
+                    return model;
+                }
                 model = ObjLoader.Load(path);
             }
             catch (Exception e)
@@ -1021,6 +1048,8 @@ namespace IsoRim
             Model m = new Model();
             m.positions = src.positions;
             m.normals = src.normals;
+            m.shadingNormals = src.shadingNormals;
+            m.authoredNormals = src.authoredNormals;
             m.uvs = src.uvs;
             m.hull = src.hull;
             m.noOutline = src.noOutline;
@@ -1084,6 +1113,8 @@ namespace IsoRim
             Model m = new Model();
             m.positions = src.positions;
             m.normals = src.normals;
+            m.shadingNormals = src.shadingNormals;
+            m.authoredNormals = src.authoredNormals;
             m.uvs = src.uvs;
             m.hull = src.hull;
             m.noOutline = src.noOutline;
@@ -1163,6 +1194,8 @@ namespace IsoRim
             Model m = new Model();
             m.positions = src.positions;
             m.normals = src.normals;
+            m.shadingNormals = src.shadingNormals;
+            m.authoredNormals = src.authoredNormals;
             m.uvs = src.uvs;
             m.hull = src.hull;
             m.noOutline = src.noOutline;
@@ -1239,6 +1272,8 @@ namespace IsoRim
         public static Model Merge(List<Model> models)
         {
             List<Vector3> pos = new List<Vector3>(), nor = new List<Vector3>(), hull = new List<Vector3>();
+            List<Vector3> shading = new List<Vector3>();
+            List<bool> authored = new List<bool>();
             List<Color> col = new List<Color>();
             List<bool> tint = new List<bool>();
             List<Vector2> uv = new List<Vector2>();
@@ -1250,6 +1285,8 @@ namespace IsoRim
                 mats.AddRange(src.materials);
                 pos.AddRange(src.positions);
                 nor.AddRange(src.normals);
+                shading.AddRange(src.shadingNormals ?? src.normals);
+                authored.AddRange(src.authoredNormals ?? new bool[src.positions.Length]);
                 col.AddRange(src.colors);
                 tint.AddRange(src.tinted);
                 uv.AddRange(src.uvs);
@@ -1262,6 +1299,8 @@ namespace IsoRim
             Model m = new Model();
             m.positions = pos.ToArray();
             m.normals = nor.ToArray();
+            m.shadingNormals = shading.ToArray();
+            m.authoredNormals = authored.ToArray();
             m.colors = col.ToArray();
             m.tinted = tint.ToArray();
             m.uvs = uv.ToArray();
@@ -1353,6 +1392,8 @@ namespace IsoRim
             Model m = new Model();
             m.positions = src.positions;
             m.normals = src.normals;
+            m.shadingNormals = src.shadingNormals;
+            m.authoredNormals = src.authoredNormals;
             m.colors = src.colors;
             m.tinted = src.tinted;
             m.uvs = src.uvs;
@@ -1390,6 +1431,7 @@ namespace IsoRim
 
             List<Vector3> pos = new List<Vector3>();
             List<Vector2> tex = new List<Vector2>();
+            List<Vector3> authored = new List<Vector3>();
             List<Color> vertColor = new List<Color>();
             List<bool> hasVertColor = new List<bool>();
 
@@ -1400,6 +1442,8 @@ namespace IsoRim
 
             List<Vector3> outPos = new List<Vector3>();
             List<Vector3> outNormal = new List<Vector3>();
+            List<Vector3> outShading = new List<Vector3>();
+            List<bool> outAuthored = new List<bool>();
             List<Color> outColor = new List<Color>();
             List<bool> outTint = new List<bool>();
             List<Vector2> outUV = new List<Vector2>();
@@ -1408,6 +1452,7 @@ namespace IsoRim
             string dir = Path.GetDirectoryName(path);
             List<int> face = new List<int>();
             List<int> faceUV = new List<int>();
+            List<int> faceNormal = new List<int>();
 
             foreach (string raw in File.ReadAllLines(path))
             {
@@ -1449,11 +1494,24 @@ namespace IsoRim
                 {
                     tex.Add(new Vector2(Num(t[1]), Num(t[2])));
                 }
+                else if (t[0] == "vn")
+                {
+                    Vector3 normal = Vector3.zero;
+                    if (t.Length >= 4 && float.TryParse(t[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
+                        && float.TryParse(t[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
+                        && float.TryParse(t[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
+                    {
+                        normal = new Vector3(x, y, -z);
+                    }
+                    float lengthSquared = normal.sqrMagnitude;
+                    authored.Add(float.IsFinite(lengthSquared) && lengthSquared >= 1e-12f ? normal.normalized : Vector3.zero);
+                }
                 else if (t[0] == "f" && t.Length >= 4)
                 {
                     // Each corner is written as position, position/texture or position/texture/normal.
                     face.Clear();
                     faceUV.Clear();
+                    faceNormal.Clear();
                     bool bad = false;
                     for (int i = 1; i < t.Length; i++)
                     {
@@ -1466,6 +1524,7 @@ namespace IsoRim
                         }
                         face.Add(idx);
                         faceUV.Add(parts.Length > 1 ? Index(parts[1], tex.Count) : -1);
+                        faceNormal.Add(parts.Length > 2 ? Index(parts[2], authored.Count) : -1);
                     }
                     if (bad)
                     {
@@ -1487,6 +1546,10 @@ namespace IsoRim
                         }
                         n.Normalize();
 
+                        bool triangleAuthored = faceNormal[0] >= 0 && faceNormal[i] >= 0 && faceNormal[i + 1] >= 0
+                            && authored[faceNormal[0]].sqrMagnitude > 0f && authored[faceNormal[i]].sqrMagnitude > 0f
+                            && authored[faceNormal[i + 1]].sqrMagnitude > 0f;
+
                         for (int k = 0; k < 3; k++)
                         {
                             int corner = k == 0 ? 0 : (k == 1 ? i : i + 1);
@@ -1494,6 +1557,9 @@ namespace IsoRim
                             int ti = faceUV[corner];
                             outPos.Add(pos[pi]);
                             outNormal.Add(n);
+                            int ni = faceNormal[corner];
+                            outShading.Add(triangleAuthored ? authored[ni] : n);
+                            outAuthored.Add(triangleAuthored);
                             outColor.Add(hasVertColor[pi] ? vertColor[pi] : mat.color);
                             outTint.Add(mat.tinted);
                             outUV.Add(ti >= 0 ? tex[ti] : Vector2.zero);
@@ -1509,11 +1575,24 @@ namespace IsoRim
                 return null;
             }
 
-            TurnRoundIfInsideOut(outPos, outNormal, outColor, outTint, outUV, outMaterial);
+            TurnRoundIfInsideOut(outPos, outNormal, outColor, outTint, outUV, outMaterial, outShading, outAuthored);
+            for (int i = 0; i < outShading.Count; i++)
+            {
+                if (!outAuthored[i])
+                {
+                    outShading[i] = outNormal[i];
+                }
+                else if (Vector3.Dot(outShading[i], outNormal[i]) < 0f)
+                {
+                    outShading[i] = -outShading[i];
+                }
+            }
 
             Model m = new Model();
             m.positions = outPos.ToArray();
             m.normals = outNormal.ToArray();
+            m.shadingNormals = outShading.ToArray();
+            m.authoredNormals = outAuthored.ToArray();
             m.colors = outColor.ToArray();
             m.tinted = outTint.ToArray();
             m.uvs = outUV.ToArray();
@@ -1583,7 +1662,7 @@ namespace IsoRim
         // closed model whose faces enclose a clearly negative volume is turned round here.
         // (Open shapes such as grass blades enclose almost nothing and are left as they are.)
         private static void TurnRoundIfInsideOut(List<Vector3> pos, List<Vector3> normal, List<Color> color, List<bool> tint,
-            List<Vector2> uv, List<int> material)
+            List<Vector2> uv, List<int> material, List<Vector3> shading, List<bool> authored)
         {
             float volume = 0f;
             Vector3 min = pos[0];
@@ -1612,6 +1691,8 @@ namespace IsoRim
                 Swap(tint, i + 1, i + 2);
                 Swap(uv, i + 1, i + 2);
                 Swap(material, i + 1, i + 2);
+                Swap(shading, i + 1, i + 2);
+                Swap(authored, i + 1, i + 2);
                 for (int k = i; k < i + 3; k++)
                 {
                     normal[k] = -normal[k];
@@ -1875,9 +1956,19 @@ namespace IsoRim
                     }
                     current = materials[index];
                 }
-                else if (t[0] == "Kd" && t.Length >= 4 && current != null)
+                else if (t[0] == "Kd" && current != null)
                 {
-                    current.color = new Color(Num(t[1]), Num(t[2]), Num(t[3]));
+                    if (t.Length >= 4 && float.TryParse(t[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float red)
+                        && float.TryParse(t[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float green)
+                        && float.TryParse(t[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float blue)
+                        && float.IsFinite(red) && float.IsFinite(green) && float.IsFinite(blue))
+                    {
+                        current.color = new Color(red, green, blue);
+                    }
+                    else
+                    {
+                        ModLog.Warn("[IsoRim] Malformed material colour in " + path + ": " + line);
+                    }
                 }
                 else if (t[0] == "map_Kd" && t.Length >= 2 && current != null)
                 {
@@ -2194,6 +2285,8 @@ namespace IsoRim
         }
     }
 
+    public enum ShadingNormalSpace { GeometricOnly = 0, BakedTrueSpace = 1, ModelLocal = 2 }
+
     // The materials of all solid 3D geometry: colour from the vertices (stuff tint, fixed factors)
     // times the material colour, lit per pixel by IsoRim's sun (Shaders/IsoRimSolid.frag.glsl).
     [StaticConstructorOnStartup]
@@ -2344,7 +2437,7 @@ namespace IsoRim
         public const int LightModel = 1;   // _LightMode: model curve (curve 0)
         public const int LightWall = 2;    // _LightMode: wall and rock curve (curve 1)
         public const int LightRoof = 3;    // _LightMode: roof slates (model curve * 1.05, at most 1.1)
-        private static readonly Material[] litSolid = new Material[2];
+        private static readonly Material[] litSolid = new Material[6];
         private static readonly Dictionary<string, Material> litByKey = new Dictionary<string, Material>();
 
         // Which direction group a face pointing along normal belongs to.
@@ -2377,19 +2470,21 @@ namespace IsoRim
 
         // The plain solid material lit by the sun: vertex colours times the shade of the face's
         // direction. bin is ignored now (the shader finds each face's direction itself).
-        public static Material Lit(int bin, int curve = 0)
+        public static Material Lit(int bin, int curve = 0, ShadingNormalSpace normalSpace = ShadingNormalSpace.GeometricOnly)
         {
             if (Solid == null)
             {
                 return null;
             }
             curve = curve == 1 ? 1 : 0;
-            Material m = litSolid[curve];
+            int slot = curve * 3 + (int)normalSpace;
+            Material m = litSolid[slot];
             if (m == null)
             {
                 m = Make(SolidDef, curve == 1 ? "IsoRim_LitWall" : "IsoRim_LitModel", -1, ModeOf(curve));
                 IsoGlow.Use(m, IsoGlow.OwnCell);
-                litSolid[curve] = m;
+                if (m != null) m.SetFloat("_NormalSpace", (float)normalSpace);
+                litSolid[slot] = m;
             }
             return m;
         }
@@ -2402,11 +2497,11 @@ namespace IsoRim
 
         // A texture times a colour, lit by the sun. Shared by every face with the same texture,
         // colour and curve; bin is ignored (see Lit). Null if the texture is missing.
-        public static Material LitTexture(string path, Color baseColor, int bin = 0, int curve = 0)
+        public static Material LitTexture(string path, Color baseColor, int bin = 0, int curve = 0, ShadingNormalSpace normalSpace = ShadingNormalSpace.GeometricOnly)
         {
             curve = curve == 1 ? 1 : 0;
             Color32 c = baseColor;
-            string key = path + "|" + c.r + "," + c.g + "," + c.b + "|" + curve;
+            string key = path + "|" + c.r + "," + c.g + "," + c.b + "|" + curve + "|" + (int)normalSpace;
             Material m;
             if (litByKey.TryGetValue(key, out m))
             {
@@ -2420,6 +2515,7 @@ namespace IsoRim
             if (m != null)
             {
                 m.mainTexture = tex;
+                m.SetFloat("_NormalSpace", (float)normalSpace);
                 m.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
                 IsoGlow.Use(m, IsoGlow.OwnCell);
             }

@@ -1,0 +1,18 @@
+{
+  "profile": "IsoRim prepared OBJ 1.7 v1",
+  "units": "one cell per unit",
+  "axes": "Y up; importer reflects position and normal Z",
+  "ground": "y=0",
+  "pivot": "explicit model or definition pivot; no implicit recenter",
+  "normalSpace": "OBJ model-local before import; true-space shading after import",
+  "triangleValidity": "all three corners usable or whole-triangle geometric fallback",
+  "winding": "closed negative-volume repair; authored N faces geometric G hemisphere",
+  "transform": "inverse transpose before artificial Y squash; merged local then figure",
+  "channels": "Normal=shading; UV0=texture; UV1=cutaway; binding4=instance matrices",
+  "geometric": "positions; face normals; hull; texture lift; damage; cutaway; glow ownership",
+  "paths": "internal 1.7/Models preferred; definition paths relative to defining mod root",
+  "materials": "adjacent mtllib; case-insensitive names; stuff/leaf/twig/glow/flame/ember prefixes",
+  "numeric": "ASCII decimal to exact binary32 ties-to-even; signed Int32 indices",
+  "fallback": "absent vn is legal; explicit invalid vn is a prepared error",
+  "exports": "generated asymmetric fixture; no production export required"
+}

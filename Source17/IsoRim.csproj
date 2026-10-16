@@ -16,6 +16,7 @@
     <Optimize>true</Optimize>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>$(DefineConstants);RW16;RW17</DefineConstants>
+    <UseInstalledRimWorld Condition="'$(UseInstalledRimWorld)' == ''">false</UseInstalledRimWorld>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,8 +24,22 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.7.*-*" />
-    <PackageReference Include="Lib.Harmony" Version="3.0.0-*" ExcludeAssets="runtime" />
+    <!-- Portable compatibility only. Acceptance uses the approved installed build. -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="[1.7.4979-alpha]" Condition="'$(UseInstalledRimWorld)' != 'true'" />
+    <PackageReference Include="Lib.Harmony" Version="[3.0.0-rc.3]" ExcludeAssets="runtime" Condition="'$(UseInstalledRimWorld)' != 'true'" />
+    <PackageReference Include="Lib.Harmony" Version="[3.0.0-rc.3]" ExcludeAssets="all" Condition="'$(UseInstalledRimWorld)' == 'true'" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseInstalledRimWorld)' == 'true'">
+    <Reference Include="$(RimWorldReferenceDirectory)/Assembly-CSharp.dll;$(RimWorldReferenceDirectory)/UnityStubs.dll;$(RimWorldReferenceDirectory)/RimWorld.dll;$(RimWorldReferenceDirectory)/Waylith*.dll;$(RimWorldReferenceDirectory)/Brutal*.dll">
+      <HintPath>%(Identity)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Remove="$(RimWorldReferenceDirectory)/waylithaudio.dll" />
+    <Reference Include="0Harmony">
+      <HintPath>$(HarmonyReferencePath)</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

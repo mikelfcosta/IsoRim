@@ -45,3 +45,21 @@ jobs:
 
       - name: Validate mod and assemblies
         run: python3 tools/validate_mod.py --check-assemblies
+
+      # Package 1.7.4979-alpha is portable compatibility. Exact 4980 acceptance
+      # runs locally on the frozen epic head with the approved game and bundled CLR.
+      - name: Prepared models portable host and compatibility controls
+        run: python3 tools/prepared_models_gate.py ci --dotnet dotnet --head HEAD
+
+      - name: Preserve prepared-model child diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-models-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .testruns/ISORIM-003/**/*.log
+            .testruns/ISORIM-003/**/*.json
+            .testruns/ISORIM-003/**/*.jsonl
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7

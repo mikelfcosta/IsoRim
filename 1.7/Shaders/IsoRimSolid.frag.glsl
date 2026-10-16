@@ -9,8 +9,9 @@
 // colour = vertex colour * _Color [* texture, cut out below alpha 0.5] * shade
 // shade (_LightMode): 0 unlit; 1 model curve; 2 wall curve; 3 roof slates (model curve * 1.05, at most 1.1).
 // The sun is IsoRim's own (C# R3DMaterials.SunDirAt), pushed every frame as the global _IsoSun.
-// The face normal comes from screen derivatives of the world position in true (unsquashed) space,
-// turned toward the camera, and snapped to the same 26 direction groups as the C# BinOf.
+// Geometric normals come from screen derivatives in true (unsquashed) space, facing the camera.
+// Legacy inputs retain the 26 direction groups of C# BinOf. Eligible authored model normals
+// arrive in true space and keep their continuous direction.
 //
 // Night, lamp and indoor light (_GlowMode): 0 none (the game's pulled lighting overlay darkens it);
 // 1 the light of the face's OWN cell, from IsoRim's glow texture (the corner colours of the game's
@@ -25,6 +26,7 @@
 layout(location = 0) in vec4 vColor;
 layout(location = 1) in vec2 vUv;
 layout(location = 2) in vec3 vWorldPos;
+layout(location = 3) in vec3 vNormal;
 
 layout(location = 0) out vec4 outColor;
 
@@ -42,6 +44,10 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _OutlinePush; // @default = 0.0   vertex stage only (IsoRim.vert.glsl): moving outlines
     vec4 _IsoCellMap; // global, no default: (origin x, origin z, W, H) of the cell texture (IsoCellMap)
     vec4 _IsoLevel;   // global, no default: x = the map's ground height in cells, y = what is left of a cut wall
+    float _NormalSpace; // @default = 0.0  0 geometric, 1 baked true space, 2 model local
+    float _NormalView; // @default = 0.0  guarded proof controller only
+    float _NormalTransportFault; // @default = 0.0  guarded proof controller only
+    float _NormalLightingFault; // @default = 0.0  1 G, 2 quantized N; ordinary lighting only
 } uMaterial;
 
 layout(set = 2, binding = 1) uniform sampler2D _MainTex;
@@ -123,7 +129,14 @@ void main()
     n = len > 1e-20 ? n / len : vec3(0.0, 1.0, 0.0);
     if (dot(n, uMaterial._IsoView.xyz) < 0.0)
         n = -n;
-    vec3 faceNormal = n;   // the exact face normal, turned toward the camera
+    vec3 faceNormal = n;   // exact G keeps cutaway, glow-cell and depth ownership.
+    bool authored = uMaterial._NormalSpace > 0.5 && uMaterial._LightMode > 0.5 && uMaterial._LightMode < 1.5
+        && dot(vNormal, vNormal) > 1e-12 && !any(isnan(vNormal)) && !any(isinf(vNormal));
+    if (authored)
+    {
+        n = normalize(vNormal);
+        if (dot(n, faceNormal) < 0.0) n = -n;
+    }
 
     vec4 color = vColor * uMaterial._Color;
 #ifdef USE_TEXTURE
@@ -131,6 +144,11 @@ void main()
     if (color.a < 0.5)
         discard;
 #endif
+    if (uMaterial._NormalView > 0.5)
+    {
+        outColor = vec4(n * 0.5 + 0.5, 1.0);
+        return;
+    }
     // Light pass: where an upright face meets the ground, face and ground have the same depth on
     // the foot line and the ground can win there, so the bottom row of pixels is left to the
     // overlay (else that ground pixel would take the face's light instead). Ground at height 0.
@@ -168,8 +186,13 @@ void main()
     if (mode > 0.5 && squash > 0.0)
     {
 #if QUANTIZE
-        n = BinNormal(n);
+        if (!authored) n = BinNormal(n);
 #endif
+        if (authored && mode < 1.5)
+        {
+            if (uMaterial._NormalLightingFault > 0.5 && uMaterial._NormalLightingFault < 1.5) n = faceNormal;
+            else if (uMaterial._NormalLightingFault > 1.5) n = BinNormal(n);
+        }
         vec3 L = uMaterial._IsoSun.xyz;
         if (mode < 1.5)
             shade = ModelShade(n, L);

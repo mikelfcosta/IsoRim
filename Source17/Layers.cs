@@ -89,6 +89,7 @@ namespace IsoRim
                     Log.ErrorOnce("[IsoRim] Drawing the water failed: " + e, 93611110);
                 }
             }
+            NormalStreams.Finish(this);
             FinalizeMesh(MeshParts.All);
             waveMesh = Fill(waveMesh, waveVerts, waveBase, waveTris, "IsoRim_Ripples");
             flowMesh = Fill(flowMesh, flowVerts, flowBase, flowTris, "IsoRim_Flow");
@@ -514,6 +515,7 @@ namespace IsoRim
                 WallBoxes.FullHeights = false;
                 CutTags.Enabled = false;
             }
+            NormalStreams.Finish(this);
             FinalizeMesh(MeshParts.All);
         }
     }
@@ -574,6 +576,7 @@ namespace IsoRim
             {
                 CutTags.Enabled = false;
             }
+            NormalStreams.Finish(this);
             FinalizeMesh(MeshParts.All);
         }
     }
@@ -746,6 +749,7 @@ namespace IsoRim
             {
                 Log.ErrorOnce("[IsoRim] Drawing realtime buildings failed: " + e, 93611114);
             }
+            NormalStreams.Finish(this);
             FinalizeMesh(MeshParts.All);
         }
     }
@@ -804,6 +808,7 @@ namespace IsoRim
             {
                 CutTags.Enabled = false;
             }
+            NormalStreams.Finish(this);
             FinalizeMesh(MeshParts.All);
         }
 
@@ -1280,6 +1285,7 @@ namespace IsoRim
                 WallBoxes.FullHeights = false;
                 CutTags.Enabled = false;
             }
+            NormalStreams.Finish(this);
             FinalizeMesh(MeshParts.All);
         }
 
@@ -1449,6 +1455,7 @@ namespace IsoRim
             {
                 Log.ErrorOnce("[IsoRim] Drawing the edge of the map failed: " + e, 93611180);
             }
+            NormalStreams.Finish(this);
             FinalizeMesh(MeshParts.All);
         }
 
