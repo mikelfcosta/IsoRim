@@ -3,9 +3,10 @@
 
 import argparse
 import ast
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout, redirect_stderr
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import math
 import os
@@ -34,15 +35,53 @@ FINGERPRINTS = {
     "Waylith.UnityCompat.dll": "E4362E5F45EC39533C721B4B4E04C996CF59DE8FCDA2547EB648C3D68FBB5710",
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
+BASELINE = "c43cd431232f0ba3e6a97a1911e9f4a5ef76917f"
+DEADLINE = None
 
 
 class Refusal(RuntimeError):
     pass
 
 
+def budget_timeout(timeout, deadline=None):
+    deadline = DEADLINE if deadline is None else deadline
+    if deadline is None:
+        return timeout
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise Refusal("The complete gate exceeded its 300-second budget")
+    return min(timeout, remaining)
+
+
+def validate_in_process(root):
+    """Run the unchanged validator CLI entry point without starting another Python."""
+    import validate_mod
+
+    budget_timeout(300)
+    argv = [str(ROOT / "tools/validate_mod.py"), "--mod-dir", str(root), "--check-assemblies"]
+    previous = sys.argv
+    output, error = io.StringIO(), io.StringIO()
+    try:
+        sys.argv = argv
+        with redirect_stdout(output), redirect_stderr(error):
+            code = validate_mod.main()
+    finally:
+        sys.argv = previous
+    return subprocess.CompletedProcess(argv, code, output.getvalue(), error.getvalue())
+
+
 def digest(path):
     with Path(path).open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest().upper()
+
+
+def verify_artifact_files(paths):
+    if not paths or any(not path.is_file() for path in paths):
+        raise Refusal("A required distribution module is missing")
+    hashes = {digest(path) for path in paths}
+    if len(hashes) != 1:
+        raise Refusal("The committed, built, staged or loaded 1.7 module differs")
+    return hashes.pop()
 
 
 def verify_game(game):
@@ -62,11 +101,13 @@ def verify_game(game):
 
 
 def verify_sdk(sdk, acceptance=True):
-    if not sdk.is_absolute() or (acceptance and sdk.resolve() != SDK.resolve()):
+    if acceptance and (not sdk.is_absolute() or sdk.resolve() != SDK.resolve()):
         raise Refusal("Use the explicit approved SDK path")
-    result = subprocess.run([str(sdk), "--version"], capture_output=True, text=True, check=False)
-    if result.returncode or result.stdout.strip() != "10.0.402":
-        raise Refusal("The SDK is not 10.0.402")
+    result = subprocess.run([str(sdk), "--version"], capture_output=True, text=True, check=False,
+                            timeout=budget_timeout(30))
+    version = result.stdout.strip()
+    if result.returncode or (version != "10.0.402" if acceptance else not re.fullmatch(r"10\.0\.[0-9]+", version)):
+        raise Refusal("The SDK is not the approved acceptance SDK or a portable .NET 10 SDK")
 
 
 def verify_harmony(harmony):
@@ -189,6 +230,25 @@ def select_cases(records, story, manifest):
     return sorted(selected)
 
 
+def run_cases(command, changes, story, manifest, base):
+    if command == "t0":
+        return select_cases(changes, story, manifest)
+    if command == "t1" and base != BASELINE:
+        raise Refusal("T1 requires the exact commissioned --base " + BASELINE)
+    verify_registry((), manifest)
+    if changes:
+        select_cases(changes, "ISORIM-003.S05", manifest)
+    return sorted(manifest["cases"])
+
+
+def result_receipt(selection, command, proofs, host_results):
+    if command == "ci" and proofs:
+        raise Refusal("Portable CI cannot issue runtime acceptance proof")
+    return dict(selection, command=command, acceptance=command != "ci", proofs=proofs, hostResults=host_results,
+                compatibilityOnly=command == "ci",
+                classification="portable-compatibility-only" if command == "ci" else "exact-runtime-" + command)
+
+
 def verify_proofs(paths, cases, request, modules, pid, started):
     found = {}
     for path in paths:
@@ -237,26 +297,38 @@ def build_properties(target, audit, game=None, harmony=None):
 
 
 def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None, expected_exit=0):
-    verify_snapshot(protected)
     started = time.time()
     result = None
     try:
         with (evidence / f"{label}.stdout.log").open("wb") as stdout, (evidence / f"{label}.stderr.log").open("wb") as stderr:
             result = subprocess.run([str(arg) for arg in argv], cwd=cwd, stdout=stdout, stderr=stderr,
-                                    timeout=timeout, env=env, check=False)
+                                    timeout=budget_timeout(timeout), env=env, check=False)
     finally:
-        verify_snapshot(protected)
         with (evidence / "children.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({"argv": [str(arg) for arg in argv], "exit": result.returncode if result else None,
                                      "started": started, "ended": time.time(), "protectedInputs": len(protected)}) + "\n")
     if expected_exit is not None and result.returncode != expected_exit:
-        raise Refusal(f"{label} exited {result.returncode}. See {evidence}")
+        diagnostics = []
+        for channel in ("stdout", "stderr"):
+            path = evidence / f"{label}.{channel}.log"
+            with path.open("rb") as stream:
+                stream.seek(max(0, path.stat().st_size - 8192))
+                tail = stream.read().decode("utf-8", errors="replace").strip()
+            if tail:
+                diagnostics.append(f"\n--- {label} {channel} (last 8192 bytes; full log: {path}) ---\n{tail}")
+        raise Refusal(f"{label} exited {result.returncode}. See {evidence}" + "".join(diagnostics))
     return result
 
 
 def validate_staged_intake(evidence, protected):
     staged = WORK / "staged-mod"
     rows = []
+
+    def validate(root, label):
+        result = validate_in_process(root)
+        (evidence / (label + ".stdout.log")).write_text(result.stdout, encoding="utf-8")
+        (evidence / (label + ".stderr.log")).write_text(result.stderr, encoding="utf-8")
+        return result
 
     def run(name, root, diagnostic=""):
         command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(root), "--check-assemblies"]
@@ -265,7 +337,7 @@ def validate_staged_intake(evidence, protected):
         inputs = [path for path in inputs if path.is_file()]
         snapshot = {path: digest(path) for path in inputs}
         raw_inputs = [{"path": path.relative_to(root).as_posix(), "sha256": snapshot[path], "hex": path.read_bytes().hex()} for path in inputs]
-        result = run_child(command, evidence, "validator-" + name, {**protected, **snapshot}, expected_exit=None)
+        result = validate(root, "validator-" + name)
         output = (evidence / f"validator-{name}.stdout.log").read_text()
         error = (evidence / f"validator-{name}.stderr.log").read_text()
         marker = next((line[len("Prepared inputs: "):] for line in output.splitlines() if line.startswith("Prepared inputs: ")), "[]")
@@ -329,10 +401,7 @@ def validate_staged_intake(evidence, protected):
             raise Refusal("The recovery CLI input changed before validation: " + case["id"])
         command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(root), "--check-assemblies"]
         label = "recovery-" + case["id"]
-        case_inputs = {obj: actual_hash}
-        if mtl.is_file():
-            case_inputs[mtl] = digest(mtl)
-        child = run_child(command, evidence, label, {**protected, **case_inputs}, expected_exit=None)
+        child = validate(root, label)
         output = (evidence / (label + ".stdout.log")).read_text()
         error = (evidence / (label + ".stderr.log")).read_text()
         bits = next((json.loads(line[len("Prepared scalar bits: "):]) for line in output.splitlines() if line.startswith("Prepared scalar bits: ")), [])
@@ -355,7 +424,8 @@ def verify_snapshot(protected):
 
 
 def git(*args, root=ROOT):
-    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=False)
+    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=False,
+                            timeout=budget_timeout(30))
     if result.returncode:
         raise Refusal(f"Git refused {args}: {result.stderr.decode(errors='replace')}")
     return result.stdout
@@ -381,9 +451,10 @@ def prepare_evidence(root, evidence):
     return rule.strip()
 
 
-def protected_inputs(base, game=None, harmony=None):
-    roots = ["Models", "Textures", "LUTs", "Defs", "Source", "1.5", "1.6", "1.7/Assemblies", "About"]
-    git("diff", "--exit-code", base, "--", *roots)
+def protected_inputs(base, game=None, harmony=None, compatibility=False):
+    roots = ["Models", "Textures", "LUTs", "Defs", "Source", "1.5", "1.6", "About"]
+    if not compatibility:
+        git("diff", "--exit-code", base, "--", *roots)
     records = git("ls-tree", "-r", "-z", base, "--", *roots).split(b"\0")
     protected = {}
     for record in filter(None, records):
@@ -394,6 +465,8 @@ def protected_inputs(base, game=None, harmony=None):
         if not path.is_file():
             raise Refusal(f"Frozen input differs from execution base: {name.decode()}")
         protected[path] = digest(path)
+    # S05 owns the refreshed distribution module. Protect its committed bytes for every child.
+    protected[ROOT / "1.7/Assemblies/IsoRim.dll"] = digest(ROOT / "1.7/Assemblies/IsoRim.dll")
     if game:
         for path in game.iterdir():
             if path.is_file():
@@ -404,6 +477,18 @@ def protected_inputs(base, game=None, harmony=None):
                     protected[path] = digest(path)
         protected[harmony] = digest(harmony)
     return protected
+
+
+def verify_tree(command):
+    status = git("status", "--porcelain", "-z", "--untracked-files=all")
+    if command == "ci":
+        # Existing hosted build legs refresh these exact modules before the CI command.
+        allowed = {version + "/Assemblies/IsoRim.dll" for version in ("1.5", "1.6", "1.7")}
+        rows = [row for row in status.decode().split("\0") if row]
+        if any(row[:3] != " M " or row[3:] not in allowed for row in rows):
+            raise Refusal("Portable CI found source or unexpected output changes")
+    elif status:
+        raise Refusal("The gate requires a clean committed tree")
 
 
 def verify_restore(args, evidence, protected, installed=True):
@@ -445,9 +530,10 @@ def compile_target(args, evidence, protected, target="1.7", installed=True):
     local = argparse.Namespace(**vars(args))
     local.target = target
     local.assets = WORK / "build" / target / "obj/project.assets.json"
-    verify_restore(local, evidence, protected, installed=installed)
+    references = verify_restore(local, evidence, protected, installed=installed)
+    compiler_inputs = {**protected, **{Path(path): value for path, value in references.items()}}
     run_child([args.dotnet, "build", project, "--no-restore", "-c", "Release", "-nologo", *properties],
-              evidence, f"build-{target}", protected)
+              evidence, f"build-{target}", compiler_inputs)
 
 
 def format_sources(args, evidence, protected, target="1.7", include=None, write=False):
@@ -527,6 +613,9 @@ def stage_runtime(args, evidence, intake=False):
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
     neutral.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
                         + chunk(b"IDAT", zlib.compress(b"\x00\xff\xff\xff\xff")) + chunk(b"IEND", b""))
+    contract = staged / "1.7/Models/Diagnostics/normal-contract.json"
+    contract.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "tools/prepared_models/contract.json", contract)
     copy_tree(staged, runtime / "Mods/IsoRim")
     harmony_mod = runtime / "Mods/Harmony"
     (harmony_mod / "About").mkdir(parents=True, exist_ok=True)
@@ -591,6 +680,11 @@ def static_frame_requirements(cases):
         if case == "StaticNormalCases.GeometricResponsibilities":
             rows = {"lighting-standing-solid-t0-l0own-cell": (False, 0, 0, 0, False),
                     "lighting-standing-solid-t0-l0cutaway": (False, 0, 0, 1, False)}
+        if case == "IntegratedNormalCases.AllPaths":
+            for validity in ("authored", "missing", "invalid"):
+                for pose in ("standing", "scaled", "laid", "mirror"):
+                    for surface in ("solid", "texture"):
+                        rows[f"direction-integration-{validity}-{pose}-{surface}-t0-l0"] = (True, 0, 0, 0 if validity == "authored" else 1, False)
         if rows:
             required[case] = rows
     return required
@@ -603,7 +697,7 @@ def moving_frame_requirements(cases):
     tuples += ["merged-solid-" + pose + "-part" + str(part) for pose in poses for part in (0, 1)]
     required = {}
     for case in cases:
-        if not case.startswith("MovingNormalCases."):
+        if not case.startswith("MovingNormalCases.") and case != "IntegratedNormalCases.AllPaths":
             continue
         kind = case.split(".")[1]
         selected = tuples
@@ -617,7 +711,11 @@ def moving_frame_requirements(cases):
             selected = ["instanced-solid-standing"]
         rows = {}
         prefix = "moving-" + kind + "-"
-        if kind == "TexturesMarksAndFallback":
+        if kind == "AllPaths":
+            for item in tuples:
+                for validity in ("authored", "missing", "invalid"):
+                    rows[f"{prefix}{item}-{validity}-direction-t0-l0"] = (True, 0, 0, 0 if validity == "authored" else 1, False)
+        elif kind == "TexturesMarksAndFallback":
             for path in ("single-texture", "instanced-texture"):
                 for variant in ("missing", "invalid"):
                     rows[prefix + path + "-mirror-" + variant + "-direction-t0-l0"] = (True, 0, 0, 1, False)
@@ -643,8 +741,10 @@ def verify_static_pixels(evidence, cases, request, pid, started):
     captures = []
     serials = set()
     cache_meshes = {}
-    for case, required in {**static_frame_requirements(cases), **moving_frame_requirements(cases)}.items():
-        moving = case.startswith("MovingNormalCases.")
+    requirements = static_frame_requirements(cases)
+    for case, rows in moving_frame_requirements(cases).items():
+        requirements.setdefault(case, {}).update(rows)
+    for case, required in requirements.items():
         path = evidence / (case + ".json")
         report = json.loads(path.read_text())
         if path.stat().st_mtime < started or report.get("caseId") != case or report.get("passed") is not True:
@@ -652,11 +752,12 @@ def verify_static_pixels(evidence, cases, request, pid, started):
         rows = report["readings"]
         if case.endswith("GeometricResponsibilities"):
             rows = [rows["ownCell"], rows["cutaway"]]
-        if moving:
+        if case.startswith(("MovingNormalCases.", "IntegratedNormalCases.")):
             rows = rows["captures"]
         if len(rows) != len(required) or {row["name"] for row in rows} != set(required):
             raise Refusal("The required framebuffer matrix is incomplete, duplicated or relabelled")
         for row in rows:
+            moving = row["name"].startswith("moving-")
             diagnostic, transport, lighting, expected, legacy = required[row["name"]]
             if (row["diagnostic"], row["transportFault"], row["lightingFault"], row["expectedIndex"]) != (diagnostic, transport, lighting, expected):
                 raise Refusal("The requested framebuffer control differs from its required matrix")
@@ -682,7 +783,7 @@ def verify_static_pixels(evidence, cases, request, pid, started):
                     reported = [value for matrix in row["actualMatrices"] for value in matrix]
                     if any(abs(x-y) > 1e-6 * max(1,abs(x)) for x,y in zip(values,reported)):
                         raise Refusal("The reported matrices differ from submission bytes")
-                if not case.endswith("TexturesMarksAndFallback"):
+                if not case.endswith(("TexturesMarksAndFallback", "AllPaths")):
                     identity = (case, "merged" if row["partIndex"] >= 0 else "texture" if row["textured"] else "solid")
                     if identity in cache_meshes and cache_meshes[identity] != row["meshId"]:
                         raise Refusal("Moving tuples rebuilt a mesh instead of reusing their cache")
@@ -734,6 +835,120 @@ def verify_static_pixels(evidence, cases, request, pid, started):
     return captures
 
 
+def verify_lighting_coverage(readings):
+    paths = ("static-solid", "static-texture", "single-solid", "single-texture", "instanced-solid", "instanced-texture", "merged-solid-part0", "merged-solid-part1")
+    required = {path + "-" + pose for path in paths for pose in ("standing", "scaled", "laid", "mirror")}
+    tuples = readings["tuples"]
+    if len(tuples) != 32 or {row["tupleId"] for row in tuples} != required:
+        raise Refusal("The integrated production-lighting tuple set is incomplete, duplicated or relabelled")
+    controls = [(False, 0, 0), (False, 1, 1), (True, 1, 0), (False, 2, 2), (True, 2, 0), (False, 0, 0)]
+    for row in tuples:
+        if [(frame["diagnostic"], frame["lighting"], frame["expected"]) for frame in row["frames"]] != controls:
+            raise Refusal("An integrated tuple lacks its positive, faults, correct transport or reset")
+    return len(tuples)
+
+
+def verify_integrated(evidence, cases, request, pid, started, captures):
+    integrated = {case for case in cases if case.startswith("IntegratedNormalCases.")}
+    if not integrated:
+        return
+    reports = {}
+    for case in integrated:
+        path = evidence / (case + ".json")
+        report = json.loads(path.read_text())
+        if path.stat().st_mtime < started or report.get("caseId") != case or report.get("passed") is not True:
+            raise Refusal("An integrated report is stale or invalid")
+        reports[case.split(".")[1]] = report["readings"]
+    if "ProductionLightingAllPaths" in reports:
+        lighting = reports["ProductionLightingAllPaths"]
+        verify_lighting_coverage(lighting)
+        for name, value in lighting["dependencyHashes"].items():
+            if digest(evidence / (name + ".json")) != value:
+                raise Refusal("An integrated lighting dependency changed")
+        observed = {row["name"]: row for row in captures}
+        for row in lighting["tuples"]:
+            for frame in row["frames"]:
+                source = observed.get(frame["name"])
+                if source is None or (frame["rawHash"], frame["pngHash"], frame["gpuFrame"], frame["difference"]) != (source["rawSha256"], source["pngSha256"], source["gpuFrame"], source["differences"]):
+                    raise Refusal("An integrated tuple does not bind fresh verified framebuffer bytes")
+    if "ProvenanceAndCompleteness" in reports:
+        row = reports["ProvenanceAndCompleteness"]
+        if row["requiredCaseIds"] != sorted(cases) or row["head"] != request["head"] or row["nonce"] != request["nonce"] or row["processId"] != pid:
+            raise Refusal("The integrated request provenance differs")
+        if row["compilerManifestHash"] != digest(evidence / "compiler-references-1.7.json"):
+            raise Refusal("The integrated compiler manifest differs")
+    if "FrozenInputsAndArtifact" in reports:
+        row = reports["FrozenInputsAndArtifact"]
+        if any(row[key] != request["assemblyHash"] for key in ("packagedHash", "builtHash", "loadedHash")):
+            raise Refusal("The integrated distribution artifact differs")
+        for name, value in row["manifestHashes"].items():
+            if digest(evidence / name) != value:
+                raise Refusal("An integrated freeze manifest differs")
+    if "HandoffContract" in reports:
+        row = reports["HandoffContract"]
+        if row["fields"] != json.loads((ROOT / "tools/prepared_models/contract.json").read_text()) or row["contractHash"] != request["contractHash"] or row["noteHash"] != digest(ROOT / "1.7/Models/README.md"):
+            raise Refusal("The integrated preparation handoff differs")
+        if (row["requiredRecoveryClasses"], row["requiredRecoverySubcases"], row["requiredEarlierControls"]) != (29, 230, 23):
+            raise Refusal("The preparation note lost the settled recovery matrix")
+    if "RegressionControls" in reports:
+        scenes = reports["RegressionControls"]["scenes"]
+        required = {f"scene-p{pitch}-s{squash}-{environment}-r{repeats}" for pitch in (30, 60, 85) for squash in (2000, 4000)
+                    for environment in ("day", "night", "indoor") for repeats in (1, 2)}
+        if len(scenes) != 36 or {scene["name"] for scene in scenes} != required:
+            raise Refusal("The integrated camera/environment/repetition matrix is incomplete")
+        serials = {row["gpuFrame"] for row in captures}
+        for scene in scenes:
+            frames = scene["frames"]
+            if [frame["name"] for frame in frames] != [scene["name"] + "-" + mode for mode in ("authored", "legacy", "overlay")]:
+                raise Refusal("A scene lacks its authored, legacy or overlay-only control")
+            images = []
+            for frame in frames:
+                if frame["gpuFrameCompleted"] != frame["gpuFrameBefore"] + 1 or frame["gpuFrameCompleted"] in serials or frame["unityFrame"] <= 0 or frame["overlayCommands"] != 8:
+                    raise Refusal("A scene lacks a unique completed GPU frame or actual overlay submissions")
+                serials.add(frame["gpuFrameCompleted"])
+                for kind in ("raw", "png"):
+                    path = evidence / frame[kind + "Path"]
+                    if path.resolve().parent != evidence.resolve() or path.is_symlink() or path.stat().st_mtime < started or digest(path) != frame[kind + "Hash"]:
+                        raise Refusal("A scene capture is missing, stale or redirected")
+                raw = (evidence / frame["rawPath"]).read_bytes()
+                png = (evidence / frame["pngPath"]).read_bytes()
+                if len(raw) != 512 * 512 * 4 or struct.unpack(">II", png[16:24]) != (512, 512):
+                    raise Refusal("A scene framebuffer has invalid dimensions")
+                images.append(raw)
+                captures.append({"caseId": "IntegratedNormalCases.RegressionControls", "name": frame["name"], "gpuFrame": frame["gpuFrameCompleted"],
+                                 "rawSha256": frame["rawHash"], "pngSha256": frame["pngHash"], "reportSha256": digest(evidence / "IntegratedNormalCases.RegressionControls.json")})
+            a, b, overlay = images
+            coverage = overlay_count = difference = 0
+            for offset in range(0, len(a), 4):
+                back = bytes((255, 0, 255))
+                if (a[offset:offset+3] == back) != (b[offset:offset+3] == back):
+                    raise Refusal("Authored normals changed a scene silhouette")
+                coverage += a[offset:offset+3] != back
+                delta = max(abs(a[offset+c] - b[offset+c]) for c in range(3))
+                if overlay[offset:offset+3] != back:
+                    overlay_count += 1
+                    if delta > 2:
+                        raise Refusal("Authored normals changed a visible gameplay overlay")
+                else:
+                    difference = max(difference, delta)
+            if (coverage, overlay_count, difference) != (scene["coverage"], scene["overlayPixels"], scene["appearanceDifference"]) or coverage <= 100 or overlay_count <= 8 or difference <= 2:
+                raise Refusal("A scene or overlay is empty or its reported pixels differ")
+        environment_checks = reports["RegressionControls"]["environmentChecks"]
+        if len(environment_checks) != 12 or {(row["pitch"], row["squash"], row["repeats"]) for row in environment_checks} != {(p, s, r) for p in (30, 60, 85) for s in (2000, 4000) for r in (1, 2)}:
+            raise Refusal("The cross-environment pixel controls are incomplete")
+        for row in environment_checks:
+            prefix = f"scene-p{row['pitch']}-s{row['squash']}-"
+            day, night, indoor = [(evidence / (prefix + env + f"-r{row['repeats']}-authored.rgba")).read_bytes() for env in ("day", "night", "indoor")]
+            matched = sum(all(day[i+c] == 103 and abs(night[i+c] - 26) <= 2 and abs(indoor[i+c] - 52) <= 2 for c in range(3)) for i in range(0, len(day), 4))
+            if matched < 10 or matched != row["matchingPixels"] or (row["day"], row["night"], row["indoor"]) != (103, 26, 52):
+                raise Refusal("The real day/night/indoor framebuffer response differs")
+    (evidence / "integration-receipt.json").write_text(json.dumps({
+        "head": request["head"], "nonce": request["nonce"], "assemblyHash": request["assemblyHash"], "processId": pid,
+        "caseIds": sorted(integrated), "reportHashes": {case: digest(evidence / (case + ".json")) for case in integrated},
+        "lightingTuples": 32 if "ProductionLightingAllPaths" in reports else 0,
+        "scenes": 36 if "RegressionControls" in reports else 0}, indent=2))
+
+
 def runtime_cases(args, evidence, protected, cases, head):
     with sandbox_lock():
         run_child(["powershell.exe", "-NoProfile", "-Command",
@@ -746,12 +961,21 @@ def runtime_cases(args, evidence, protected, cases, head):
         modules["0Harmony.dll"] = HARMONY_HASH
         request = {"nonce": evidence.name, "head": head, "assemblyHash": digest(product), "caseIds": cases,
                    "outputDirectory": str(evidence), "fixtureDirectory": str(WORK / "fixtures" / evidence.name),
-                   "createdUtc": datetime.now(timezone.utc).isoformat()}
+                   "createdUtc": datetime.now(timezone.utc).isoformat(),
+                   "packagedHash": digest(ROOT / "1.7/Assemblies/IsoRim.dll"),
+                   "compilerManifestHash": digest(evidence / "compiler-references-1.7.json") if (evidence / "compiler-references-1.7.json").is_file() else "",
+                   "contractHash": digest(ROOT / "tools/prepared_models/contract.json")}
         Path(request["fixtureDirectory"]).mkdir(parents=True)
         (save / "IsoRimNormalRequest.json").write_text(json.dumps(request))
         runtime_inputs = {path: digest(path) for path in runtime.rglob("*") if path.is_file()}
         runtime_manifest = evidence / "runtime-inputs.json"
         runtime_manifest.write_text(json.dumps({str(path): value for path, value in runtime_inputs.items()}, indent=2))
+        if "IntegratedNormalCases.FrozenInputsAndArtifact" in cases:
+            artifact_files = [ROOT / "1.7/Assemblies/IsoRim.dll", product,
+                              WORK / "staged-mod/1.7/Assemblies/IsoRim.dll", runtime / "Mods/IsoRim/1.7/Assemblies/IsoRim.dll"]
+            artifact_hash = verify_artifact_files(artifact_files)
+            (evidence / "artifact-identity.json").write_text(json.dumps({
+                "head": head, "sha256": artifact_hash, "files": [str(path) for path in artifact_files]}, indent=2))
         started = time.time()
         with (evidence / "runtime.stdout.log").open("wb") as stdout, (evidence / "runtime.stderr.log").open("wb") as stderr:
             environment = dict(os.environ)
@@ -760,13 +984,12 @@ def runtime_cases(args, evidence, protected, cases, head):
             child = subprocess.Popen([str(runtime / "RimWorld.exe"), "-quicktest", "-isorim3d", f"-savedatafolder={save}"],
                                      cwd=runtime, stdout=stdout, stderr=stderr, env=environment)
             try:
-                child.wait(timeout=args.timeout)
+                child.wait(timeout=budget_timeout(args.timeout))
             except subprocess.TimeoutExpired as error:
                 child.terminate()  # Only the process this runner created.
-                child.wait(timeout=30)
+                child.wait(timeout=5)
                 raise Refusal("The owned runtime timed out without proof") from error
             finally:
-                verify_snapshot({**protected, **runtime_inputs})
                 (evidence / "runtime-process.json").write_text(json.dumps({
                     "pid": child.pid, "argv": child.args, "exit": child.returncode, "started": started,
                     "ended": time.time(), "protectedInputs": len(protected), "runtimeInputs": len(runtime_inputs),
@@ -781,7 +1004,12 @@ def runtime_cases(args, evidence, protected, cases, head):
         if {node.text for node in active} != expected_active or len(active) != len(expected_active):
             raise Refusal("The runtime active package manifest changed")
         proofs = verify_proofs(list(evidence.glob("NormalProof-*.json")), cases, request, modules, child.pid, started)
-        verify_static_pixels(evidence, cases, request, child.pid, started)
+        captures = verify_static_pixels(evidence, cases, request, child.pid, started)
+        verify_integrated(evidence, cases, request, child.pid, started, captures)
+        if captures:
+            framebuffer = json.loads((evidence / "framebuffer-receipt.json").read_text())
+            framebuffer["captures"] = captures
+            (evidence / "framebuffer-receipt.json").write_text(json.dumps(framebuffer, indent=2))
         if validator_results and any((row["exit"] == 0) != row["expectedSuccess"] or not row["diagnosticMatched"] for row in validator_results["controls"]):
             raise Refusal("The staged validator accepted an invalid input or rejected the passing control")
         if validator_results and any(row["exit"] != row["cli"] or not row["diagnosticMatched"] or not row["bitMatched"] for row in validator_results["recovery"]):
@@ -804,10 +1032,16 @@ def runtime_cases(args, evidence, protected, cases, head):
 
 
 def main():
+    global DEADLINE
+    gate_started = time.monotonic()
+    DEADLINE = gate_started + 300
+    phase_started = gate_started
+    phases = {}
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["env", "verify-restore", "t0", "t1", "ci"])
     parser.add_argument("--story", default="ISORIM-003.S01")
     parser.add_argument("--epic-ref")
+    parser.add_argument("--base")
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--game-dir", type=Path, default=GAME)
     parser.add_argument("--dotnet", type=Path, default=SDK)
@@ -826,8 +1060,11 @@ def main():
             return 0
         evidence = EVIDENCE / uuid.uuid4().hex
         rule = prepare_evidence(ROOT, evidence)
-        base = "c43cd431232f0ba3e6a97a1911e9f4a5ef76917f"
-        protected = protected_inputs(base, args.game_dir if args.command != "ci" else None, args.harmony)
+        base = BASELINE
+        verify_tree(args.command)
+        protected = protected_inputs("HEAD" if args.command == "ci" else base,
+                                     args.game_dir if args.command != "ci" else None, args.harmony,
+                                     compatibility=args.command == "ci")
         (evidence / "protected-inputs.json").write_text(json.dumps({str(path): value for path, value in protected.items()}, indent=2))
         if args.command == "verify-restore":
             if args.assets is None:
@@ -835,56 +1072,89 @@ def main():
             verify_restore(args, evidence, protected, installed=args.target == "1.7")
             print(f"Verified restored references: {evidence}")
             return 0
-        if not args.epic_ref:
+        if args.command == "t0" and not args.epic_ref:
             raise Refusal("An explicit epic ref is required")
-        epic = git("rev-parse", "--verify", args.epic_ref + "^{commit}").decode().strip()
         head = git("rev-parse", "--verify", args.head + "^{commit}").decode().strip()
-        expected_epic = git("rev-parse", "--verify", "feat/ISORIM-003-prepared-models-render-correctly^{commit}").decode().strip()
-        if head != git("rev-parse", "HEAD").decode().strip() or epic != expected_epic:
+        if args.command == "t0":
+            epic = git("rev-parse", "--verify", args.epic_ref + "^{commit}").decode().strip()
+            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-003-prepared-models-render-correctly^{commit}").decode().strip()
+            if epic != expected_epic:
+                raise Refusal("The epic base differs from the commission")
+        else:
+            epic = args.base if args.command == "t1" else None
+        if head != git("rev-parse", "HEAD").decode().strip():
             raise Refusal("The execution head or epic base differs from the commission")
-        git("merge-base", "--is-ancestor", epic, head)
-        if git("status", "--porcelain", "--untracked-files=all"):
-            raise Refusal("The gate requires a clean committed tree")
-        changes = git("diff", "--name-status", "-z", "--no-renames", epic, head, "--")
+        if args.command == "t1" and epic != BASELINE:
+            raise Refusal("T1 requires the exact commissioned --base " + BASELINE)
+        if args.command != "ci":
+            git("merge-base", "--is-ancestor", epic, head)
+        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-003-prepared-models-render-correctly").decode().strip():
+            raise Refusal("Authoritative T1 must run at the frozen integrated epic head")
+        if args.command != "ci" and git("rev-parse", "origin/main").decode().strip() != BASELINE:
+            raise Refusal("origin/main differs from the commissioned baseline")
+        changes = git("diff", "--name-status", "-z", "--no-renames", epic, head, "--") if epic else b""
         manifest = case_manifest()
         story = args.story
         if args.command in ("t1", "ci"):
             story = f"ISORIM-003.S{max(case['story'] for case in manifest['cases'].values()):02d}"
-        cases = select_cases(changes, story, manifest)
-        if args.command == "t1":
-            cases = sorted(manifest["cases"])
-        selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes),
+        cases = run_cases(args.command, changes, story, manifest, args.base)
+        selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes) if changes else [],
                      "caseIds": cases, "hostControls": manifest["hostCases"], "ignoreProof": rule, "nonce": evidence.name}
         selection["pathCases"] = {path: select_cases(("M\0" + path + "\0").encode(), story, manifest)
                                   for path in selection["paths"]}
         (evidence / "selection.json").write_text(json.dumps(selection, indent=2))
         print(json.dumps(selection), flush=True)
+        phases["setup"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         run_child([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_prepared_models_gate.py"],
                   evidence, "host-controls", protected)
         host_results = verify_host_controls(manifest, evidence)
+        phases["hostControls"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         compile_target(args, evidence, protected, installed=args.command != "ci")
+        phases["build17"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         proofs = {}
         if args.command != "ci":
             proofs = runtime_cases(args, evidence, protected, cases, head)
+            protected.update({Path(path): value for path, value in json.loads((evidence / "runtime-inputs.json").read_text()).items()})
+        phases["runtimeAndValidator"] = time.monotonic() - phase_started
+        phase_started = time.monotonic()
         if args.command in ("t1", "ci"):
             for target in ("1.5", "1.6"):
                 compile_target(args, evidence, protected, target, installed=False)
+            run_child([sys.executable, "tools/validate_mod.py", "--check-assemblies"], evidence, "validator-distribution", protected)
         if args.command == "t1":
             for target in ("1.7", "1.6"):
                 format_sources(args, evidence, protected, target)
-        if git("rev-parse", "HEAD").decode().strip() != head or git("status", "--porcelain", "--untracked-files=all"):
+        verify_tree(args.command)
+        verify_snapshot(protected)
+        if git("rev-parse", "HEAD").decode().strip() != head:
             raise Refusal("The execution tree changed during validation")
-        receipt = dict(selection, command=args.command, acceptance=args.command != "ci", proofs=proofs, hostResults=host_results,
-                       compatibilityOnly=args.command == "ci")
+        phases["compatibilityFormatAndFinalChecks"] = time.monotonic() - phase_started
+        receipt = result_receipt(selection, args.command, proofs, host_results)
+        targets = ("1.7", "1.5", "1.6") if args.command in ("t1", "ci") else ("1.7",)
+        receipt["compileLegs"] = {target: {
+            "mode": "exact-installed-4980" if target == "1.7" and args.command != "ci" else "portable-compatibility-only",
+            "referenceManifestSha256": digest(evidence / f"compiler-references-{target}.json"),
+            "restoredAssetsSha256": digest(WORK / "build" / target / "obj/project.assets.json"),
+            "productSha256": digest(WORK / "build" / target / "bin/IsoRim.dll"),
+        } for target in targets}
+        receipt["childrenManifestSha256"] = digest(evidence / "children.jsonl")
         if (evidence / "recovery-receipt.json").is_file():
             receipt["recoveryReceiptSha256"] = digest(evidence / "recovery-receipt.json")
         if (evidence / "framebuffer-receipt.json").is_file():
             receipt["framebufferReceiptSha256"] = digest(evidence / "framebuffer-receipt.json")
+        for artifact in ("artifact-identity.json", "compiler-references-1.7.json", "protected-inputs.json", "integration-receipt.json"):
+            if (evidence / artifact).is_file():
+                receipt[artifact + "Sha256"] = digest(evidence / artifact)
+        budget_timeout(300)
+        receipt.update(budgetSeconds=300, elapsedSeconds=time.monotonic() - gate_started, phaseSeconds=phases)
         (evidence / "receipt.json").write_text(json.dumps(receipt, indent=2))
-        print(f"PASS {args.command}: {len(proofs)} runtime cases. Evidence: {evidence}")
+        print(f"PASS {receipt['classification']}: {len(proofs)} runtime cases in {receipt['elapsedSeconds']:.2f}s. Evidence: {evidence}")
         return 0
     except (Refusal, OSError, ValueError, subprocess.SubprocessError) as error:
-        print(f"REFUSED: {error}", file=sys.stderr)
+        print(f"REFUSED after {time.monotonic() - gate_started:.2f}s (300-second budget): {error}", file=sys.stderr)
         return 1
 
 

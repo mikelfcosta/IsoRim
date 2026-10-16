@@ -1,5 +1,5 @@
 {
-  "hostCases": ["test_reference_identity", "test_fail_closed_selection_and_receipts", "test_output_isolation", "test_ignore_before_capture", "test_prepared_asset_validation", "test_framebuffer_receipts"],
+  "hostCases": ["test_reference_identity", "test_fail_closed_selection_and_receipts", "test_output_isolation", "test_ignore_before_capture", "test_prepared_asset_validation", "test_framebuffer_receipts", "test_final_gate_selection", "test_ci_is_not_acceptance", "test_artifact_identity", "test_integration_completeness"],
   "cases": {
     "NormalDataCases.AuthoredIndices": {"story": 1},
     "NormalDataCases.InvalidTriangleFallback": {"story": 1},
@@ -23,17 +23,23 @@
     "MovingNormalCases.TexturesMarksAndFallback": {"story": 4},
     "MovingNormalCases.CacheAndBatchReuse": {"story": 4},
     "MovingNormalCases.GpuAgreement": {"story": 4},
-    "MovingNormalCases.ProductionLighting": {"story": 4}
+    "MovingNormalCases.ProductionLighting": {"story": 4},
+    "IntegratedNormalCases.AllPaths": {"story": 5},
+    "IntegratedNormalCases.ProductionLightingAllPaths": {"story": 5},
+    "IntegratedNormalCases.RegressionControls": {"story": 5},
+    "IntegratedNormalCases.ProvenanceAndCompleteness": {"story": 5},
+    "IntegratedNormalCases.FrozenInputsAndArtifact": {"story": 5},
+    "IntegratedNormalCases.HandoffContract": {"story": 5}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
     "intake": ["AssetIntakeCases.InternalPreference", "AssetIntakeCases.DefinitionRoot", "AssetIntakeCases.AdjacentMaterials", "AssetIntakeCases.FolderDiscoveryFreeze", "AssetIntakeCases.PreparedValidation"],
     "static": ["StaticNormalCases.TrueSpaceTransform", "StaticNormalCases.MixedStreams", "StaticNormalCases.MaterialAndShaderContract", "StaticNormalCases.GpuAuthoredDirection", "StaticNormalCases.ProductionLighting", "StaticNormalCases.GeometricResponsibilities", "StaticNormalCases.OracleControls"],
     "moving": ["MovingNormalCases.DynamicTrueSpace", "MovingNormalCases.InstanceMatrices", "MovingNormalCases.MergedPartTransforms", "MovingNormalCases.TexturesMarksAndFallback", "MovingNormalCases.CacheAndBatchReuse", "MovingNormalCases.GpuAgreement", "MovingNormalCases.ProductionLighting"],
-    "integrated": []
+    "integrated": ["IntegratedNormalCases.AllPaths", "IntegratedNormalCases.ProductionLightingAllPaths", "IntegratedNormalCases.RegressionControls", "IntegratedNormalCases.ProvenanceAndCompleteness", "IntegratedNormalCases.FrozenInputsAndArtifact", "IntegratedNormalCases.HandoffContract"]
   },
   "paths": {
-    "Source17/Models.cs": ["data", "intake", "static", "moving"],
+    "Source17/Models.cs": ["data", "intake", "static", "moving", "integrated"],
     "Source17/People.cs": ["intake", "moving"],
     "Source17/HairParts.cs": ["intake"],
     "Source17/Gravship.cs": ["intake"],
@@ -62,6 +68,11 @@
     "1.7/Defs/ShaderDefs/IsoRim_Shaders.xml": ["static", "moving", "integrated"],
     "Source17/ProbeNormalsStatic.cs": ["all"],
     "Source17/ProbeNormalsMoving.cs": ["all"],
-    "Source17/Instancing.cs": ["moving", "integrated"]
+    "Source17/Instancing.cs": ["moving", "integrated"],
+    "Source17/ProbeNormalsIntegration.cs": ["all"],
+    "1.7/Models/README.md": ["all"],
+    "1.7/Assemblies/IsoRim.dll": ["all"],
+    ".github/workflows/build.yml": ["all"],
+    "tools/prepared_models/contract.json": ["all"]
   }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -71,6 +72,9 @@ namespace IsoRim
             public string fixtureDirectory { get; set; }
             public string[] caseIds { get; set; }
             public DateTimeOffset createdUtc { get; set; }
+            public string packagedHash { get; set; }
+            public string compilerManifestHash { get; set; }
+            public string contractHash { get; set; }
         }
 
         private static string Hash(string path)
@@ -158,7 +162,7 @@ namespace IsoRim
                 }
                 string runtime = typeof(object).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion.Split('+')[0];
                 HashSet<string> seen = new HashSet<string>();
-                foreach (string id in request.caseIds)
+                foreach (string id in request.caseIds.OrderBy(id => id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal) ? 1 : 0))
                 {
                     bool passed = false;
                     string details = "";
@@ -169,7 +173,11 @@ namespace IsoRim
                         {
                             throw new InvalidOperationException("Duplicate normal case");
                         }
-                        if (id.StartsWith("MovingNormalCases.", StringComparison.Ordinal))
+                        if (id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal))
+                        {
+                            evidencePaths = new[] { IntegratedNormalCases.Run(id, request) };
+                        }
+                        else if (id.StartsWith("MovingNormalCases.", StringComparison.Ordinal))
                         {
                             evidencePaths = new[] { MovingNormalCases.Run(id, output, request.fixtureDirectory) };
                         }
