@@ -1,0 +1,15 @@
+# Source semantic material blocks preserved exactly. No baked lighting.
+newmtl ritual_wood
+Kd 0.52 0.36 0.19
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl ritual_dark
+Kd 0.30 0.20 0.105
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl stuff
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Clay/Swatches/{stuff}
+
+newmtl ritual_rope
+Kd 0.61 0.47 0.29

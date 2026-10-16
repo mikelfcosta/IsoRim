@@ -1,0 +1,6 @@
+# Exact source material blocks; no lighting, AO or tint baking.
+newmtl stuff_hat_band
+Kd 0.420 0.420 0.420
+
+newmtl stuff_plain
+Kd 1.000 1.000 1.000

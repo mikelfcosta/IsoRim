@@ -1,0 +1,15 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl ideo_enh_trim
+Kd 0.33 0.35 0.34
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl ideo_enh_shell
+Kd 0.56 0.56 0.53
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl ideo_enh_light
+Kd 0.76 0.77 0.74
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl ideo_enh_dark
+Kd 0.18 0.23 0.23

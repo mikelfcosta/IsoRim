@@ -1,0 +1,11 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl party_shell
+Kd 0.24 0.25 0.25
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl party_trim
+Kd 0.43 0.44 0.42
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl party_dark
+Kd 0.10 0.12 0.12

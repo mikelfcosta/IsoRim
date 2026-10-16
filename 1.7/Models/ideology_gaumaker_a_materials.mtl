@@ -1,0 +1,9 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl pod_orange
+Kd 0.64 0.36 0.17
+
+newmtl pod_inner
+Kd 0.76 0.45 0.23
+
+newmtl pod_yellow
+Kd 0.88 0.77 0.40

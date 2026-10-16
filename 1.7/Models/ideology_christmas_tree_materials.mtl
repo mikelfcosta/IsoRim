@@ -1,0 +1,27 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl ritual_end
+Kd 0.66 0.49 0.27
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl ritual_wood
+Kd 0.52 0.36 0.19
+map_Kd IsoRim/Clay/Swatches/Wood
+
+newmtl ritual_metal
+Kd 0.40 0.41 0.38
+map_Kd IsoRim/Clay/Swatches/Metal
+
+newmtl ritual_green_dark
+Kd 0.23 0.29 0.14
+
+newmtl ritual_green
+Kd 0.29 0.36 0.17
+
+newmtl ritual_gold
+Kd 0.84 0.66 0.22
+
+newmtl ritual_red
+Kd 0.66 0.20 0.16
+
+newmtl ritual_blue
+Kd 0.22 0.25 0.60

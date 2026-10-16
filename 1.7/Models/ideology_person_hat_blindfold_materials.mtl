@@ -1,0 +1,3 @@
+# Exact source material blocks; no lighting, AO or tint baking.
+newmtl stuff_plain
+Kd 1.000 1.000 1.000
