@@ -23,7 +23,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "artifacts/prepared-models"
-EVIDENCE = ROOT / ".testruns/ISORIM-003"
+EVIDENCE = ROOT / ".testruns/ISORIM-004"
 SDK = Path("C:/Users/mikel/AppData/Local/Microsoft/dotnet/dotnet.exe")
 GAME = Path("C:/Program Files (x86)/Steam/steamapps/common/RimWorld")
 HARMONY = Path("C:/Program Files (x86)/Steam/steamapps/workshop/content/294100/2009463077/1.7/Assemblies/0Harmony.dll")
@@ -35,7 +35,8 @@ FINGERPRINTS = {
     "Waylith.UnityCompat.dll": "E4362E5F45EC39533C721B4B4E04C996CF59DE8FCDA2547EB648C3D68FBB5710",
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
-BASELINE = "c43cd431232f0ba3e6a97a1911e9f4a5ef76917f"
+# Execution pin shared by frozen-input comparison and T1 selection.
+BASELINE = "18eb9b3625829417d175d5c9df02945bd9d08fd2"
 DEADLINE = None
 
 
@@ -152,6 +153,7 @@ def verify_registry(cases, manifest):
         "StaticNormalCases": "static",
         "MovingNormalCases": "moving",
         "IntegratedNormalCases": "integrated",
+        "ModelStyleCases": "style",
     }
     for case in registered:
         group = required_groups.get(case.split(".")[0])
@@ -198,11 +200,10 @@ def changed_paths(records):
 
 
 def select_cases(records, story, manifest):
-    try:
-        ordinal = int(story.removeprefix("ISORIM-003.S"))
-    except ValueError as error:
-        raise Refusal("Unknown story") from error
-    if story != f"ISORIM-003.S{ordinal:02d}" or ordinal not in range(1, 6):
+    ordinals = {**{f"ISORIM-003.S{i:02d}": i for i in range(1, 6)},
+                **{f"ISORIM-004.S{i:02d}": i + 5 for i in range(1, 4)}}
+    ordinal = ordinals.get(story)
+    if ordinal is None:
         raise Refusal("Unknown story")
     verify_registry((), manifest)
     selected = set()
@@ -237,7 +238,7 @@ def run_cases(command, changes, story, manifest, base):
         raise Refusal("T1 requires the exact commissioned --base " + BASELINE)
     verify_registry((), manifest)
     if changes:
-        select_cases(changes, "ISORIM-003.S05", manifest)
+        select_cases(changes, story, manifest)
     return sorted(manifest["cases"])
 
 
@@ -321,8 +322,24 @@ def run_child(argv, evidence, label, protected, cwd=ROOT, timeout=600, env=None,
 
 
 def validate_staged_intake(evidence, protected):
+    from prepared_models.intake_fixtures import recovery_cases, recovery_mod
+
     staged = WORK / "staged-mod"
     rows = []
+    # Validate every production asset once, with bounded output and an interruptible deadline.
+    production_command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(staged), "--check-assemblies", "--summary"]
+    production = run_child(production_command, evidence, "validator-production", protected)
+
+    # Fault controls change only these diagnostic inputs. Keep their exact staged bytes and
+    # full scalar diagnostics, without reparsing the unrelated production meshes 23 times.
+    control = WORK / "validator-controls" / evidence.name
+    recovery_mod(control, staged / "1.7/Assemblies/IsoRim.dll")
+    fixture_paths = ("1.7/Defs/Diagnostics/Models.xml", "1.7/Defs/Diagnostics/WornGear.xml",
+                     "1.7/Models/Diagnostics/internal.obj", "1.7/Models/Diagnostics/sample.mtl", "1.7/Models/Diagnostics/legacy.obj")
+    for relative in fixture_paths:
+        shutil.copy2(staged / relative, control / relative)
+        if digest(staged / relative) != digest(control / relative):
+            raise Refusal("The intake control differs from its staged fixture: " + relative)
 
     def validate(root, label):
         result = validate_in_process(root)
@@ -345,10 +362,8 @@ def validate_staged_intake(evidence, protected):
                      "expectedSuccess": not bool(diagnostic), "diagnosticMatched": not diagnostic or diagnostic in error,
                      "checkedPaths": json.loads(marker), "inputFiles": raw_inputs})
 
-    run("passing", staged)
+    run("passing", control)
     if rows[0]["exit"] == 0:
-        control = WORK / "validator-controls" / evidence.name
-        copy_tree(staged, control)
         mutations = [
             ("missing-gear", "1.7/Defs/Diagnostics/WornGear.xml", "internal.obj", "missing-gear.obj", "missing-gear.obj"),
             ("missing-model", "1.7/Defs/Diagnostics/Models.xml", "internal.obj", "missing-model.obj", "missing-model.obj"),
@@ -384,7 +399,6 @@ def validate_staged_intake(evidence, protected):
                 run(name, control, diagnostic)
             finally:
                 path.write_text(original)
-    from prepared_models.intake_fixtures import recovery_cases, recovery_mod
     recovery = []
     root = WORK / "recovery-validator" / evidence.name
     recovery_mod(root, staged / "1.7/Assemblies/IsoRim.dll")
@@ -412,7 +426,10 @@ def validate_staged_intake(evidence, protected):
         recovery.append(dict(case, actualInputHash=actual_hash, actualInputHex=obj.read_bytes().hex(),
                              command=command, exit=child.returncode, diagnosticMatched=diagnostic,
                              scalarBits=bits, bitMatched=bit_match))
-    report = {"nonce": evidence.name, "controls": rows, "recovery": recovery}
+    report = {"nonce": evidence.name, "controls": rows, "recovery": recovery,
+              "production": {"command": production_command, "exit": production.returncode,
+                             "stdoutSha256": digest(evidence / "validator-production.stdout.log")},
+              "stagedFixtureHashes": {path: digest(staged / path) for path in fixture_paths}}
     (evidence / "validator-results.json").write_text(json.dumps(report, indent=2))
     return report
 
@@ -432,18 +449,18 @@ def git(*args, root=ROOT):
 
 
 def prepare_evidence(root, evidence):
-    allowed = root.resolve() / ".testruns/ISORIM-003"
+    allowed = root.resolve() / ".testruns/ISORIM-004"
     if not evidence.resolve().is_relative_to(allowed) or evidence.resolve() == allowed:
-        raise Refusal("Evidence must be below .testruns/ISORIM-003/<nonce>")
+        raise Refusal("Evidence must be below .testruns/ISORIM-004/<nonce>")
     if evidence.parent.resolve() != allowed:
         raise Refusal("Each evidence nonce must be a direct child of the epic directory")
     for parent in [root / ".testruns", allowed, evidence]:
         if parent.is_symlink() or parent.is_junction():
             raise Refusal("Evidence directories cannot redirect writes")
-    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-003/ignore-probe.json", root=root).decode()
-    if "\t.testruns/ISORIM-003/ignore-probe.json" not in rule or ":/.testruns/ISORIM-003/" not in rule:
+    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-004/ignore-probe.json", root=root).decode()
+    if "\t.testruns/ISORIM-004/ignore-probe.json" not in rule or ":/.testruns/ISORIM-004/" not in rule:
         raise Refusal("The exact epic evidence ignore rule is missing")
-    if git("ls-files", "-z", "--", ".testruns/ISORIM-003", root=root):
+    if git("ls-files", "-z", "--", ".testruns/ISORIM-004", root=root):
         raise Refusal("Evidence paths are tracked")
     if evidence.exists():
         raise Refusal("The evidence nonce already exists")
@@ -577,10 +594,10 @@ def reset_work_directory(path):
     path.mkdir(parents=True)
 
 
-def stage_runtime(args, evidence, intake=False):
+def stage_runtime(args, evidence, intake=False, comparison=False):
     runtime = WORK / "runtime"
     staged = WORK / "staged-mod"
-    # Copy only game inputs and Core. Never follow the installed Mods junction.
+    # Copy approved game inputs and selected official data. Never follow the installed Mods junction.
     reset_work_directory(runtime)
     reset_work_directory(staged)
     for path in args.game_dir.iterdir():
@@ -588,6 +605,8 @@ def stage_runtime(args, evidence, intake=False):
             shutil.copy2(path, runtime / path.name)
     for relative in ("Data/Core", "Rendering", "vulkan"):
         copy_tree(args.game_dir / relative, runtime / relative)
+    if comparison:
+        copy_tree(args.game_dir / "Data/Biotech", runtime / "Data/Biotech")
     if (runtime / "Mods").exists() and {path.name for path in (runtime / "Mods").iterdir()} - {"IsoRim", "Harmony"}:
         raise Refusal("The sandbox contains an optional package")
     for relative in ("About", "Defs", "Models", "Textures", "LUTs", "1.7"):
@@ -631,7 +650,8 @@ def stage_runtime(args, evidence, intake=False):
         "<fullscreen>False</fullscreen><runInBackground>True</runInBackground></PrefsData>")
     (save / "Config/ModsConfig.xml").write_text(
         "<ModsConfigData><version>1.7.4980 rev60</version><activeMods>"
-        "<li>brrainz.harmony</li><li>ludeon.rimworld</li><li>connor.isorim</li>"
+        "<li>brrainz.harmony</li><li>ludeon.rimworld</li>"
+        + ("<li>ludeon.rimworld.biotech</li>" if comparison else "") + "<li>connor.isorim</li>"
         + ("<li>isorim.normalproof.external</li>" if intake else "") +
         "</activeMods><knownExpansions><li>ludeon.rimworld</li></knownExpansions></ModsConfigData>")
     (save / "IsoRimProbe.txt").write_text("# Normal proof controller\n")
@@ -736,6 +756,51 @@ def moving_frame_requirements(cases):
     return required
 
 
+def style_frame_requirements(cases):
+    required = {}
+    diffuse = "ModelStyleCases.DiffuseAndHighlightModes"
+    protected = "ModelStyleCases.ProtectedExceptions"
+    if diffuse in cases:
+        rows = required[diffuse] = {}
+        # Literal reference patches from angular Oren-Nayar evaluation at the fixed poses.
+        rgb = ((.543180084565, .444063253520, .406548999604, .466124226562),
+               (.3132, .3132, .504641407082, .412556924411),
+               (.550853781860, .450336692263, .445017746988, .500762121535))
+        # Authored Mode 2 aligns L = V = N, with a 3.262690243/255 highlight signal.
+        highlights = ((.552116131114, .450699256114, .406951311423, .503309813865),
+                      (.3132, .3132, .511319890787, .503309813865),
+                      (.560395576570, .457417538045, .445642119697, .503309813865))
+        for authored, validity in enumerate(("missing", "authored")):
+            for surface in ("solid", "texture"):
+                for mode in (1, 2):
+                    value = rgb[0][authored * 2 + mode - 1]
+                    rows[f"lighting-style-{validity}-{surface}-t0-l0-mode{mode}"] = (mode, 1, value, 0, 1)
+                    for path in ("single", "instanced"):
+                        rows[f"moving-DiffuseAndHighlightModes-{path}-{surface}-oblique-{validity}-mode{mode}-lighting-t0-l0"] = (mode, 1, value, 0, 1)
+                        rows[f"moving-DiffuseAndHighlightModes-{path}-{surface}-oblique-{validity}-highlight-mode{mode}-lighting-t0-l0"] = (mode, 1, highlights[0][authored * 2 + mode - 1], .04, 1)
+            for part in (0, 1):
+                for mode in (1, 2):
+                    rows[f"moving-DiffuseAndHighlightModes-merged-solid-standing-part{part}-{validity}-mode{mode}-lighting-t0-l0"] = (mode, 1, rgb[part + 1][authored * 2 + mode - 1], 0, 1)
+                    rows[f"moving-DiffuseAndHighlightModes-merged-solid-standing-part{part}-{validity}-highlight-mode{mode}-lighting-t0-l0"] = (mode, 1, highlights[part + 1][authored * 2 + mode - 1], .04, 1)
+        for surface in ("solid", "texture"):
+            rows[f"lighting-style-authored-{surface}-t0-l0-highlight-mode2"] = (2, 1, .503309813865, .04, 1)
+            rows[f"lighting-style-missing-{surface}-t0-l0-highlight"] = (1, 1, .617316, .04, 1)
+            rows[f"lighting-style-missing-{surface}-t0-l0-dark"] = (1, 1, .122782, .04, 1)
+            rows[f"lighting-style-missing-{surface}-t0-l0-highlight-mode2"] = (2, 1, .503309813865, .04, 1)
+            rows[f"lighting-style-missing-{surface}-t0-l0-dark-mode2"] = (2, 1, .100792475166, .04, 1)
+    if protected in cases:
+        rows = required[protected] = {}
+        for mode in (0, 1, 2):
+            for kind in ("glow", "flame", "ember", "wall", "roof", "ghost", "glass", "night", "indoor", "sun-away", "cutaway"):
+                light = 2 if kind == "wall" else 3 if kind == "roof" else 1 if kind in ("glass", "night", "indoor", "sun-away") else 0
+                value = {"wall": .48, "roof": .55125, "ghost": .4, "glass": (.33, .337272033826, .297625301408)[mode],
+                         "night": (.6, .617316, .503309813865)[mode] * .125,
+                         "indoor": (.6, .617316, .503309813865)[mode] * .25,
+                         "sun-away": .3 if mode == 0 else .3132}.get(kind, .6)
+                rows[f"lighting-protected-solid-t0-l0-{kind}-mode{mode}"] = (mode, light, value, 0 if kind == "glass" else .04, .4 if kind == "glass" else .5 if kind == "ghost" else 1)
+    return required
+
+
 def verify_static_pixels(evidence, cases, request, pid, started):
     """Bind every required observation to fresh raw GPU bytes and its PNG."""
     captures = []
@@ -744,6 +809,9 @@ def verify_static_pixels(evidence, cases, request, pid, started):
     requirements = static_frame_requirements(cases)
     for case, rows in moving_frame_requirements(cases).items():
         requirements.setdefault(case, {}).update(rows)
+    style_requirements = style_frame_requirements(cases)
+    for case, rows in style_requirements.items():
+        requirements[case] = {name: (False, 0, 0, 0, False) for name in rows}
     for case, required in requirements.items():
         path = evidence / (case + ".json")
         report = json.loads(path.read_text())
@@ -752,7 +820,7 @@ def verify_static_pixels(evidence, cases, request, pid, started):
         rows = report["readings"]
         if case.endswith("GeometricResponsibilities"):
             rows = [rows["ownCell"], rows["cutaway"]]
-        if case.startswith(("MovingNormalCases.", "IntegratedNormalCases.")):
+        if case.startswith(("MovingNormalCases.", "IntegratedNormalCases.", "ModelStyleCases.")):
             rows = rows["captures"]
         if len(rows) != len(required) or {row["name"] for row in rows} != set(required):
             raise Refusal("The required framebuffer matrix is incomplete, duplicated or relabelled")
@@ -762,7 +830,10 @@ def verify_static_pixels(evidence, cases, request, pid, started):
             if (row["diagnostic"], row["transportFault"], row["lightingFault"], row["expectedIndex"]) != (diagnostic, transport, lighting, expected):
                 raise Refusal("The requested framebuffer control differs from its required matrix")
             normal_space = 2 if moving else 0 if legacy else 1
-            if (row["observedDiagnostic"], row["observedTransportFault"], row["observedLightingFault"], row["lightMode"], row["normalSpace"]) != (int(diagnostic), transport, lighting, 1, normal_space):
+            style = style_requirements.get(case, {}).get(row["name"])
+            if style and (row["clayMode"] != style[0] or abs(row["clayHighlight"] - style[3]) > 1e-6 or abs(row.get("alpha", 1) - style[4]) > 1e-6):
+                raise Refusal("The observed model style or alpha differs")
+            if (row["observedDiagnostic"], row["observedTransportFault"], row["observedLightingFault"], row["lightMode"], row["normalSpace"]) != (int(diagnostic), transport, lighting, style[1] if style else 1, normal_space):
                 raise Refusal("The observed framebuffer controls differ")
             if moving:
                 instanced = row["pathKind"].startswith("instanced")
@@ -783,7 +854,7 @@ def verify_static_pixels(evidence, cases, request, pid, started):
                     reported = [value for matrix in row["actualMatrices"] for value in matrix]
                     if any(abs(x-y) > 1e-6 * max(1,abs(x)) for x,y in zip(values,reported)):
                         raise Refusal("The reported matrices differ from submission bytes")
-                if not case.endswith(("TexturesMarksAndFallback", "AllPaths")):
+                if not style and not case.endswith(("TexturesMarksAndFallback", "AllPaths")):
                     identity = (case, "merged" if row["partIndex"] >= 0 else "texture" if row["textured"] else "solid")
                     if identity in cache_meshes and cache_meshes[identity] != row["meshId"]:
                         raise Refusal("Moving tuples rebuilt a mesh instead of reusing their cache")
@@ -813,6 +884,10 @@ def verify_static_pixels(evidence, cases, request, pid, started):
                         for dy in range(-1, 2) for dx in range(-1, 2)] for slot in range(4)]
             if patches != row["patches"]:
                 raise Refusal("Reported patch samples differ from raw GPU bytes")
+            if style and any(abs(pixel[c] - style[2] * 255) > (2 if slot == 0 else 1) for slot, patch in enumerate(patches) for pixel in patch for c in range(3)):
+                raise Refusal("The model style framebuffer differs from its literal reference")
+            if style and "-dark" in row["name"] and any(pixel[c] - .12 * 255 > 4 for pixel in patches[0] for c in range(3)):
+                raise Refusal("The matte highlight washed out a dark albedo")
             if any(pixel[3] != 255 or pixel[:3] == [255, 0, 255] for patch in patches for pixel in patch):
                 raise Refusal("An interior framebuffer patch is empty or nonopaque")
             if any(max(abs(pixel[c] - patch[0][c]) for pixel in patch for c in range(3)) > 2 for patch in patches):
@@ -822,11 +897,13 @@ def verify_static_pixels(evidence, cases, request, pid, started):
                 raise Refusal("The framebuffer comparison differs or fails")
             if expected and differences[0] <= 2:
                 raise Refusal("A required framebuffer fault silently passed")
-            if not diagnostic and any(abs(patches[i][0][c] - patches[j][0][c]) < 12 for i in range(1, 4) for j in range(i + 1, 4) for c in range(3)):
+            if not style and not diagnostic and any(abs(patches[i][0][c] - patches[j][0][c]) < 12 for i in range(1, 4) for j in range(i + 1, 4) for c in range(3)):
                 raise Refusal("Ordinary lighting references fail the 12/255 separation")
             captures.append({"caseId": case, "name": row["name"], "gpuFrame": serial,
                              "rawSha256": row["rawHash"], "pngSha256": row["pngHash"],
                              "reportSha256": digest(path), "differences": differences})
+    if GAMEPLAY_CASE in cases:
+        verify_gameplay_pixels(evidence, started, captures)
     if captures:
         (evidence / "framebuffer-receipt.json").write_text(json.dumps({
             "nonce": request["nonce"], "head": request["head"], "assemblyHash": request["assemblyHash"],
@@ -848,7 +925,89 @@ def verify_lighting_coverage(readings):
     return len(tuples)
 
 
+GAMEPLAY_CASE = "ModelStyleCases.GameplayComparisonAndPerf"
+GAMEPLAY_SAMPLES = {"Armchair", "Table2x2c", "ElectricStove", "StandingLamp", "Campfire", "Plant_TreeOak",
+                    "SmoothFixture", "Colonist", "Muffalo", "Turret_MiniTurret", "Door", "GrowthVat"}
+GAMEPLAY_PRESETS = ("Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines")
+
+
+def gameplay_readings(evidence, started):
+    path = evidence / (GAMEPLAY_CASE + ".json")
+    report = json.loads(path.read_text())
+    if path.stat().st_mtime < started or report.get("caseId") != GAMEPLAY_CASE or report.get("passed") is not True:
+        raise Refusal("The gameplay comparison report is stale or invalid")
+    return report["readings"]
+
+
+def verify_gameplay_pixels(evidence, started, captures):
+    readings = gameplay_readings(evidence, started)
+    rows = readings["frames"]
+    required = {(preset, pitch, yaw) for preset in GAMEPLAY_PRESETS for pitch, yaw in ((35.3, 45), (55, 0))}
+    if len(rows) != 8 or {(row["preset"], round(row["pitch"], 1), row["yaw"]) for row in rows} != required:
+        raise Refusal("The gameplay comparison preset/camera matrix is incomplete")
+    if not readings["dressedApparel"] or readings["backend"] != "RimWorldWaylith.Rendering.CameraTextureBaker":
+        raise Refusal("The gameplay comparison lacks its dressed rig or approved GPU backend")
+    serials = {row["gpuFrame"] for row in captures}
+    images = {}
+    for row in rows:
+        if (row["width"], row["height"], row["orthographicSize"]) != (512, 512, 11) or row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 1 or row["gpuFrameCompleted"] in serials:
+            raise Refusal("The gameplay comparison lacks a unique completed frame at normal zoom")
+        serials.add(row["gpuFrameCompleted"])
+        for kind in ("raw", "png"):
+            path = evidence / row[kind + "Path"]
+            if path.resolve().parent != evidence.resolve() or path.is_symlink() or path.stat().st_mtime < started or digest(path) != row[kind + "Hash"]:
+                raise Refusal("A gameplay capture is missing, stale or redirected")
+        raw, png = [(evidence / row[kind + "Path"]).read_bytes() for kind in ("raw", "png")]
+        if len(raw) != 512 * 512 * 4 or png[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", png[16:24]) != (512, 512):
+            raise Refusal("A gameplay capture has invalid dimensions")
+        samples = row["samples"]
+        if len(samples) != 12 or {sample["name"] for sample in samples} != GAMEPLAY_SAMPLES or any(sample["commands"] <= 0 for sample in samples) or sum(sample["commands"] for sample in samples) != row["commands"]:
+            raise Refusal("The gameplay comparison omits required sample submissions")
+        for sample in samples:
+            x0, y0, x1, y1 = sample["bounds"]
+            if not (2 <= x0 < x1 <= 509 and 2 <= y0 < y1 <= 509):
+                raise Refusal("A gameplay sample is clipped")
+            others = [other["bounds"] for other in samples if other is not sample]
+            count = sum(raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 3] != bytes((255, 0, 255))
+                        for y in range(y0, y1 + 1) for x in range(x0, x1 + 1)
+                        if not any(a <= x <= c and b <= y <= d for a, b, c, d in others))
+            if count < 5 or count != sample["pixels"]:
+                raise Refusal("A gameplay sample is blank, occluded or its pixel observation differs: " + sample["name"])
+        images[(row["preset"], round(row["pitch"], 1))] = (raw, row["pngHash"])
+        captures.append({"caseId": GAMEPLAY_CASE, "name": row["name"], "gpuFrame": row["gpuFrameCompleted"],
+                         "rawSha256": row["rawHash"], "pngSha256": row["pngHash"], "reportSha256": digest(evidence / (GAMEPLAY_CASE + ".json"))})
+    for pitch in (35.3, 55):
+        for i, a in enumerate(GAMEPLAY_PRESETS):
+            for b in GAMEPLAY_PRESETS[i+1:]:
+                first, first_png = images[a, pitch]
+                second, second_png = images[b, pitch]
+                if a == "MatteWrapped" and b == "MatteOrenNayar" and any(
+                        (first[i:i+3] == bytes((255, 0, 255))) != (second[i:i+3] == bytes((255, 0, 255))) for i in range(0, len(first), 4)):
+                    raise Refusal("Wrapped/Oren-Nayar changed comparison geometry instead of shading")
+                changed = sum(any(abs(first[i+c] - second[i+c]) > 2 for c in range(3)) for i in range(0, len(first), 4))
+                if changed < 20 or first_png == second_png:
+                    raise Refusal("The gameplay comparison presets are not visibly distinct: " + a + "/" + b)
+
+
+def verify_gameplay_timings(rows):
+    if len(rows) != 3 or {row["preset"] for row in rows} != {"Classic", "MatteWrapped", "MatteOrenNayar"}:
+        raise Refusal("The comparison timing modes are incomplete or duplicated")
+    for row in rows:
+        values = row["samplesMs"]
+        if len(values) != 60 or any(not math.isfinite(value) or value <= 0 for value in values) or row["commands"] <= 0:
+            raise Refusal("The comparison lacks 60 positive warm render timings or commands")
+        if row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 60:
+            raise Refusal("The comparison warm renders did not complete 60 GPU frames")
+        ordered = sorted(values)
+        expected = ((ordered[29] + ordered[30]) / 2, sum(values) / 60, ordered[56])
+        if any(not math.isfinite(row[key]) or abs(row[key] - value) > 1e-6
+               for key, value in zip(("medianMs", "meanMs", "p95Ms"), expected)):
+            raise Refusal("The comparison timing statistics do not match the observations")
+
+
 def verify_integrated(evidence, cases, request, pid, started, captures):
+    if GAMEPLAY_CASE in cases:
+        verify_gameplay_timings(gameplay_readings(evidence, started)["timings"])
     integrated = {case for case in cases if case.startswith("IntegratedNormalCases.")}
     if not integrated:
         return
@@ -952,10 +1111,11 @@ def verify_integrated(evidence, cases, request, pid, started, captures):
 def runtime_cases(args, evidence, protected, cases, head):
     with sandbox_lock():
         run_child(["powershell.exe", "-NoProfile", "-Command",
-                   "if (Get-Process -Name RimWorld -ErrorAction SilentlyContinue) { exit 2 }"],
+                   "if (Get-Process -Name 'RimWorld*' -ErrorAction SilentlyContinue) { exit 2 }"],
                   evidence, "game-exclusion", protected)
         intake = any(case.startswith("AssetIntakeCases.") for case in cases)
-        runtime, save, product = stage_runtime(args, evidence, intake=intake)
+        comparison = "ModelStyleCases.GameplayComparisonAndPerf" in cases
+        runtime, save, product = stage_runtime(args, evidence, intake=intake, comparison=comparison)
         validator_results = validate_staged_intake(evidence, protected) if intake else None
         modules = {name: digest(runtime / name) for name in [*FINGERPRINTS, "System.Private.CoreLib.dll", "coreclr.dll"]}
         modules["0Harmony.dll"] = HARMONY_HASH
@@ -976,6 +1136,9 @@ def runtime_cases(args, evidence, protected, cases, head):
             artifact_hash = verify_artifact_files(artifact_files)
             (evidence / "artifact-identity.json").write_text(json.dumps({
                 "head": head, "sha256": artifact_hash, "files": [str(path) for path in artifact_files]}, indent=2))
+        run_child(["powershell.exe", "-NoProfile", "-Command",
+                   "if (Get-Process -Name 'RimWorld*' -ErrorAction SilentlyContinue) { exit 2 }"],
+                  evidence, "game-exclusion-before-launch", protected)
         started = time.time()
         with (evidence / "runtime.stdout.log").open("wb") as stdout, (evidence / "runtime.stderr.log").open("wb") as stderr:
             environment = dict(os.environ)
@@ -1001,6 +1164,8 @@ def runtime_cases(args, evidence, protected, cases, head):
         expected_active = {"brrainz.harmony", "ludeon.rimworld", "connor.isorim"}
         if intake:
             expected_active.add("isorim.normalproof.external")
+        if comparison:
+            expected_active.add("ludeon.rimworld.biotech")
         if {node.text for node in active} != expected_active or len(active) != len(expected_active):
             raise Refusal("The runtime active package manifest changed")
         proofs = verify_proofs(list(evidence.glob("NormalProof-*.json")), cases, request, modules, child.pid, started)
@@ -1077,7 +1242,7 @@ def main():
         head = git("rev-parse", "--verify", args.head + "^{commit}").decode().strip()
         if args.command == "t0":
             epic = git("rev-parse", "--verify", args.epic_ref + "^{commit}").decode().strip()
-            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-003-prepared-models-render-correctly^{commit}").decode().strip()
+            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-004-matte-clay-model-style^{commit}").decode().strip()
             if epic != expected_epic:
                 raise Refusal("The epic base differs from the commission")
         else:
@@ -1088,18 +1253,22 @@ def main():
             raise Refusal("T1 requires the exact commissioned --base " + BASELINE)
         if args.command != "ci":
             git("merge-base", "--is-ancestor", epic, head)
-        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-003-prepared-models-render-correctly").decode().strip():
+        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-004-matte-clay-model-style").decode().strip():
             raise Refusal("Authoritative T1 must run at the frozen integrated epic head")
-        if args.command != "ci" and git("rev-parse", "origin/main").decode().strip() != BASELINE:
-            raise Refusal("origin/main differs from the commissioned baseline")
+        if args.command != "ci":
+            # Independent asset work may advance main while this epic keeps its commissioned base.
+            git("merge-base", "--is-ancestor", BASELINE, epic)
         changes = git("diff", "--name-status", "-z", "--no-renames", epic, head, "--") if epic else b""
         manifest = case_manifest()
         story = args.story
         if args.command in ("t1", "ci"):
-            story = f"ISORIM-003.S{max(case['story'] for case in manifest['cases'].values()):02d}"
+            ordinal = max(case['story'] for case in manifest['cases'].values())
+            story = f"ISORIM-004.S{ordinal - 5:02d}" if ordinal > 5 else f"ISORIM-003.S{ordinal:02d}"
         cases = run_cases(args.command, changes, story, manifest, args.base)
         selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes) if changes else [],
                      "caseIds": cases, "hostControls": manifest["hostCases"], "ignoreProof": rule, "nonce": evidence.name}
+        selection["baseline"] = BASELINE
+        selection["observedOriginMain"] = git("rev-parse", "origin/main").decode().strip() if args.command != "ci" else None
         selection["pathCases"] = {path: select_cases(("M\0" + path + "\0").encode(), story, manifest)
                                   for path in selection["paths"]}
         (evidence / "selection.json").write_text(json.dumps(selection, indent=2))
@@ -1112,6 +1281,9 @@ def main():
         phases["hostControls"] = time.monotonic() - phase_started
         phase_started = time.monotonic()
         compile_target(args, evidence, protected, installed=args.command != "ci")
+        changed_sources = [path for path in selection["paths"] if path.startswith("Source17/") and path.endswith(".cs")]
+        if args.command == "t0" and changed_sources:
+            format_sources(args, evidence, protected, "1.7", include=changed_sources)
         phases["build17"] = time.monotonic() - phase_started
         phase_started = time.monotonic()
         proofs = {}

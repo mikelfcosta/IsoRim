@@ -54,6 +54,15 @@ namespace IsoRim
             }
         }
 
+        public static void SyncStyle(int mode, float wrap, float highlight, float roughness)
+        {
+            Material mat = Mat;
+            if (mat == null) return;
+            mat.SetFloat("_ClayMode", mode); mat.SetFloat("_ClayWrap", wrap);
+            mat.SetFloat("_ClayHighlight", 0f); mat.SetFloat("_ClayRoughness", roughness);
+            mat.color = new Color(1f, 1f, 1f, Opacity);
+        }
+
         private static Mesh MeshFor(Model m)
         {
             Mesh mesh;

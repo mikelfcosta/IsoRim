@@ -242,6 +242,11 @@ namespace IsoRim
         private const float CarryHeight = 0.36f;  // and the height of its bottom
 
         private static readonly Dictionary<int, Look> looks = new Dictionary<int, Look>();
+        public static void ForgetAll()
+        {
+            foreach (Look look in looks.Values) look.Forget();
+            looks.Clear();
+        }
         private static readonly Dictionary<string, Model> models = new Dictionary<string, Model>();
         private static Model head;
         private static Model face;

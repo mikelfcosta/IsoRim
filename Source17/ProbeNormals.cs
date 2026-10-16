@@ -173,7 +173,11 @@ namespace IsoRim
                         {
                             throw new InvalidOperationException("Duplicate normal case");
                         }
-                        if (id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal))
+                        if (id.StartsWith("ModelStyleCases.", StringComparison.Ordinal))
+                        {
+                            evidencePaths = new[] { ModelStyleCases.Run(id, request) };
+                        }
+                        else if (id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal))
                         {
                             evidencePaths = new[] { IntegratedNormalCases.Run(id, request) };
                         }

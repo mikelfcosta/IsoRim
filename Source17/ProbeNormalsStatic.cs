@@ -278,6 +278,29 @@ namespace IsoRim
             string Layout(string source) => System.Text.RegularExpressions.Regex.Replace(source.Substring(source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal),
                 source.IndexOf("} uMaterial;", StringComparison.Ordinal) - source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal)), @"//[^\r\n]*|\s+", "");
             Require(sources.All(source => Layout(source) == Layout(sources[0])), "Owned shader material layouts diverged");
+            string[] styleFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness" };
+            foreach (string field in styleFields)
+                Require(sources.All(source => source.Contains("float " + field + "; // @default = 0.0")), "Missing zero-default style field: " + field);
+            var sync = typeof(R3DMaterials).GetMethod("SyncModelStyle", new[] { typeof(int), typeof(float), typeof(float), typeof(float) });
+            Require(sync != null, "Missing explicit model-style API");
+            Material glass = (Material)typeof(Glass).GetProperty("Mat", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            var models = Enum.GetValues(typeof(ShadingNormalSpace)).Cast<ShadingNormalSpace>().SelectMany(space => new[] {
+                R3DMaterials.Lit(0, 0, space), R3DMaterials.LitTexture(Neutral, Color.gray, 0, 0, space) }).ToArray();
+            var protectedMaterials = models.Select(IsoGlow.MarkFor).Concat(new[] { R3DMaterials.Lit(0, 1), R3DMaterials.LitTexture(Neutral, Color.gray, 0, 1) }).ToArray();
+            float[][] prior = protectedMaterials.Select(mat => styleFields.Select(mat.GetFloat).ToArray()).ToArray();
+            try
+            {
+                sync.Invoke(null, new object[] { 2, .22f, .04f, .65f });
+                Material future = R3DMaterials.LitTexture(Neutral, new Color(.31f, .42f, .53f), 0, 0, ShadingNormalSpace.ModelLocal);
+                foreach (Material mat in models.Concat(new[] { future }))
+                    Require(styleFields.Select(mat.GetFloat).SequenceEqual(new[] { 2f, .22f, .04f, .65f }), "Cached or newly created model missed style sync");
+                for (int i = 0; i < protectedMaterials.Length; i++)
+                    Require(styleFields.Select(protectedMaterials[i].GetFloat).SequenceEqual(prior[i]), "Style leaked into wall or mark material");
+                Require(protectedMaterials.Take(models.Length).All(mat => mat.GetFloat("_NormalSpace") == 0), "Style changed mark normal ownership");
+                Require(glass.GetFloat("_ClayMode") == 2 && glass.GetFloat("_ClayWrap") == .22f && glass.GetFloat("_ClayRoughness") == .65f
+                    && glass.GetFloat("_ClayHighlight") == 0 && glass.color == new Color(1, 1, 1, .4f), "Glass style or opacity differs");
+            }
+            finally { sync.Invoke(null, new object[] { 0, 0f, 0f, 0f }); }
             Require(sources.Take(2).All(source => source.Contains("@vertex Normal optional @default = vec4(0.0, 0.0, 0.0, 0.0)")
                 && source.Contains("layout(location = 4) in vec4 inUv1") && source.Contains("binding = 4")), "Owned vertex/default/UV1/binding-4 contract changed");
             return new
@@ -400,8 +423,89 @@ namespace IsoRim
         private static int[] RGBA(Color32 p) => new[] { (int)p.r, p.g, p.b, p.a };
         private static int Difference(int[][] a, int[][] b) => a.Zip(b, (x, y) => Enumerable.Range(0, 3).Max(c => Math.Abs(x[c] - y[c]))).Max();
 
+        internal static List<object> StylePixels(string fixtures, string evidence)
+        {
+            var rows = new List<object>();
+            foreach (bool authored in new[] { true, false })
+                foreach (bool textured in new[] { false, true })
+                {
+                    var pair = new Pair
+                    {
+                        Name = "style-" + (authored ? "authored" : "missing"),
+                        Scale = new Vector3(1.3f, .9f, 1.1f),
+                        Turn = 20,
+                        N = new Vector3(.989247403381f, .140757555142f, .039710018574f),
+                        G = new Vector3(.342020143326f, 0, .939692620786f),
+                        Q = Vector3.forward,
+                        L = new Vector3(0, .8f, .6f),
+                        Shades = new[] { 1d, 1d, 1d }
+                    };
+                    SectionLayer layer = Bake(Fixture(fixtures, textured, authored), Quaternion.AngleAxis(20, Vector3.up), Quaternion.identity, pair.Scale);
+                    Upload(layer);
+                    foreach (int mode in new[] { 1, 2 })
+                        rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-mode" + mode,
+                            style: mode, referenceRgb: ModelStyleCases.Reference(0, authored, mode)));
+                    if (authored)
+                        rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-highlight-mode2",
+                            style: 2, highlight: .04f, referenceRgb: .503309813865, alignedHighlight: true));
+                    if (!authored)
+                    {
+                        pair.L = pair.G;
+                        rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-highlight", style: 1, highlight: .04f, referenceRgb: .617316));
+                        rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-dark", style: 1, highlight: .04f, albedo: .12f, referenceRgb: .122782));
+                        rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-highlight-mode2", style: 2, highlight: .04f, referenceRgb: .503309813865));
+                        rows.Add(Capture(evidence, pair, Face(layer, textured), textured, false, 0, 0, 0, "-dark-mode2", style: 2, highlight: .04f, albedo: .12f, referenceRgb: .100792475166));
+                    }
+                }
+            ClearIntegrationMeshes();
+            return rows;
+        }
+
+        internal static List<object> ProtectedPixels(string fixtures, string evidence)
+        {
+            var rows = new List<object>();
+            var pair = new Pair
+            {
+                Name = "protected",
+                Scale = new Vector3(1.3f, .9f, 1.1f),
+                Turn = 20,
+                N = new Vector3(.989247403381f, .140757555142f, .039710018574f),
+                G = new Vector3(.342020143326f, 0, .939692620786f),
+                Q = Vector3.forward,
+                L = new Vector3(0, .8f, .6f),
+                Shades = new[] { 1d, 1d, 1d }
+            };
+            SectionLayer layer = Bake(Fixture(fixtures, authored: false), Quaternion.AngleAxis(20, Vector3.up), Quaternion.identity, pair.Scale);
+            Upload(layer);
+            LayerSubMesh sub = Face(layer);
+            for (int mode = 0; mode <= 2; mode++)
+            {
+                R3DMaterials.SyncModelStyle(mode, .22f, .04f, .65f);
+                foreach (string kind in new[] { "glow", "flame", "ember", "wall", "roof", "ghost", "glass", "night", "indoor", "sun-away", "cutaway" })
+                {
+                    int light = kind == "wall" ? 2 : kind == "roof" ? 3 : kind == "glass" || kind == "night" || kind == "indoor" || kind == "sun-away" ? 1 : 0;
+                    double rgb = kind == "wall" ? .48 : kind == "roof" ? .55125 : kind == "ghost" ? .4 : kind == "glass"
+                        ? new[] { .33, .337272033826, .297625301408 }[mode] : .6;
+                    float sky = kind == "night" ? .125f : kind == "indoor" ? .25f : 1;
+                    pair.L = kind == "sun-away" ? -pair.G * .6f + Vector3.up * .8f : sky < 1 ? pair.G : new Vector3(0, .8f, .6f);
+                    if (kind == "sun-away") rgb = mode == 0 ? .3 : .3132;
+                    if (sky < 1) rgb = new[] { .6, .617316, .503309813865 }[mode] * sky;
+                    bool cut = kind == "cutaway";
+                    sub.uvsChannelTwo.Clear();
+                    if (cut) sub.uvsChannelTwo.AddRange(Enumerable.Repeat(CutTags.Tag(new IntVec3(4, 0, 5), ShaderCut.Lower | ShaderCut.TexSide), 3));
+                    Upload(layer);
+                    rows.Add(Capture(evidence, pair, sub, false, false, 0, 0, 0, "-" + kind + "-mode" + mode, cutaway: cut,
+                        style: mode, highlight: kind == "glass" ? 0 : .04f, referenceRgb: rgb, lightMode: light, sky: sky, blend: kind));
+                }
+            }
+            R3DMaterials.SyncModelStyle(0, 0, 0, 0);
+            ClearIntegrationMeshes();
+            return rows;
+        }
+
         private static object Capture(string evidence, Pair pair, LayerSubMesh sub, bool textured, bool diagnostic,
-            int transportFault, int lightingFault, int expectedIndex, string suffix = "", bool legacy = false, bool ownCell = false, bool cutaway = false)
+            int transportFault, int lightingFault, int expectedIndex, string suffix = "", bool legacy = false, bool ownCell = false, bool cutaway = false,
+            int style = 0, float highlight = 0, float albedo = .6f, double referenceRgb = -1, int lightMode = 1, float sky = 1, string blend = "", bool alignedHighlight = false)
         {
             const int width = 1024, height = 256;
             string name = (diagnostic ? "direction" : "lighting") + "-" + pair.Name + (textured ? "-texture" : "-solid")
@@ -413,7 +517,8 @@ namespace IsoRim
             var owner = new GameObject("IsoRim normal framebuffer proof");
             Camera camera = owner.AddComponent<Camera>();
             camera.enabled = false; camera.orthographic = true; camera.aspect = 4; camera.cullingMask = 0;
-            Vector3 rasterG = pair.G;
+            Vector3 rasterG = alignedHighlight ? pair.N : pair.G;
+            Vector3 light = alignedHighlight ? pair.N : pair.L;
             camera.transform.rotation = Quaternion.LookRotation(-rasterG, Mathf.Abs(rasterG.y) > .9f ? Vector3.forward : Vector3.up);
             camera.transform.position = rasterG * 10;
             // Freeze a physical-space camera. The view matrix cancels only the artificial Y expansion.
@@ -428,16 +533,21 @@ namespace IsoRim
             RenderTexture target = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
             camera.targetTexture = target;
             Require(sub.material.GetFloat("_NormalSpace") == 1, "The framebuffer received a nonstatic normal-space material");
-            Material actual = new Material(sub.material);
+            Material actual = new Material(blend == "glass" ? (Material)typeof(Glass).GetProperty("Mat", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null)
+                : blend == "ghost" ? R3DMaterials.Ghost : sub.material);
+            if (blend == "ghost") actual.color = new Color(1, 1, 1, .5f);
+            actual.SetFloat("_ClayMode", style); actual.SetFloat("_ClayWrap", style == 0 ? 0 : .22f);
+            actual.SetFloat("_ClayHighlight", highlight); actual.SetFloat("_ClayRoughness", style == 0 ? 0 : .65f);
+            if (style > 0) actual.color = new Color(actual.color.r * albedo / .6f, actual.color.g * albedo / .6f, actual.color.b * albedo / .6f, actual.color.a);
             actual.SetFloat("_NormalSpace", legacy ? 0 : 1);
-            actual.SetFloat("_LightMode", 1); actual.SetFloat("_GlowMode", 0); actual.SetFloat("_MarkPass", 0);
+            actual.SetFloat("_LightMode", lightMode); actual.SetFloat("_GlowMode", 0); actual.SetFloat("_MarkPass", 0);
             actual.SetFloat("_NormalView", diagnostic ? 1 : 0);
             actual.SetFloat("_NormalTransportFault", transportFault); actual.SetFloat("_NormalLightingFault", lightingFault);
-            actual.SetVector("_IsoSun", new Vector4(pair.L.x, pair.L.y, pair.L.z, 0));
-            actual.SetVector("_IsoView", new Vector4(pair.G.x, pair.G.y, pair.G.z, View3D.Squash));
-            actual.SetVector("_IsoSky", Vector4.one); actual.SetVector("_IsoCellMap", Vector4.zero);
+            actual.SetVector("_IsoSun", new Vector4(light.x, light.y, light.z, 0));
+            actual.SetVector("_IsoView", new Vector4(rasterG.x, rasterG.y, rasterG.z, View3D.Squash));
+            actual.SetVector("_IsoSky", new Vector4(sky, sky, sky, 1)); actual.SetVector("_IsoCellMap", Vector4.zero);
             Require(actual.GetFloat("_NormalView") == (diagnostic ? 1 : 0) && actual.GetFloat("_NormalTransportFault") == transportFault
-                && actual.GetFloat("_NormalLightingFault") == lightingFault && actual.GetFloat("_LightMode") == 1, "Requested shader state was not observed");
+                && actual.GetFloat("_NormalLightingFault") == lightingFault && actual.GetFloat("_LightMode") == lightMode, "Requested shader state was not observed");
             Mesh reference = new Mesh { vertices = referencePositions, triangles = sub.mesh.triangles, colors32 = Enumerable.Repeat(new Color32(255, 255, 255, 255), 3).ToArray() };
             reference.RecalculateBounds();
             double[] referenceShades = ownCell ? new[] { pair.Shades[0] * 64 / 255, pair.Shades[0] * 192 / 255, pair.Shades[0] } : pair.Shades;
@@ -450,11 +560,18 @@ namespace IsoRim
                 refs[i].SetVector("_IsoCellMap", Vector4.zero);
                 refs[i].color = diagnostic ? new Color(directions[i].x * .5f + .5f, directions[i].y * .5f + .5f, directions[i].z * .5f + .5f)
                     : new Color((float)(.6 * referenceShades[i]), (float)(.6 * referenceShades[i]), (float)(.6 * referenceShades[i]));
+                if (referenceRgb >= 0) refs[i].color = new Color((float)referenceRgb, (float)referenceRgb, (float)referenceRgb);
             }
             Vector3 axis = camera.transform.right;
             Vector3 rightAxis = new Vector3(axis.x, axis.y / View3D.Squash, axis.z);
             Matrix4x4[] placements = Enumerable.Range(0, 4).Select(i => Matrix4x4.Translate(-centroid + rightAxis * ((i - 1.5f) * camera.orthographicSize * 2))).ToArray();
             Texture2D controlTexture = null;
+            if (sky < 1)
+            {
+                controlTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+                controlTexture.SetPixels32(new[] { new Color32(0, 0, 0, 0) }); controlTexture.Apply();
+                actual.SetTexture("_IsoGlowTex", controlTexture); actual.SetFloat("_GlowMode", 3); actual.SetVector("_IsoGlowMap", Vector4.zero);
+            }
             if (ownCell || cutaway)
             {
                 controlTexture = new Texture2D(ownCell ? 2 : 1, 1, TextureFormat.RGBA32, false, true);
@@ -475,9 +592,15 @@ namespace IsoRim
                     actual.SetVector("_IsoLevel", new Vector4(0, .5f, 0, 0));
                 }
             }
+            Material interior = null;
+            if (blend == "glass" || blend == "ghost")
+            {
+                interior = new Material(refs[0]); interior.color = new Color(.2f, .2f, .2f);
+            }
             Camera.CameraCallback draw = active =>
             {
                 if (active != camera) return;
+                if (interior != null) { Require(interior.SetPass(0), "Interior patch did not bind"); Graphics.DrawMeshNow(reference, placements[0]); }
                 Require(actual.SetPass(0), "Owned actual shader did not compile/bind");
                 Graphics.DrawMeshNow(sub.mesh, placements[0]);
                 for (int i = 0; i < 3; i++)
@@ -504,7 +627,7 @@ namespace IsoRim
                 int[][][] patches = Enumerable.Range(0, 4).Select(slot => Enumerable.Range(-1, 3).SelectMany(dy =>
                     Enumerable.Range(-1, 3).Select(dx => RGBA(pixels[(height / 2 + dy) * width + slot * 256 + 128 + dx]))).ToArray()).ToArray();
                 Require(patches.All(patch => patch.All(p => p[3] == 255 && !(p[0] == 255 && p[1] == 0 && p[2] == 255))), "Empty, clipped or nonopaque patch");
-                if (!diagnostic)
+                if (!diagnostic && referenceRgb < 0)
                     for (int i = 1; i < 4; i++) for (int j = i + 1; j < 4; j++)
                         Require(Enumerable.Range(0, 3).All(c => Math.Abs(patches[i][0][c] - patches[j][0][c]) >= 12), "Production references do not separate by 12/255 in every RGB channel");
                 int[] differences = Enumerable.Range(1, 3).Select(i => Difference(patches[0], patches[i])).ToArray();
@@ -526,6 +649,9 @@ namespace IsoRim
                     observedTransportFault = actual.GetFloat("_NormalTransportFault"),
                     observedLightingFault = actual.GetFloat("_NormalLightingFault"),
                     lightMode = actual.GetFloat("_LightMode"),
+                    clayMode = actual.GetFloat("_ClayMode"),
+                    clayHighlight = actual.GetFloat("_ClayHighlight"),
+                    alpha = actual.color.a,
                     normalSpace = actual.GetFloat("_NormalSpace"),
                     glowMode = actual.GetFloat("_GlowMode"),
                     sky = V(actual.GetVector("_IsoSky")),
@@ -536,7 +662,7 @@ namespace IsoRim
                     expectedN = V(pair.N),
                     expectedG = V(pair.G),
                     expectedBinN = V(pair.Q),
-                    sun = V(pair.L),
+                    sun = V(light),
                     expectedShades = referenceShades,
                     ownCell,
                     cutaway,
@@ -563,6 +689,7 @@ namespace IsoRim
                 RenderTexture.ReleaseTemporary(target);
                 if (image != null) UnityEngine.Object.Destroy(image);
                 if (controlTexture != null) UnityEngine.Object.Destroy(controlTexture);
+                if (interior != null) UnityEngine.Object.Destroy(interior);
                 UnityEngine.Object.Destroy(reference); UnityEngine.Object.Destroy(actual);
                 foreach (Material material in refs) UnityEngine.Object.Destroy(material);
                 UnityEngine.Object.Destroy(owner);

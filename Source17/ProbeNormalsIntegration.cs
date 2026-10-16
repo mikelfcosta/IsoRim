@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using HarmonyLib;
 using System.Security.Cryptography;
 using System.Text.Json;
 using RimWorld;
@@ -129,7 +131,7 @@ namespace IsoRim
 
         private static object Provenance(ProbeNormals.Request request)
         {
-            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).OrderBy(id => id).ToArray();
+            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).Concat(ModelStyleCases.Cases).OrderBy(id => id).ToArray();
             Require(request.caseIds.Length == expected.Length && request.caseIds.OrderBy(id => id).SequenceEqual(expected), "The integrated request omits or duplicates a required case");
             var proofs = Directory.GetFiles(request.outputDirectory, "NormalProof-*.json").Select(path => JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path))).ToArray();
             var rows = new List<object>();
@@ -277,6 +279,7 @@ namespace IsoRim
                             for (int i = 0; i < groups.Count; i++) foreach (LayerSubMesh sub in groups[i])
                             {
                                 Material mat = new Material(sub.material); materials.Add(mat);
+                                mat.SetFloat("_ClayMode", 0); mat.SetFloat("_ClayWrap", 0); mat.SetFloat("_ClayHighlight", 0); mat.SetFloat("_ClayRoughness", 0);
                                 mat.SetFloat("_NormalView", 0); mat.SetFloat("_NormalLightingFault", 0); mat.SetFloat("_NormalTransportFault", 0);
                                 mat.SetVector("_IsoSun", new Vector4(0, .8f, .6f, 0));
                                 mat.SetVector("_IsoView", new Vector4(0, .5f, 1, squash)); mat.SetVector("_IsoCellMap", Vector4.zero);
@@ -359,6 +362,646 @@ namespace IsoRim
                 RenderTexture.active = previous; RenderTexture.ReleaseTemporary(target);
                 foreach (Material mat in materials) UnityEngine.Object.Destroy(mat);
                 UnityEngine.Object.Destroy(glow); UnityEngine.Object.Destroy(gameObject);
+            }
+        }
+    }
+
+    internal static class ModelStyleCases
+    {
+        internal static readonly string[] Cases = { "ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines", "ModelStyleCases.GameplayComparisonAndPerf" };
+
+        private static void Check(bool condition, string message)
+        {
+            if (!condition) throw new InvalidOperationException(message);
+        }
+
+        private static object ControlledOutlines(ProbeNormals.Request request)
+        {
+            string[] fields = { "modelStyle", "clayWrap", "clayHighlight", "clayRoughness", "outlineWidth", "squash" };
+            double[] defaults = { 1, .22, .04, .65, .75, .003 };
+            FieldInfo[] members = fields.Select(name => typeof(IsoRimSettings).GetField(name)).ToArray();
+            Check(members.All(field => field != null), "Missing approved model-style setting");
+            var settings = new IsoRimSettings();
+            void Values(IsoRimSettings value, double[] expected, string label)
+            {
+                for (int i = 0; i < members.Length; i++)
+                    Check(Math.Abs(Convert.ToDouble(members[i].GetValue(value)) - expected[i]) < .000001, label + " differs: " + fields[i]);
+            }
+            Values(settings, defaults, "Constructor default");
+            string file = Path.Combine(request.fixtureDirectory, "style-settings.xml");
+            File.WriteAllText(file, "<settings />");
+            Scribe.loader.InitLoading(file); settings.ExposeData(); Scribe.loader.FinalizeLoading();
+            Values(settings, defaults, "Missing-field fallback");
+            double[] changed = { 2, .31, .08, .9, 1.25, .0034 };
+            for (int i = 0; i < members.Length; i++) members[i].SetValue(settings, Convert.ChangeType(changed[i], members[i].FieldType));
+            Scribe.saver.InitSaving(file, "settings"); settings.ExposeData(); Scribe.saver.FinalizeSaving();
+            var loaded = new IsoRimSettings();
+            Scribe.loader.InitLoading(file); loaded.ExposeData(); Scribe.loader.FinalizeLoading();
+            Values(loaded, changed, "Settings round trip");
+            IsoRimSettings previous = IsoRimMod.Settings;
+            try
+            {
+                IsoRimMod.Settings = loaded;
+                View3D.Tick();
+                Material material = R3DMaterials.Lit(0);
+                Check(material.GetFloat("_ClayMode") == 2 && Math.Abs(material.GetFloat("_ClayWrap") - .31f) < 1e-6
+                    && Math.Abs(material.GetFloat("_ClayHighlight") - .08f) < 1e-6 && Math.Abs(material.GetFloat("_ClayRoughness") - .9f) < 1e-6,
+                    "View3D frame did not synchronize model style");
+                loaded.outlines = false; loaded.Reset(); Values(loaded, defaults, "Reset");
+                Check(loaded.outlines, "Reset did not restore outlines");
+                return new { settingsDefaults = defaults, persisted = changed, frameSync = true, outlines = OutlineProof(request), uiProxy = SettingsUiProxy(request) };
+            }
+            finally { IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0, 0, 0); }
+        }
+
+        private sealed class ComparisonSample
+        {
+            internal string Name;
+            internal List<MeshDrawCommand> Commands = new List<MeshDrawCommand>();
+            internal int[] Bounds;
+        }
+
+        private static readonly string[] ComparisonPresets = { "Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines" };
+
+        private static object GameplayComparisonAndPerf(ProbeNormals.Request request)
+        {
+            IsoRimSettings previous = IsoRimMod.Settings;
+            bool cull = Cull.Enabled, batches = PartBatches.Enabled;
+            var owner = new GameObject("IsoRim gameplay style comparison");
+            Camera camera = owner.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 11; camera.aspect = 1; camera.cullingMask = 0;
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.magenta;
+            const int size = 512;
+            RenderTexture target = RenderTexture.GetTemporary(size, size, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            RenderTexture active = RenderTexture.active; camera.targetTexture = target;
+            var backend = UnityStubs.Rendering.CameraTextureRenderer.Current;
+            Check(backend?.GetType().FullName == "RimWorldWaylith.Rendering.CameraTextureBaker", "Comparison GPU backend unavailable");
+            FieldInfo serial = backend.GetType().GetField("_frameNumber", BindingFlags.Instance | BindingFlags.NonPublic);
+            FieldInfo immediate = typeof(Graphics).GetField("ImmediateCapture", Hidden);
+            Check(immediate != null, "Camera immediate submission seam unavailable");
+            var frames = new List<object>(); var timings = new List<object>();
+            var images = new Dictionary<string, byte[]>();
+            var layers = new List<SectionLayer>();
+            var restore = new List<Action>();
+            Building_Door door = null;
+            Pawn colonist = null;
+            Vector3 center = new Vector3(Find.CurrentMap.Center.x + .5f, 0, Find.CurrentMap.Center.z + .5f);
+            Camera.CameraCallback submit = null;
+            try
+            {
+                IsoRimMod.Settings = new IsoRimSettings { squash = .003f, texturedModels = true, workAnimations = false };
+                Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
+                colonist = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
+                if (colonist.apparel.WornApparel.Count == 0)
+                    colonist.apparel.Wear((Apparel)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Apparel_BasicShirt"), ThingDefOf.Cloth));
+                Check(colonist.apparel.WornApparel.Count > 0, "Comparison colonist is not dressed");
+                Pawn muffalo = PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("Muffalo"));
+                door = (Building_Door)ThingMaker.MakeThing(ThingDefOf.Door, ThingDefOf.Steel);
+                GenSpawn.Spawn(door, Find.CurrentMap.Center + new IntVec3(2, 0, 4), Find.CurrentMap);
+                var definitions = new[] { "Armchair", "Table2x2c", "ElectricStove", "StandingLamp", "Campfire", "Plant_TreeOak", "SmoothFixture", "Colonist", "Muffalo", "Turret_MiniTurret", "Door", "GrowthVat" };
+                // Keep the exact same Thing IDs and picked variants across every preset.
+                var things = definitions.Select(name =>
+                {
+                    if (name == "SmoothFixture" || name == "Colonist" || name == "Muffalo" || name == "Door") return null;
+                    ThingDef def = DefDatabase<ThingDef>.GetNamed(name);
+                    Thing thing = ThingMaker.MakeThing(def, def.MadeFromStuff ? (name == "Armchair" ? ThingDefOf.Cloth : ThingDefOf.WoodLog) : null);
+                    if (name == "Armchair")
+                    {
+                        thing.TryGetComp<CompColorable>()?.SetColor(new Color(.35f, .65f, .8f));
+                        Check(thing.Stuff != null && thing.DrawColor != Color.white, "Comparison Armchair lacks stuff tint");
+                    }
+                    return thing;
+                }).ToArray();
+                Model smooth = (Model)typeof(StaticNormalCases).GetMethod("Fixture", Hidden).Invoke(null, new object[] { request.fixtureDirectory, false, true });
+                for (int preset = 0; preset < ComparisonPresets.Length; preset++)
+                {
+                    IsoRimSettings st = IsoRimMod.Settings;
+                    st.modelStyle = preset == 0 ? 0 : preset == 2 ? 2 : 1;
+                    st.outlines = preset != 3; st.outlineWidth = preset == 0 ? 1f : .75f;
+                    st.clayWrap = .22f; st.clayHighlight = .04f; st.clayRoughness = .65f;
+                    DynamicModels.Forget(); People.ForgetAll();
+                    R3DMaterials.SyncModelStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
+                    var samples = new List<ComparisonSample>();
+                    for (int i = 0; i < definitions.Length; i++)
+                    {
+                        string name = definitions[i];
+                        Vector3 at = center + new Vector3((i % 4 - 1.5f) * 4, 0, (i / 4 - 1) * 4);
+                        var sample = new ComparisonSample { Name = name }; samples.Add(sample);
+                        void Bake(Thing thing, Model model, ModelEntry entry = null)
+                        {
+                            var layer = new SectionLayer_IsoRimBodies(new Section(Find.CurrentMap.Center, Find.CurrentMap)); layers.Add(layer);
+                            Vector3 scale = entry != null ? entry.Fit(thing.def) * entry.def.scale : Vector3.one;
+                            Check((bool)typeof(ModelBaker).GetMethod("Write", Hidden).Invoke(null, new object[] { layer, thing, model, at,
+                                Quaternion.identity, Quaternion.identity, Vector3.zero, scale, entry?.def.offset ?? Vector3.zero, 0f,
+                                thing.DrawColor, false, entry?.def.outline ?? 1f }), "Comparison static bake refused " + name);
+                            CutTags.Finish(layer); NormalStreams.Finish(layer);
+                            typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(layer, new object[] { MeshParts.All });
+                            foreach (LayerSubMesh sub in layer.subMeshes.Where(sub => sub.mesh.vertexCount > 0)) Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
+                        }
+                        using (MeshDrawSubmission.BeginCapture(sample.Commands))
+                        {
+                            if (i < 6 || name == "GrowthVat" || name == "Turret_MiniTurret")
+                            {
+                                Thing thing = things[i]; ThingDef def = thing.def;
+                                thing.Position = new IntVec3((int)at.x, 0, (int)at.z);
+                                Check(ModelLibrary.TryGet(def, out ModelEntry entry) && entry.HasModel, "Missing comparison model " + name);
+                                Bake(thing, entry.Pick(thing), entry);
+                                if (name == "Turret_MiniTurret")
+                                {
+                                    Check(entry.top != null, "Comparison turret lacks gun");
+                                    DynamicModels.Draw(entry.top, at + Vector3.up * entry.def.topHeight, 25, entry.Fit(def) * entry.def.scale, thing.DrawColor, R3DTextures.ModelSwatch(thing));
+                                }
+                                if (name == "GrowthVat")
+                                {
+                                    Check(thing is Building_GrowthVat && entry.glass != null, "Comparison lacks Growth Vat chamber");
+                                    typeof(Glass).GetMethod("Draw", Hidden).Invoke(null, new object[] { thing, entry });
+                                }
+                            }
+                            else if (name == "SmoothFixture") Bake(ThingMaker.MakeThing(ThingDefOf.Steel), smooth);
+                            else if (name == "Colonist") Check(People.Draw(colonist, at, out _, out _, out _), "Comparison People draw refused dressed colonist");
+                            else if (name == "Muffalo") Check(Animals.Draw(muffalo, at), "Comparison Muffalo draw refused body/legs");
+                            else if (name == "Door")
+                            {
+                                Check(Doors.Draw(door, .18f), "Comparison Door draw refused leaves");
+                            }
+                        }
+                        Check(sample.Commands.Count > 0, "Comparison omitted submissions for " + name);
+                        if (name == "Muffalo") Check(sample.Commands.Select(command => command.Matrix).Distinct().Count() >= 5, "Comparison Muffalo omitted legs");
+                        if (name == "GrowthVat") Check(sample.Commands.Any(command => command.Material.DebugName == "IsoRim_Glass"), "Comparison omitted Glass.Mat");
+                    }
+                    var commands = samples.SelectMany(sample => sample.Commands).ToList();
+                    // Camera.Render owns the approved baker's capture, render pass and fence. Replay
+                    // the actual production submissions into its immediate list, without recooking meshes.
+                    submit = rendering => { if (rendering == camera) ((List<MeshDrawCommand>)immediate.GetValue(null)).AddRange(commands); };
+                    Camera.onPreRender += submit;
+                    var materials = commands.Select(command => command.Material).Distinct().ToArray();
+                    foreach (var mat in materials)
+                    {
+                        var view = mat.GetVector(Shader.PropertyToID("_IsoView")); var sun = mat.GetVector(Shader.PropertyToID("_IsoSun"));
+                        var sky = mat.GetVector(Shader.PropertyToID("_IsoSky")); var cell = mat.GetVector(Shader.PropertyToID("_IsoCellMap"));
+                        float glow = mat.GetFloat("_GlowMode");
+                        restore.Add(() => { mat.SetVector("_IsoView", view); mat.SetVector("_IsoSun", sun); mat.SetVector("_IsoSky", sky); mat.SetVector("_IsoCellMap", cell); mat.SetFloat("_GlowMode", glow); });
+                        mat.SetVector("_IsoSun", new System.Numerics.Vector4(.3f, .8f, .52f, 0));
+                        mat.SetVector("_IsoSky", new System.Numerics.Vector4(1, 1, 1, 1)); mat.SetVector("_IsoCellMap", System.Numerics.Vector4.Zero); mat.SetFloat("_GlowMode", 0);
+                    }
+                    for (int angle = 0; angle < 2; angle++)
+                    {
+                        float pitch = angle == 0 ? 35.3f : 55f, yaw = angle == 0 ? 45f : 0f;
+                        camera.ResetWorldToCameraMatrix();
+                        camera.transform.rotation = Quaternion.Euler(pitch, yaw + 180, 0); camera.transform.position = center + Vector3.up - camera.transform.forward * 30;
+                        camera.worldToCameraMatrix = camera.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
+                        Vector3 direction = -camera.transform.forward;
+                        foreach (var mat in materials) mat.SetVector("_IsoView", new System.Numerics.Vector4(direction.x, direction.y, direction.z, View3D.Squash));
+                        foreach (ComparisonSample sample in samples)
+                        {
+                            try { sample.Bounds = ComparisonBounds(sample.Commands, camera, size); }
+                            catch (Exception error) { throw new InvalidOperationException(sample.Name + ": " + error.Message, error); }
+                        }
+                        int before = (int)serial.GetValue(backend); camera.Render(); int completed = (int)serial.GetValue(backend);
+                        Check(completed == before + 1, "Comparison has no completed GPU render");
+                        Check(backend.TryReadPixels(target, out byte[] raw), "Comparison GPU readback unavailable");
+                        Check(raw.Length == size * size * 4, "Comparison framebuffer dimensions differ");
+                        var visible = samples.Select(sample => new
+                        {
+                            name = sample.Name,
+                            commands = sample.Commands.Count,
+                            bounds = sample.Bounds,
+                            pixels = ComparisonPixels(raw, sample, samples, size)
+                        }).ToArray();
+                        Check(visible.All(sample => sample.pixels >= 5), "Comparison sample is empty, occluded or omitted: " + string.Join(",", visible.Where(sample => sample.pixels < 5).Select(sample => sample.name)));
+                        string stem = "gameplay-" + ComparisonPresets[preset] + "-" + (angle == 0 ? "isometric" : "straight");
+                        File.WriteAllBytes(Path.Combine(request.outputDirectory, stem + ".rgba"), raw);
+                        RenderTexture.active = target; var image = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                        image.ReadPixels(new Rect(0, 0, size, size), 0, 0); image.Apply(); byte[] png = image.EncodeToPNG(); UnityEngine.Object.Destroy(image);
+                        File.WriteAllBytes(Path.Combine(request.outputDirectory, stem + ".png"), png); images.Add(stem, raw);
+                        frames.Add(new
+                        {
+                            name = stem,
+                            preset = ComparisonPresets[preset],
+                            pitch,
+                            yaw,
+                            orthographicSize = 11,
+                            width = size,
+                            height = size,
+                            samples = visible,
+                            commands = commands.Count,
+                            gpuFrameBefore = before,
+                            gpuFrameCompleted = completed,
+                            rawPath = stem + ".rgba",
+                            rawHash = Convert.ToHexString(SHA256.HashData(raw)),
+                            pngPath = stem + ".png",
+                            pngHash = Convert.ToHexString(SHA256.HashData(png))
+                        });
+                        if (angle == 0 && preset < 3)
+                        {
+                            for (int warm = 0; warm < 3; warm++) camera.Render();
+                            int start = (int)serial.GetValue(backend); var ms = new List<double>();
+                            for (int warm = 0; warm < 60; warm++)
+                            {
+                                long ticks = System.Diagnostics.Stopwatch.GetTimestamp(); camera.Render();
+                                ms.Add((System.Diagnostics.Stopwatch.GetTimestamp() - ticks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency);
+                            }
+                            int finish = (int)serial.GetValue(backend); double[] sorted = ms.OrderBy(value => value).ToArray();
+                            Check(finish == start + 60 && ms.All(value => value > 0), "Comparison lacks 60 completed warm render timings");
+                            timings.Add(new
+                            {
+                                preset = ComparisonPresets[preset],
+                                commands = commands.Count,
+                                gpuFrameBefore = start,
+                                gpuFrameCompleted = finish,
+                                samplesMs = ms,
+                                medianMs = (sorted[29] + sorted[30]) / 2,
+                                meanMs = ms.Average(),
+                                p95Ms = sorted[56]
+                            });
+                        }
+                    }
+                    Camera.onPreRender -= submit; submit = null;
+                    foreach (Action reset in restore) reset(); restore.Clear();
+                    foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh); layers.Clear();
+                }
+                foreach (string angle in new[] { "isometric", "straight" })
+                    for (int a = 0; a < 4; a++) for (int b = a + 1; b < 4; b++)
+                    {
+                        byte[] first = images["gameplay-" + ComparisonPresets[a] + "-" + angle], second = images["gameplay-" + ComparisonPresets[b] + "-" + angle];
+                        if (a == 1 && b == 2)
+                            Check(Enumerable.Range(0, size * size).All(pixel => IsComparisonBackground(first, pixel * 4) == IsComparisonBackground(second, pixel * 4)),
+                                "Wrapped/Oren-Nayar changed comparison geometry instead of shading");
+                        int changed = Enumerable.Range(0, size * size).Count(pixel => Enumerable.Range(0, 3).Any(c => Math.Abs(first[pixel * 4 + c] - second[pixel * 4 + c]) > 2));
+                        Check(changed >= 20, "Comparison presets are not visibly distinct: " + ComparisonPresets[a] + "/" + ComparisonPresets[b]);
+                    }
+                return new { frames, timings, dressedApparel = colonist.apparel.WornApparel.Select(item => item.def.defName).ToArray(), backend = backend.GetType().FullName, timingMethod = "Stopwatch.GetTimestamp around Camera.Render; completed native GPU fence" };
+            }
+            finally
+            {
+                if (submit != null) Camera.onPreRender -= submit;
+                foreach (Action reset in restore) reset();
+                foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh);
+                if (door?.Spawned == true) door.DeSpawn();
+                DynamicModels.Forget(); People.ForgetAll(); Cull.Enabled = cull; PartBatches.Enabled = batches;
+                IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0f, 0f, 0f);
+                RenderTexture.active = active; RenderTexture.ReleaseTemporary(target); UnityEngine.Object.Destroy(owner);
+            }
+        }
+
+        private static int[] ComparisonBounds(List<MeshDrawCommand> commands, Camera camera, int size)
+        {
+            var points = new List<Vector3>(); Matrix4x4 projection = camera.projectionMatrix * camera.worldToCameraMatrix;
+            foreach (MeshDrawCommand command in commands)
+            {
+                var bounds = command.Mesh.Bounds;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    var p = System.Numerics.Vector3.Transform(new System.Numerics.Vector3((corner & 1) == 0 ? bounds.Min.X : bounds.Max.X,
+                        (corner & 2) == 0 ? bounds.Min.Y : bounds.Max.Y, (corner & 4) == 0 ? bounds.Min.Z : bounds.Max.Z), System.Numerics.Matrix4x4.Transpose(command.Matrix));
+                    Vector4 clip = projection * new Vector4(p.X, p.Y, p.Z, 1);
+                    points.Add(new Vector3((clip.x / clip.w + 1) * size / 2, (clip.y / clip.w + 1) * size / 2, clip.z / clip.w));
+                }
+            }
+            Check(points.All(point => point.x > 2 && point.x < size - 3 && point.y > 2 && point.y < size - 3 && point.z > -1 && point.z < 1), "Comparison clips a submitted sample: " + string.Join(";", points.Where(point => point.x <= 2 || point.x >= size - 3 || point.y <= 2 || point.y >= size - 3 || point.z <= -1 || point.z >= 1).Take(3).Select(point => point.ToString())));
+            return new[] { (int)Math.Floor(points.Min(p => p.x)), (int)Math.Floor(points.Min(p => p.y)), (int)Math.Ceiling(points.Max(p => p.x)), (int)Math.Ceiling(points.Max(p => p.y)) };
+        }
+
+        private static bool IsComparisonBackground(byte[] raw, int offset) => raw[offset] == 255 && raw[offset + 1] == 0 && raw[offset + 2] == 255;
+
+        private static int ComparisonPixels(byte[] raw, ComparisonSample sample, List<ComparisonSample> samples, int size)
+        {
+            int count = 0; int[] b = sample.Bounds;
+            for (int y = b[1]; y <= b[3]; y++) for (int x = b[0]; x <= b[2]; x++)
+            {
+                if (samples.Any(other => other != sample && x >= other.Bounds[0] && x <= other.Bounds[2] && y >= other.Bounds[1] && y <= other.Bounds[3])) continue;
+                int offset = (y * size + x) * 4;
+                if (!IsComparisonBackground(raw, offset)) count++;
+            }
+            return count;
+        }
+
+        private const BindingFlags Hidden = BindingFlags.Static | BindingFlags.NonPublic;
+        private sealed class OutlineGeometry
+        {
+            internal List<DynamicModels.Part> Parts;
+            internal List<LayerSubMesh> Static;
+            internal People.Look Look;
+            internal bool OwnParts;
+            internal Vector3[] Base, Shell, Face, Texture;
+        }
+
+        private static OutlineGeometry Geometry(Model model, string kind)
+        {
+            var result = new OutlineGeometry();
+            if (kind == "static")
+            {
+                var layer = new SectionLayer_IsoRimBodies(new Section(new IntVec3(0, 0, 0), Find.CurrentMap));
+                Check((bool)typeof(ModelBaker).GetMethod("Write", Hidden).Invoke(null, new object[] { layer, ThingMaker.MakeThing(ThingDefOf.Steel), model,
+                    Vector3.zero, Quaternion.identity, Quaternion.identity, new Vector3(0, 3, 0), Vector3.one, Vector3.zero, 0f, Color.white, false, 1f }), "Static outline fixture refused");
+                CutTags.Finish(layer); NormalStreams.Finish(layer);
+                typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(layer, new object[] { MeshParts.All });
+                result.Static = layer.subMeshes.Where(sub => sub.mesh.vertexCount > 0).ToList();
+                Vector3[] Vertices(Func<LayerSubMesh, bool> predicate) => result.Static.Where(predicate).SelectMany(sub => sub.mesh.vertices)
+                    .Select(v => new Vector3(v.x, v.y * View3D.Squash, v.z)).ToArray();
+                result.Shell = Vertices(sub => sub.material == R3DMaterials.Outline);
+                result.Face = Vertices(sub => sub.material.GetFloat("_LightMode") == 1 && sub.material.mainTexture == null);
+                result.Texture = Vertices(sub => sub.material.mainTexture != null);
+                result.Base = model.positions.Select(v => v + new Vector3(0, 3, 0)).ToArray();
+            }
+            else
+            {
+                if (kind == "dynamic") result.Parts = (List<DynamicModels.Part>)typeof(DynamicModels).GetMethod("PartsFor", Hidden).Invoke(null, new object[] { model, Color.white, "Metal" });
+                else if (kind == "merged")
+                {
+                    result.OwnParts = true;
+                    result.Parts = DynamicModels.BuildMerged(new List<Model> { model }, new List<Matrix4x4> { Matrix4x4.Scale(new Vector3(1.2f, .8f, 1.1f)) }, new List<Color> { Color.white }, 0);
+                }
+                else
+                {
+                    result.Look = new People.Look { lower = model };
+                    result.Parts = (List<DynamicModels.Part>)typeof(People).GetMethod("Merged", Hidden).Invoke(null, new object[] { result.Look, false, false, 0 });
+                }
+                result.Shell = result.Parts.Where(part => part.outline).SelectMany(part => part.mesh.vertices).ToArray();
+                result.Face = result.Parts.Where(part => !part.outline && part.material.mainTexture == null).SelectMany(part => part.mesh.vertices).ToArray();
+                result.Texture = result.Parts.Where(part => part.material.mainTexture != null).SelectMany(part => part.mesh.vertices).ToArray();
+                result.Base = kind == "dynamic" ? model.positions : result.Face;
+            }
+            return result;
+        }
+
+        private static object OutlineProof(ProbeNormals.Request request)
+        {
+            string file = Path.Combine(request.fixtureDirectory, "outline-cube.obj");
+            File.WriteAllText(Path.ChangeExtension(file, ".mtl"), "newmtl sample\nKd 0.6 0.6 0.6\nmap_Kd Textures/Diagnostics/NormalProofNeutral.png\n");
+            File.WriteAllText(file, "mtllib outline-cube.mtl\nusemtl sample\nv -1 0 -1\nv 1 0 -1\nv 1 2 -1\nv -1 2 -1\nv -1 0 1\nv 1 0 1\nv 1 2 1\nv -1 2 1\nvt 0 0\n"
+                + "f 1/1 4/1 3/1 2/1\nf 5/1 6/1 7/1 8/1\nf 1/1 2/1 6/1 5/1\nf 4/1 8/1 7/1 3/1\nf 1/1 5/1 8/1 4/1\nf 2/1 3/1 7/1 6/1\n");
+            Model model = ObjLoader.Load(file);
+            Check(model != null && model.positions.Length == 36 && model.hull.Any(v => v.sqrMagnitude > .0001f), "Outline cube has no real hull");
+            var rows = new List<object>();
+            outlineFrames.Clear();
+            var geometries = new List<OutlineGeometry>();
+            IsoRimSettings st = IsoRimMod.Settings;
+            st.texturedModels = true;
+            try
+            {
+                foreach (string kind in new[] { "static", "dynamic", "merged", "people" })
+                {
+                    var samples = new List<OutlineGeometry>();
+                    var pixels = new List<int>();
+                    foreach (float width in new[] { 1f, .75f, 0f, .001f, -1f, 1f })
+                    {
+                        st.outlineWidth = width; st.outlines = samples.Count != 5;
+                        DynamicModels.Forget();
+                        OutlineGeometry geometry = Geometry(model, kind); samples.Add(geometry); geometries.Add(geometry);
+                        bool visible = st.outlines && width > .001f;
+                        Check(geometry.Shell.Length == (visible ? 36 : 0), "Outline suppression differs: " + kind + " width " + width);
+                        if (samples.Count > 1)
+                            Check(geometry.Face.SequenceEqual(samples[0].Face) && geometry.Texture.SequenceEqual(samples[0].Texture), "Outline width moved plain or textured faces: " + kind);
+                        if (samples.Count == 2)
+                        {
+                            for (int i = 0; i < 36; i++)
+                                Check((geometry.Shell[i] - geometry.Base[i] - (samples[0].Shell[i] - samples[0].Base[i]) * .75f).sqrMagnitude < .000001f,
+                                    "Outline vertex ratio differs: " + kind);
+                            Check((samples[0].Shell[0] - samples[0].Base[0]).sqrMagnitude > .0001f, "Outline ratio witness has zero signal");
+                        }
+                        if (samples.Count <= 3) pixels.Add(OutlinePixels(request, kind + "-" + samples.Count, geometry));
+                    }
+                    Check(pixels[0] > pixels[1] && pixels[1] > pixels[2] && pixels[2] > 1000, "Outline framebuffer silhouette did not shrink: " + kind + " " + string.Join(",", pixels));
+                    if (kind != "static")
+                    {
+                        st.outlines = false; st.outlineWidth = 1;
+                        Check(OutlinePixels(request, kind + "-cached-disabled", samples[0]) == pixels[2], "Cached outline commands survived the outline toggle: " + kind);
+                        st.outlines = true; st.outlineWidth = 0;
+                        Check(OutlinePixels(request, kind + "-cached-zero", samples[0]) == pixels[2], "Cached outline commands survived zero width: " + kind);
+                    }
+                    st.outlines = true; st.outlineWidth = 1f;
+                    model.noOutline = Enumerable.Repeat(true, 36).ToArray(); DynamicModels.Forget();
+                    OutlineGeometry masked = Geometry(model, kind); geometries.Add(masked);
+                    Check(masked.Shell.Length == 0 && masked.Face.SequenceEqual(samples[0].Face) && masked.Texture.SequenceEqual(samples[0].Texture), "noOutline mask changed geometry or gained a shell: " + kind);
+                    model.noOutline = null;
+                    rows.Add(new { path = kind, fullWidthVertices = samples[0].Shell.Length, reducedWidthVertices = samples[1].Shell.Length, pixels });
+                }
+                st.outlines = true; st.outlineWidth = 1f; DynamicModels.Forget();
+                OutlineGeometry dynamicBefore = Geometry(model, "dynamic"), personBefore = Geometry(model, "people");
+                geometries.Add(dynamicBefore); geometries.Add(personBefore);
+                var looks = (Dictionary<int, People.Look>)typeof(People).GetField("looks", Hidden).GetValue(null);
+                looks.Add(int.MinValue, personBefore.Look);
+                var signature = typeof(View3D).GetMethod("StateSignature", Hidden);
+                st.outlineWidth = 0;
+                int zero = (int)signature.Invoke(null, null);
+                st.outlineWidth = .25f;
+                Check(zero != (int)signature.Invoke(null, null), "Zero outline width aliases the minimum enabled width");
+                st.outlines = false;
+                int disabled = (int)signature.Invoke(null, null);
+                st.outlineWidth = 1;
+                Check(disabled == (int)signature.Invoke(null, null), "Disabled outlines depend on width");
+                st.outlines = true;
+                int before = (int)signature.Invoke(null, null);
+                st.outlineWidth = .75f;
+                int after = (int)signature.Invoke(null, null);
+                Check(before != after, "Outline width left StateSignature unchanged");
+                typeof(View3D).GetField("appliedSig", Hidden).SetValue(null, before);
+                typeof(View3D).GetField("pendingSig", Hidden).SetValue(null, after);
+                typeof(View3D).GetField("pendingSince", Hidden).SetValue(null, -1000f);
+                typeof(View3D).GetMethod("RegenerateIfStateChanged", Hidden).Invoke(null, null);
+                OutlineGeometry dynamicAfter = Geometry(model, "dynamic"); geometries.Add(dynamicAfter);
+                var personAfter = (List<DynamicModels.Part>)typeof(People).GetMethod("Merged", Hidden).Invoke(null, new object[] { personBefore.Look, false, false, 0 });
+                Check(!ReferenceEquals(dynamicBefore.Parts, dynamicAfter.Parts) && !ReferenceEquals(personBefore.Parts, personAfter), "Outline state retained a cached dynamic or People mesh");
+                Check(personBefore.Look.meshes.Count > 0 && !looks.ContainsKey(int.MinValue), "People look invalidation did not clear the lookup");
+                Vector3[] personShell = personAfter.Where(part => part.outline).SelectMany(part => part.mesh.vertices).ToArray();
+                for (int i = 0; i < 36; i++)
+                {
+                    Check((dynamicAfter.Shell[i] - dynamicAfter.Base[i] - (dynamicBefore.Shell[i] - dynamicBefore.Base[i]) * .75f).sqrMagnitude < .000001f, "Dynamic cache rebuilt wrong outline width");
+                    Check((personShell[i] - model.positions[i] - (personBefore.Shell[i] - model.positions[i]) * .75f).sqrMagnitude < .000001f, "People cache rebuilt wrong outline width");
+                }
+                Check(ModelBaker.OutlineShade == .25f && View3D.OutlinePush == .20f, "Outline shade or push changed");
+                return new { paths = rows, signatureBefore = before, signatureAfter = after, dynamicAndPeopleRebuilt = true, frames = outlineFrames.ToArray() };
+            }
+            finally
+            {
+                foreach (OutlineGeometry geometry in geometries)
+                {
+                    if (geometry.Static != null) foreach (LayerSubMesh sub in geometry.Static) UnityEngine.Object.Destroy(sub.mesh);
+                    else if (geometry.Look != null) geometry.Look.Forget();
+                    else if (geometry.OwnParts) DynamicModels.Destroy(geometry.Parts);
+                }
+                DynamicModels.Forget();
+            }
+        }
+
+        private static readonly List<object> outlineFrames = new List<object>();
+
+        private static readonly HashSet<string> uiLabels = new HashSet<string>();
+        private static readonly Dictionary<string, float> uiSliders = new Dictionary<string, float> { { "Soft light wrap", .31f }, { "Matte highlight", .08f }, { "Roughness", .9f }, { "Outline width", 1.25f } };
+        private static string uiSlider;
+        private static bool UiLabel(object[] __args)
+        {
+            foreach (object value in __args)
+                if (value is string text)
+                {
+                    uiLabels.Add(text);
+                    if (uiSliders.ContainsKey(text)) uiSlider = text;
+                }
+            return false;
+        }
+        private static bool UiButton(object[] __args, ref bool __result)
+        {
+            string label = __args.OfType<string>().FirstOrDefault() ?? "";
+            uiLabels.Add(label); __result = label.StartsWith("Model shading:", StringComparison.Ordinal); return false;
+        }
+        private static bool UiSlider(ref float __result)
+        {
+            Check(uiSlider != null && uiSliders.ContainsKey(uiSlider), "UI slider has no model-style label");
+            __result = uiSliders[uiSlider]; uiSlider = null; return false;
+        }
+
+        private static object SettingsUiProxy(ProbeNormals.Request request)
+        {
+            var hook = new Harmony("isorim.style.settings-ui-proof");
+            var label = typeof(Widgets).GetMethods().Where(method => method.Name == "Label" && method.GetParameters().Length >= 2 && method.GetParameters()[0].ParameterType == typeof(Rect) && method.GetParameters()[1].ParameterType == typeof(string)).OrderBy(method => method.GetParameters().Length).First();
+            var button = typeof(Widgets).GetMethods().Where(method => method.Name == "ButtonText" && method.GetParameters().Length >= 2 && method.GetParameters()[0].ParameterType == typeof(Rect) && method.GetParameters()[1].ParameterType == typeof(string)).OrderBy(method => method.GetParameters().Length).First();
+            var slider = typeof(Listing_Standard).GetMethods().Where(method => method.Name == "Slider" && method.ReturnType == typeof(float)).OrderBy(method => method.GetParameters().Length).First();
+            hook.Patch(label, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod("UiLabel", Hidden)));
+            hook.Patch(button, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod("UiButton", Hidden)));
+            hook.Patch(slider, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod("UiSlider", Hidden)));
+            string[] names = { "Classic faceted", "Matte clay (wrapped)", "Matte clay (Oren-Nayar)" };
+            var readings = new List<object>();
+            try
+            {
+                for (int mode = 0; mode < 3; mode++)
+                {
+                    uiLabels.Clear(); uiSlider = null;
+                    IsoRimMod.Settings.modelStyle = mode;
+                    var listing = new Listing_Standard(); listing.Begin(new Rect(0, 0, 700, 1600));
+                    typeof(SettingsWindow).GetMethod("ObjectsTab", Hidden).Invoke(null, new object[] { null, listing, IsoRimMod.Settings });
+                    listing.End();
+                    Check(uiLabels.Contains("Model style") && uiLabels.Contains("Model shading: " + names[mode]), "Actual settings tab lacks the shading selector");
+                    foreach (string name in new[] { "Soft light wrap", "Matte highlight", "Roughness", "Outline width" })
+                        Check(uiLabels.Contains(name) == (name == "Outline width" || name == "Roughness" && mode == 2 || (name == "Soft light wrap" || name == "Matte highlight") && mode > 0), "Model-style slider visibility differs: " + name);
+                    FloatMenu menu = Find.WindowStack.Windows.OfType<FloatMenu>().LastOrDefault();
+                    Check(menu != null, "Shading selector did not open the real FloatMenu");
+                    var options = (List<FloatMenuOption>)typeof(FloatMenu).GetField("options", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu);
+                    Check(options.Select(option => option.Label).SequenceEqual(names), "Shading selector choices differ");
+                    options[(mode + 1) % 3].action(); menu.Close();
+                    Check(IsoRimMod.Settings.modelStyle == (mode + 1) % 3, "Shading menu callback did not update settings");
+                    View3D.Tick();
+                    Check(R3DMaterials.LitModel.GetFloat("_ClayMode") == (mode + 1) % 3, "UI selection did not reach live materials");
+                    readings.Add(new { mode, labels = uiLabels.OrderBy(value => value).ToArray() });
+                }
+                IsoRimSettings st = IsoRimMod.Settings;
+                Check(st.clayWrap == .31f && st.clayHighlight == .08f && st.clayRoughness == .9f && st.outlineWidth == 1.25f, "Actual tab did not accept slider input");
+                string file = Path.Combine(request.fixtureDirectory, "ui-proxy-settings.xml");
+                Scribe.saver.InitSaving(file, "settings"); st.ExposeData(); Scribe.saver.FinalizeSaving();
+                var reopened = new IsoRimSettings(); Scribe.loader.InitLoading(file); reopened.ExposeData(); Scribe.loader.FinalizeLoading();
+                Check(reopened.modelStyle == 0 && reopened.clayWrap == .31f && reopened.clayHighlight == .08f && reopened.clayRoughness == .9f && reopened.outlineWidth == 1.25f,
+                    "UI selections did not survive settings reload");
+                return new { automatedProxyOnly = true, manualWitnessPerformed = false, modes = readings, settingsReloaded = true };
+            }
+            finally { hook.Unpatch(label, HarmonyPatchType.Prefix, hook.Id); hook.Unpatch(button, HarmonyPatchType.Prefix, hook.Id); hook.Unpatch(slider, HarmonyPatchType.Prefix, hook.Id); }
+        }
+
+        private static int OutlinePixels(ProbeNormals.Request request, string name, OutlineGeometry geometry)
+        {
+            const int size = 512;
+            var owner = new GameObject("IsoRim controlled outline framebuffer");
+            Camera camera = owner.AddComponent<Camera>();
+            Vector3 direction = new Vector3(3, 2, 4).normalized;
+            Vector3 center = geometry.Face.Aggregate(Vector3.zero, (sum, v) => sum + v) / geometry.Face.Length;
+            camera.enabled = false; camera.orthographic = true; camera.aspect = 1; camera.cullingMask = 0; camera.orthographicSize = 2.5f;
+            camera.transform.rotation = Quaternion.LookRotation(-direction, Vector3.up);
+            camera.transform.position = center + direction * 10;
+            camera.worldToCameraMatrix = camera.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
+            RenderTexture target = RenderTexture.GetTemporary(size, size, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            RenderTexture previous = RenderTexture.active;
+            var materials = geometry.Static != null ? geometry.Static.Select(sub => sub.material).Distinct().ToArray() : geometry.Parts.Select(part => part.material).Distinct().ToArray();
+            var states = materials.Select(mat => (mat, light: mat.GetFloat("_LightMode"), glow: mat.GetFloat("_GlowMode"), view: mat.GetVector("_IsoView"), cell: mat.GetVector("_IsoCellMap"))).ToArray();
+            bool cull = Cull.Enabled, batches = PartBatches.Enabled;
+            Texture2D image = null;
+            try
+            {
+                foreach (Material mat in materials)
+                {
+                    mat.SetFloat("_LightMode", 0); mat.SetFloat("_GlowMode", 0);
+                    mat.SetVector("_IsoView", new Vector4(direction.x, direction.y, direction.z, View3D.Squash)); mat.SetVector("_IsoCellMap", Vector4.zero);
+                }
+                Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
+                var commands = new List<MeshDrawCommand>();
+                using (MeshDrawSubmission.BeginCapture(commands))
+                {
+                    if (geometry.Static != null)
+                        foreach (LayerSubMesh sub in geometry.Static) Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
+                    else DynamicModels.DrawParts(geometry.Parts, Vector3.zero, 0, Matrix4x4.identity);
+                }
+                Check(commands.Count > 0, "Outline framebuffer submitted no production geometry");
+                byte[] raw = MovingNormalCases.RenderProofScene(target, camera, commands, out int before, out int completed);
+                Check(raw.Length == size * size * 4, "Controlled outline framebuffer dimensions differ");
+                int pixels = 0;
+                for (int i = 0; i < raw.Length; i += 4) if (!(raw[i] == 255 && raw[i + 1] == 0 && raw[i + 2] == 255)) pixels++;
+                string stem = "controlled-outline-" + name;
+                File.WriteAllBytes(Path.Combine(request.outputDirectory, stem + ".rgba"), raw);
+                RenderTexture.active = target; image = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                image.ReadPixels(new Rect(0, 0, size, size), 0, 0); image.Apply(); byte[] png = image.EncodeToPNG();
+                File.WriteAllBytes(Path.Combine(request.outputDirectory, stem + ".png"), png);
+                outlineFrames.Add(new
+                {
+                    name,
+                    pixels,
+                    commands = commands.Count,
+                    gpuFrameBefore = before,
+                    gpuFrameCompleted = completed,
+                    rawPath = stem + ".rgba",
+                    rawHash = Convert.ToHexString(SHA256.HashData(raw)),
+                    pngPath = stem + ".png",
+                    pngHash = Convert.ToHexString(SHA256.HashData(png))
+                });
+                return pixels;
+            }
+            finally
+            {
+                foreach (var state in states)
+                {
+                    state.mat.SetFloat("_LightMode", state.light); state.mat.SetFloat("_GlowMode", state.glow);
+                    state.mat.SetVector("_IsoView", state.view); state.mat.SetVector("_IsoCellMap", state.cell);
+                }
+                Cull.Enabled = cull; PartBatches.Enabled = batches; RenderTexture.active = previous;
+                RenderTexture.ReleaseTemporary(target); if (image != null) UnityEngine.Object.Destroy(image); UnityEngine.Object.Destroy(owner);
+            }
+        }
+
+        // Fixed double-precision angular Oren-Nayar references: incidence/reflection angles,
+        // sin(max(theta)) * tan(min(theta)), and the projected azimuth angle. No production helpers.
+        internal static double Reference(int sample, bool authored, int mode)
+        {
+            double[,,] rgb = { { { .543180084565, .444063253520 }, { .406548999604, .466124226562 } },
+                { { .3132, .3132 }, { .504641407082, .412556924411 } },
+                { { .550853781860, .450336692263 }, { .445017746988, .500762121535 } } };
+            return rgb[sample, authored ? 1 : 0, mode - 1];
+        }
+
+        internal static double HighlightReference(int sample, bool authored, int mode)
+        {
+            // Authored Mode 2 uses L = V = N: diffuse .490514950166, highlighted .503309813865.
+            // The 3.262690243/255 lift rejects an omitted highlight at the unchanged 2/255 tolerance.
+            double[,,] rgb = { { { .552116131114, .450699256114 }, { .406951311423, .503309813865 } },
+                { { .3132, .3132 }, { .511319890787, .503309813865 } },
+                { { .560395576570, .457417538045 }, { .445642119697, .503309813865 } } };
+            return rgb[sample, authored ? 1 : 0, mode - 1];
+        }
+
+        internal static string Run(string id, ProbeNormals.Request request)
+        {
+            switch (id)
+            {
+                case "ModelStyleCases.GameplayComparisonAndPerf":
+                    string comparisonPath = Path.Combine(request.outputDirectory, id + ".json");
+                    File.WriteAllText(comparisonPath, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = GameplayComparisonAndPerf(request) }));
+                    return comparisonPath;
+                case "ModelStyleCases.ControlledOutlines":
+                    string controlledPath = Path.Combine(request.outputDirectory, id + ".json");
+                    File.WriteAllText(controlledPath, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = ControlledOutlines(request) }));
+                    return controlledPath;
+                case "ModelStyleCases.DiffuseAndHighlightModes": return MovingNormalCases.Run(id, request.outputDirectory, request.fixtureDirectory);
+                case "ModelStyleCases.ProtectedExceptions":
+                    string path = Path.Combine(request.outputDirectory, id + ".json");
+                    File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = new { captures = StaticNormalCases.ProtectedPixels(request.fixtureDirectory, request.outputDirectory) } }));
+                    return path;
+                default: throw new InvalidOperationException("Unknown model style case: " + id);
             }
         }
     }
