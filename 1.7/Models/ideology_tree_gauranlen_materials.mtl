@@ -1,0 +1,23 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl bark_pale
+Kd 0.840 0.820 0.760
+map_Kd IsoRim/Clay/Swatches/Bark
+
+newmtl twig_bark_pale
+Kd 0.840 0.820 0.760
+map_Kd IsoRim/Clay/Swatches/Bark
+
+newmtl leaf_gauranlen_dk
+Kd 0.607 0.669 0.496
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+newmtl leaf_gauranlen
+Kd 0.820 0.880 0.620
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+newmtl leaf_gauranlen_lt
+Kd 0.984 1.000 0.657
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+newmtl pod_pale
+Kd 0.900 0.860 0.660

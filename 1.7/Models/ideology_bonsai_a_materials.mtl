@@ -1,0 +1,12 @@
+# Original semantic material blocks; no baked lighting or new shader semantics.
+newmtl bark
+Kd 0.440 0.310 0.210
+map_Kd IsoRim/Clay/Swatches/Bark
+
+newmtl leaf_bonsai
+Kd 0.34 0.45 0.24
+map_Kd IsoRim/Clay/Swatches/Leaf
+
+newmtl leaf_bonsai_light
+Kd 0.42 0.52 0.29
+map_Kd IsoRim/Clay/Swatches/Leaf

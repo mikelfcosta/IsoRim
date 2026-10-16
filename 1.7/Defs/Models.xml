@@ -869,7 +869,7 @@
   <IsoRim.ModelDef>
     <defName>R3D_Plant_TreeGauranlen</defName>
     <thingDef>Plant_TreeGauranlen</thingDef>
-    <model>Models/tree_gauranlen.obj</model>
+    <model>1.7/Models/tree_gauranlen.obj</model>
     <surfaceHeight>0.00</surfaceHeight>
     <randomRotation>true</randomRotation>
     <scaleJitter>0.12</scaleJitter>
@@ -4711,7 +4711,7 @@
   <IsoRim.ModelDef>
     <defName>R3D_SlabBed</defName>
     <thingDef>SlabBed</thingDef>
-    <model>Models/slab_bed.obj</model>
+    <model>1.7/Models/slab_bed.obj</model>
     <builtFor>(1, 2)</builtFor>
     <surfaceHeight>0.38</surfaceHeight>
   </IsoRim.ModelDef>
@@ -4719,7 +4719,7 @@
   <IsoRim.ModelDef>
     <defName>R3D_SlabDoubleBed</defName>
     <thingDef>SlabDoubleBed</thingDef>
-    <model>Models/slab_double_bed.obj</model>
+    <model>1.7/Models/slab_double_bed.obj</model>
     <builtFor>(2, 2)</builtFor>
     <surfaceHeight>0.38</surfaceHeight>
   </IsoRim.ModelDef>
@@ -4727,21 +4727,21 @@
   <IsoRim.ModelDef>
     <defName>R3D_StylingStation</defName>
     <thingDef>StylingStation</thingDef>
-    <model>Models/styling_station.obj</model>
+    <model>1.7/Models/styling_station.obj</model>
     <builtFor>(3, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_NeuralSupercharger</defName>
     <thingDef>NeuralSupercharger</thingDef>
-    <model>Models/neural_supercharger.obj</model>
+    <model>1.7/Models/neural_supercharger.obj</model>
     <builtFor>(1, 3)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_SleepAccelerator</defName>
     <thingDef>SleepAccelerator</thingDef>
-    <model>Models/sleep_accelerator.obj</model>
+    <model>1.7/Models/sleep_accelerator.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
@@ -4749,98 +4749,98 @@
   <IsoRim.ModelDef>
     <defName>R3D_Burnbong</defName>
     <thingDef>Burnbong</thingDef>
-    <model>Models/burnbong.obj</model>
+    <model>1.7/Models/burnbong.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_IncenseShrine</defName>
     <thingDef>IncenseShrine</thingDef>
-    <model>Models/incense_shrine.obj</model>
+    <model>1.7/Models/incense_shrine.obj</model>
     <builtFor>(2, 2)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Pyre</defName>
     <thingDef>Pyre</thingDef>
-    <model>Models/ritual_pyre.obj</model>
+    <model>1.7/Models/ritual_pyre.obj</model>
     <builtFor>(2, 2)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_ChristmasTree</defName>
     <thingDef>ChristmasTree</thingDef>
-    <model>Models/christmas_tree.obj</model>
+    <model>1.7/Models/christmas_tree.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Effigy</defName>
     <thingDef>Effigy</thingDef>
-    <model>Models/ritual_effigy.obj</model>
+    <model>1.7/Models/ritual_effigy.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_SacrificialFlag</defName>
     <thingDef>SacrificialFlag</thingDef>
-    <model>Models/sacrificial_flag.obj</model>
+    <model>1.7/Models/sacrificial_flag.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_KneelPillow</defName>
     <thingDef>KneelPillow</thingDef>
-    <model>Models/kneel_pillow.obj</model>
+    <model>1.7/Models/kneel_pillow.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Lectern</defName>
     <thingDef>Lectern</thingDef>
-    <model>Models/lectern.obj</model>
+    <model>1.7/Models/lectern.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Pew</defName>
     <thingDef>Pew</thingDef>
-    <model>Models/pew.obj</model>
+    <model>1.7/Models/pew.obj</model>
     <builtFor>(3, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Loudspeaker</defName>
     <thingDef>Loudspeaker</thingDef>
-    <model>Models/loudspeaker.obj</model>
+    <model>1.7/Models/loudspeaker.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Drum</defName>
     <thingDef>Drum</thingDef>
-    <model>Models/ritual_drum.obj</model>
+    <model>1.7/Models/ritual_drum.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Skullspike</defName>
     <thingDef>Skullspike</thingDef>
-    <model>Models/skullspike.obj</model>
+    <model>1.7/Models/skullspike.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_Autobong</defName>
     <thingDef>Autobong</thingDef>
-    <model>Models/autobong.obj</model>
+    <model>1.7/Models/autobong.obj</model>
     <builtFor>(2, 2)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_DarktorchFungus</defName>
     <thingDef>DarktorchFungus</thingDef>
-    <model>Models/fungus_darktorch.obj</model>
+    <model>1.7/Models/fungus_darktorch.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
@@ -4848,7 +4848,7 @@
   <IsoRim.ModelDef>
     <defName>R3D_PlantPot_Bonsai</defName>
     <thingDef>PlantPot_Bonsai</thingDef>
-    <model>Models/bonsai_pot.obj</model>
+    <model>1.7/Models/bonsai_pot.obj</model>
     <builtFor>(1, 1)</builtFor>
     <surfaceHeight>0.205</surfaceHeight>
   </IsoRim.ModelDef>
@@ -4856,7 +4856,7 @@
   <IsoRim.ModelDef>
     <defName>R3D_KneelSheet</defName>
     <thingDef>KneelSheet</thingDef>
-    <model>Models/kneel_sheet.obj</model>
+    <model>1.7/Models/kneel_sheet.obj</model>
     <builtFor>(2, 2)</builtFor>
   </IsoRim.ModelDef>
 
@@ -4865,9 +4865,9 @@
     <defName>R3D_Plant_TreeBonsai</defName>
     <thingDef>Plant_TreeBonsai</thingDef>
     <models>
-      <li>Models/bonsai_a.obj</li>
-      <li>Models/bonsai_b.obj</li>
-      <li>Models/bonsai_c.obj</li>
+      <li>1.7/Models/bonsai_a.obj</li>
+      <li>1.7/Models/bonsai_b.obj</li>
+      <li>1.7/Models/bonsai_c.obj</li>
     </models>
     <builtFor>(1, 1)</builtFor>
     <growthScale>true</growthScale>
@@ -4880,9 +4880,9 @@
     <defName>R3D_GaumakerCocoon</defName>
     <thingDef>GaumakerCocoon</thingDef>
     <models>
-      <li>Models/gaumaker_a.obj</li>
-      <li>Models/gaumaker_b.obj</li>
-      <li>Models/gaumaker_c.obj</li>
+      <li>1.7/Models/gaumaker_a.obj</li>
+      <li>1.7/Models/gaumaker_b.obj</li>
+      <li>1.7/Models/gaumaker_c.obj</li>
     </models>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
@@ -4890,7 +4890,7 @@
   <IsoRim.ModelDef>
     <defName>R3D_CannibalPlatter</defName>
     <thingDef>CannibalPlatter</thingDef>
-    <model>Models/cannibal_platter.obj</model>
+    <model>1.7/Models/cannibal_platter.obj</model>
     <builtFor>(2, 3)</builtFor>
   </IsoRim.ModelDef>
 
@@ -4898,22 +4898,22 @@
   <IsoRim.ModelDef>
     <defName>R3D_AncientSecurityCrate</defName>
     <thingDef>AncientSecurityCrate</thingDef>
-    <model>Models/security_crate.obj</model>
+    <model>1.7/Models/security_crate.obj</model>
     <builtFor>(2, 2)</builtFor>
-    <emptyModel>Models/security_crate_open.obj</emptyModel>
+    <emptyModel>1.7/Models/security_crate_open.obj</emptyModel>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_AncientCommsConsole</defName>
     <thingDef>AncientCommsConsole</thingDef>
-    <model>Models/ancient_comms.obj</model>
+    <model>1.7/Models/ancient_comms.obj</model>
     <builtFor>(3, 2)</builtFor>
   </IsoRim.ModelDef>
 
   <IsoRim.ModelDef>
     <defName>R3D_AncientEnemyTerminal</defName>
     <thingDef>AncientEnemyTerminal</thingDef>
-    <model>Models/enemy_terminal.obj</model>
+    <model>1.7/Models/enemy_terminal.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
 
@@ -4969,13 +4969,13 @@
   <IsoRim.ModelDef>
     <defName>R3D_AncientTerminal</defName>
     <thingDef>AncientTerminal</thingDef>
-    <model>Models/ancient_terminal.obj</model>
+    <model>1.7/Models/ancient_terminal.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
   <IsoRim.ModelDef>
     <defName>R3D_AncientTerminal_Worshipful</defName>
     <thingDef>AncientTerminal_Worshipful</thingDef>
-    <model>Models/ancient_terminal.obj</model>
+    <model>1.7/Models/ancient_terminal.obj</model>
     <builtFor>(1, 1)</builtFor>
   </IsoRim.ModelDef>
   <!-- Sprite order A-C. -->
@@ -4983,9 +4983,9 @@
     <defName>R3D_Plant_PodGauranlen</defName>
     <thingDef>Plant_PodGauranlen</thingDef>
     <models>
-      <li>Models/gauranlen_pod_a.obj</li>
-      <li>Models/gauranlen_pod_b.obj</li>
-      <li>Models/gauranlen_pod_c.obj</li>
+      <li>1.7/Models/gauranlen_pod_a.obj</li>
+      <li>1.7/Models/gauranlen_pod_b.obj</li>
+      <li>1.7/Models/gauranlen_pod_c.obj</li>
     </models>
     <builtFor>(1, 1)</builtFor>
     <surfaceHeight>0.00</surfaceHeight>
@@ -4996,41 +4996,41 @@
   <IsoRim.ModelDef>
     <defName>R3D_Altar_Small</defName>
     <thingDef>Altar_Small</thingDef>
-    <model>Models/altar_small.obj</model>
+    <model>1.7/Models/altar_small.obj</model>
     <builtFor>(1, 1)</builtFor>
     <byStyle>
-      <li><style>Morbid_AltarSmall</style><model>Models/morbid_altar_small.obj</model></li>
-      <li><style>Totemic_AltarSmall</style><model>Models/totemic_altar_small.obj</model></li>
+      <li><style>Morbid_AltarSmall</style><model>1.7/Models/morbid_altar_small.obj</model></li>
+      <li><style>Totemic_AltarSmall</style><model>1.7/Models/totemic_altar_small.obj</model></li>
     </byStyle>
   </IsoRim.ModelDef>
   <IsoRim.ModelDef>
     <defName>R3D_Altar_Medium</defName>
     <thingDef>Altar_Medium</thingDef>
-    <model>Models/altar_medium.obj</model>
+    <model>1.7/Models/altar_medium.obj</model>
     <builtFor>(3, 1)</builtFor>
     <byStyle>
-      <li><style>Morbid_AltarMedium</style><model>Models/morbid_altar_medium.obj</model></li>
-      <li><style>Totemic_AltarMedium</style><model>Models/totemic_altar_medium.obj</model></li>
+      <li><style>Morbid_AltarMedium</style><model>1.7/Models/morbid_altar_medium.obj</model></li>
+      <li><style>Totemic_AltarMedium</style><model>1.7/Models/totemic_altar_medium.obj</model></li>
     </byStyle>
   </IsoRim.ModelDef>
   <IsoRim.ModelDef>
     <defName>R3D_Altar_Large</defName>
     <thingDef>Altar_Large</thingDef>
-    <model>Models/altar_large.obj</model>
+    <model>1.7/Models/altar_large.obj</model>
     <builtFor>(3, 2)</builtFor>
     <byStyle>
-      <li><style>Morbid_AltarLarge</style><model>Models/morbid_altar_large.obj</model></li>
-      <li><style>Totemic_AltarLarge</style><model>Models/totemic_altar_large.obj</model></li>
+      <li><style>Morbid_AltarLarge</style><model>1.7/Models/morbid_altar_large.obj</model></li>
+      <li><style>Totemic_AltarLarge</style><model>1.7/Models/totemic_altar_large.obj</model></li>
     </byStyle>
   </IsoRim.ModelDef>
   <IsoRim.ModelDef>
     <defName>R3D_Altar_Grand</defName>
     <thingDef>Altar_Grand</thingDef>
-    <model>Models/altar_grand.obj</model>
+    <model>1.7/Models/altar_grand.obj</model>
     <builtFor>(3, 3)</builtFor>
     <byStyle>
-      <li><style>Morbid_AltarGrand</style><model>Models/morbid_altar_grand.obj</model></li>
-      <li><style>Totemic_AltarGrand</style><model>Models/totemic_altar_grand.obj</model></li>
+      <li><style>Morbid_AltarGrand</style><model>1.7/Models/morbid_altar_grand.obj</model></li>
+      <li><style>Totemic_AltarGrand</style><model>1.7/Models/totemic_altar_grand.obj</model></li>
     </byStyle>
   </IsoRim.ModelDef>
 
@@ -5038,9 +5038,9 @@
   <IsoRim.ModelDef>
     <defName>R3D_LightBall</defName>
     <thingDef>LightBall</thingDef>
-    <model>Models/lightball.obj</model>
+    <model>1.7/Models/lightball.obj</model>
     <builtFor>(1, 1)</builtFor>
-    <spinModel>Models/lightball_rotor.obj</spinModel>
+    <spinModel>1.7/Models/lightball_rotor.obj</spinModel>
     <spinMote>Mote_LightBall</spinMote>
     <litMaterial>party_lens</litMaterial>
     <litColors>
@@ -5056,7 +5056,7 @@
   <IsoRim.ModelDef>
     <defName>R3D_Reliquary</defName>
     <thingDef>Reliquary</thingDef>
-    <model>Models/reliquary.obj</model>
+    <model>1.7/Models/reliquary.obj</model>
     <builtFor>(3, 2)</builtFor>
     <surfaceHeight>0.31</surfaceHeight>
     <contentOffset>(0, 0, -0.28)</contentOffset>
@@ -5064,21 +5064,21 @@
   <IsoRim.ModelDef>
     <defName>R3D_GibbetCage</defName>
     <thingDef>GibbetCage</thingDef>
-    <model>Models/gibbet_cage.obj</model>
+    <model>1.7/Models/gibbet_cage.obj</model>
     <builtFor>(1, 1)</builtFor>
     <surfaceHeight>0.11</surfaceHeight>
   </IsoRim.ModelDef>
   <IsoRim.ModelDef>
     <defName>R3D_DryadCocoon</defName>
     <thingDef>DryadCocoon</thingDef>
-    <model>Models/dryad_shell.obj</model>
+    <model>1.7/Models/dryad_shell.obj</model>
     <builtFor>(1, 1)</builtFor>
     <surfaceHeight>0.15</surfaceHeight>
   </IsoRim.ModelDef>
   <IsoRim.ModelDef>
     <defName>R3D_DryadHealingPod</defName>
     <thingDef>DryadHealingPod</thingDef>
-    <model>Models/dryad_shell.obj</model>
+    <model>1.7/Models/dryad_shell.obj</model>
     <builtFor>(1, 1)</builtFor>
     <surfaceHeight>0.15</surfaceHeight>
   </IsoRim.ModelDef>
@@ -5216,9 +5216,9 @@
   <IsoRim.ModelDef>
     <defName>R3D_BiosculpterPod</defName>
     <thingDef>BiosculpterPod</thingDef>
-    <model>Models/biosculpter_pod.obj</model>
+    <model>1.7/Models/biosculpter_pod.obj</model>
     <builtFor>(3, 2)</builtFor>
-    <glassModel>Models/biosculpter_pod_glass.obj</glassModel>
+    <glassModel>1.7/Models/biosculpter_pod_glass.obj</glassModel>
     <surfaceHeight>0.30</surfaceHeight>
   </IsoRim.ModelDef>
   <IsoRim.ModelDef>
