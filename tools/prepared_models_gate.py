@@ -1159,8 +1159,9 @@ def main():
             git("merge-base", "--is-ancestor", epic, head)
         if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-004-matte-clay-model-style").decode().strip():
             raise Refusal("Authoritative T1 must run at the frozen integrated epic head")
-        if args.command != "ci" and git("rev-parse", "origin/main").decode().strip() != BASELINE:
-            raise Refusal("origin/main differs from the commissioned baseline")
+        if args.command != "ci":
+            # Independent asset work may advance main while this epic keeps its commissioned base.
+            git("merge-base", "--is-ancestor", BASELINE, epic)
         changes = git("diff", "--name-status", "-z", "--no-renames", epic, head, "--") if epic else b""
         manifest = case_manifest()
         story = args.story
@@ -1170,6 +1171,8 @@ def main():
         cases = run_cases(args.command, changes, story, manifest, args.base)
         selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes) if changes else [],
                      "caseIds": cases, "hostControls": manifest["hostCases"], "ignoreProof": rule, "nonce": evidence.name}
+        selection["baseline"] = BASELINE
+        selection["observedOriginMain"] = git("rev-parse", "origin/main").decode().strip() if args.command != "ci" else None
         selection["pathCases"] = {path: select_cases(("M\0" + path + "\0").encode(), story, manifest)
                                   for path in selection["paths"]}
         (evidence / "selection.json").write_text(json.dumps(selection, indent=2))
