@@ -237,13 +237,16 @@ namespace IsoRim
                 JsonElement controls = report.RootElement.GetProperty("controls");
                 string[] expectedControls = { "passing", "passing-no-vn", "missing-gear", "missing-model", "missing-mtl", "malformed-mtl",
                     "zero-normal", "nonfinite-normal", "float-overflow-normal", "float-underflow-normal", "magnitude-overflow-normal",
-                    "small-magnitude-normal", "normal-index", "position-index", "empty-obj", "vertices-only-obj" };
+                    "small-magnitude-normal", "normal-index", "position-index", "empty-obj", "vertices-only-obj",
+                    "normalize-below", "normalize-at", "normalize-above", "normalize-next-below", "normalize-next-above",
+                    "normalize-diagonal-below", "normalize-diagonal-above" };
+                string[] successControls = { "passing", "passing-no-vn", "normalize-above", "normalize-next-above", "normalize-diagonal-above" };
                 Require(controls.GetArrayLength() == expectedControls.Length
                     && expectedControls.All(name => controls.EnumerateArray().Count(control => control.GetProperty("name").GetString() == name) == 1),
                     "The validator omitted or duplicated positive or invalid controls");
                 foreach (JsonElement control in controls.EnumerateArray())
                 {
-                    bool expectedSuccess = control.GetProperty("name").GetString() == "passing" || control.GetProperty("name").GetString() == "passing-no-vn";
+                    bool expectedSuccess = successControls.Contains(control.GetProperty("name").GetString());
                     Require(control.GetProperty("expectedSuccess").GetBoolean() == expectedSuccess
                         && control.GetProperty("exit").GetInt32() == (expectedSuccess ? 0 : 1)
                         && control.GetProperty("diagnosticMatched").GetBoolean(), "The staged validator accepted an invalid input or rejected the passing control: " + control.GetProperty("name").GetString());
@@ -261,6 +264,29 @@ namespace IsoRim
                 && authored.authoredNormals.All(value => value) && fallback.authoredNormals.All(value => !value), "Authored validity or missing-normal fallback changed");
             Require(fallback.shadingNormals.All(normal => (normal - Vector3.forward).sqrMagnitude < 0.000001f), "Missing normals do not use geometric fallback");
             reads.Add(new { authoredFile = Path.Combine(directory, "internal.obj"), fallbackFile = Path.Combine(directory, "legacy.obj") });
+            string external = DefDatabase<ModelDef>.GetNamed("NormalProofExternalModel").modContentPack.RootDir;
+            foreach (var boundary in new[] { ("normalize-below", false, Vector3.forward), ("normalize-at", false, Vector3.forward),
+                ("normalize-above", true, Vector3.right), ("normalize-next-below", false, Vector3.forward),
+                ("normalize-next-above", true, Vector3.right), ("normalize-diagonal-below", false, Vector3.forward),
+                ("normalize-diagonal-above", true, new Vector3(0.70710677f, 0.70710677f, 0f)) })
+            {
+                string file = Path.Combine(external, "1.7/Models/Diagnostics", boundary.Item1 + ".obj");
+                Model model = ObjLoader.Load(file);
+                Require(model != null && model.positions.Length == 3 && model.authoredNormals.Length == 3
+                    && model.authoredNormals.All(value => value == boundary.Item2), "Loader authored validity differs at " + boundary.Item1);
+                Require(model.shadingNormals.All(normal => (normal - boundary.Item3).sqrMagnitude < 0.000001f)
+                    && model.normals.All(normal => (normal - Vector3.forward).sqrMagnitude < 0.000001f),
+                    "Loader normalization or geometric fallback differs at " + boundary.Item1);
+                reads.Add(new
+                {
+                    numericBoundary = boundary.Item1,
+                    selectedFile = file,
+                    objSource = File.ReadAllText(file),
+                    expectedAuthored = boundary.Item2,
+                    model.authoredNormals,
+                    shadingNormals = model.shadingNormals.Select(normal => new[] { normal.x, normal.y, normal.z }).ToArray()
+                });
+            }
         }
     }
 }

@@ -150,6 +150,9 @@ def validate_prepared_objs(root: Path) -> tuple[list[str], list[str]]:
                         length_squared = _float32(_float32(squares[0] + squares[1]) + squares[2])
                         if not math.isfinite(length_squared) or length_squared < _float32(1e-12):
                             raise ValueError()
+                        # Approved Vector3.normalized rounds sqrt to Single, then requires > 1e-5f.
+                        if _float32(math.sqrt(length_squared)) <= _float32(1e-5):
+                            raise ValueError()
                 except (ValueError, OverflowError):
                     errors.append(f"{label}: {kind} must contain finite" + (" nonzero normal values with usable float32 magnitude" if kind == "vn" else " coordinates"))
             elif kind == "mtllib":

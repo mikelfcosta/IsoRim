@@ -69,6 +69,20 @@ class GateHostTests(unittest.TestCase):
 
             path = root / "1.7/Models/Diagnostics/internal.obj"
             original = path.read_text()
+            for normal, expected_exit in (("0.000002 0 0", 1), ("0.00001 0 0", 1), ("0.00002 0 0", 0),
+                                          ("0.00000999999883788405 0 0", 1), ("0.00001000000065687345 0 0", 0),
+                                          ("0.000006 0.000006 0", 1), ("0.000008 0.000008 0", 0)):
+                with self.subTest(normal=normal):
+                    try:
+                        path.write_text(original.replace("vn 0 0.6 -0.8", "vn " + normal))
+                        result = subprocess.run(argv, capture_output=True, text=True, check=False)
+                        self.assertEqual(result.returncode, expected_exit, result.stderr)
+                        if expected_exit:
+                            self.assertIn("float32", result.stderr)
+                        else:
+                            self.assertIn("1.7/Models/Diagnostics/internal.obj", result.stdout)
+                    finally:
+                        path.write_text(original)
             for content in ("", "v 0 0 0\nv 2 0 0\nv 0 1 0\n"):
                 try:
                     path.write_text(content)

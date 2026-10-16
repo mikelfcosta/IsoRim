@@ -51,6 +51,11 @@ def stage_intake(staged: Path, external: Path) -> None:
     (external_data / "missing-material.obj").write_text(mesh(2).replace("sample.mtl", "absent.mtl"))
     (external_data / "malformed.obj").write_text(mesh(2).replace("sample.mtl", "malformed.mtl"))
     (external_data / "malformed.mtl").write_text("newmtl sample\nKd broken 0.3 0.4\n")
+    # Invalid normals belong to loader fault fixtures, outside the passing staged mod.
+    for name, normal in (("normalize-below", "0.000002 0 0"), ("normalize-at", "0.00001 0 0"), ("normalize-above", "0.00002 0 0"),
+                         ("normalize-next-below", "0.00000999999883788405 0 0"), ("normalize-next-above", "0.00001000000065687345 0 0"),
+                         ("normalize-diagonal-below", "0.000006 0.000006 0"), ("normalize-diagonal-above", "0.000008 0.000008 0")):
+        (external_data / (name + ".obj")).write_text(mesh(2).replace("vn 0 0.6 -0.8", "vn " + normal))
     for root, prefix in ((staged, "Internal"), (external, "External")):
         defs = root / "1.7/Defs/Diagnostics"
         defs.mkdir(parents=True, exist_ok=True)
