@@ -1,5 +1,6 @@
 """Host controls for the prepared-model acceptance runner."""
 
+from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
@@ -84,12 +85,35 @@ class GateHostTests(unittest.TestCase):
         import prepared_models_gate as gate
 
         manifest = gate.case_manifest()
-        data = set(manifest["groups"]["data"])
+        data = {
+            "NormalDataCases.AuthoredIndices",
+            "NormalDataCases.InvalidTriangleFallback",
+            "NormalDataCases.GeometricChannelsPreserved",
+            "NormalDataCases.DerivedModels",
+        }
         selected = gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)
         self.assertEqual(set(selected), data)
-        gate.verify_registry(selected)
+        self.assertEqual(set(manifest["cases"]), data)  # Later stories have no available cases at this S01 head.
+        for missing in sorted(data):
+            shortened = deepcopy(manifest)
+            del shortened["cases"][missing]
+            shortened["groups"]["data"].remove(missing)
+            with self.subTest(removed_required_case=missing):
+                with self.assertRaises(gate.Refusal):
+                    gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", shortened)
+                with self.assertRaises(gate.Refusal):
+                    gate.select_cases(b"M\0tools/prepared_models/cases.json\0", "ISORIM-003.S01", shortened)
+            for relocate in (False, True):
+                ungrouped = deepcopy(manifest)
+                ungrouped["groups"]["data"].remove(missing)
+                if relocate:
+                    ungrouped["groups"]["static"].append(missing)
+                with self.subTest(required_group_case=missing, relocated=relocate):
+                    with self.assertRaises(gate.Refusal):
+                        gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", ungrouped)
+        gate.verify_registry(selected, manifest)
         with self.assertRaises(gate.Refusal):
-            gate.verify_registry(["NormalDataCases.Missing"])
+            gate.verify_registry(["NormalDataCases.Missing"], manifest)
         for stream in (b"", b"M\0Source17/Models.cs", b"Q\0Source17/Models.cs\0", b"R100\0Source17/Models.cs\0"):
             with self.assertRaises(gate.Refusal):
                 gate.select_cases(stream, "ISORIM-003.S01", manifest)
@@ -113,7 +137,9 @@ class GateHostTests(unittest.TestCase):
         self.assertEqual(set(gate.select_cases(b"R100\0Source17/Models.cs\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)), data)
         manifest["groups"]["static"] = ["StaticNormalCases.Example"]
         manifest["cases"]["StaticNormalCases.Example"] = {"story": 1}
-        self.assertIn("StaticNormalCases.Example", gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", manifest))
+        with self.assertRaises(gate.Refusal):
+            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)
+        manifest = gate.case_manifest()
         del manifest["cases"][next(iter(data))]
         with self.assertRaises(gate.Refusal):
             gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S01", manifest)

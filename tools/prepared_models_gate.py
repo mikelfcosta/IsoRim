@@ -94,10 +94,28 @@ def case_manifest():
     return json.loads((ROOT / "tools/prepared_models/cases.json").read_text())
 
 
-def verify_registry(cases):
+def verify_registry(cases, manifest):
     registered = set()
     for path in (ROOT / "Source17").glob("ProbeNormals*.cs"):
         registered.update(re.findall(r'case "([A-Za-z]+Cases\.[A-Za-z]+)":', path.read_text()))
+    declared = set(manifest["cases"])
+    if declared != registered:
+        raise Refusal("The manifest and available controller registrations differ: "
+                      + str(sorted(declared ^ registered)))
+    required_groups = {
+        "NormalDataCases": "data",
+        "AssetIntakeCases": "intake",
+        "StaticNormalCases": "static",
+        "MovingNormalCases": "moving",
+        "IntegratedNormalCases": "integrated",
+    }
+    for case in registered:
+        group = required_groups.get(case.split(".")[0])
+        if group is None or case not in manifest["groups"].get(group, []):
+            raise Refusal(f"The required selectable group is missing case: {case}")
+    for members in manifest["groups"].values():
+        if not set(members) <= declared:
+            raise Refusal("A case group contains an absent registration")
     if not set(cases) <= registered:
         raise Refusal("Selected runtime cases are absent from the controller: " + str(sorted(set(cases) - registered)))
 
@@ -142,6 +160,7 @@ def select_cases(records, story, manifest):
         raise Refusal("Unknown story") from error
     if story != f"ISORIM-003.S{ordinal:02d}" or ordinal not in range(1, 6):
         raise Refusal("Unknown story")
+    verify_registry((), manifest)
     selected = set()
     paths = changed_paths(records)
     if not paths:
@@ -521,7 +540,6 @@ def main():
         cases = select_cases(changes, story, manifest)
         if args.command == "t1":
             cases = sorted(manifest["cases"])
-        verify_registry(cases)
         selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes),
                      "caseIds": cases, "hostControls": manifest["hostCases"], "ignoreProof": rule, "nonce": evidence.name}
         selection["pathCases"] = {path: select_cases(("M\0" + path + "\0").encode(), story, manifest)
