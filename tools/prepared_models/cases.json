@@ -1,5 +1,5 @@
 {
-  "hostCases": ["test_reference_identity", "test_fail_closed_selection_and_receipts", "test_output_isolation", "test_ignore_before_capture", "test_prepared_asset_validation"],
+  "hostCases": ["test_reference_identity", "test_fail_closed_selection_and_receipts", "test_output_isolation", "test_ignore_before_capture", "test_prepared_asset_validation", "test_framebuffer_receipts"],
   "cases": {
     "NormalDataCases.AuthoredIndices": {"story": 1},
     "NormalDataCases.InvalidTriangleFallback": {"story": 1},
@@ -9,12 +9,21 @@
     "AssetIntakeCases.DefinitionRoot": {"story": 2},
     "AssetIntakeCases.AdjacentMaterials": {"story": 2},
     "AssetIntakeCases.FolderDiscoveryFreeze": {"story": 2},
-    "AssetIntakeCases.PreparedValidation": {"story": 2}
+    "AssetIntakeCases.PreparedValidation": {"story": 2},
+    "StaticNormalCases.TrueSpaceTransform": {"story": 3},
+    "StaticNormalCases.MixedStreams": {"story": 3},
+    "StaticNormalCases.MaterialAndShaderContract": {"story": 3},
+    "StaticNormalCases.GpuAuthoredDirection": {"story": 3},
+    "StaticNormalCases.ProductionLighting": {"story": 3},
+    "StaticNormalCases.GeometricResponsibilities": {"story": 3},
+    "StaticNormalCases.OracleControls": {"story": 3}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
     "intake": ["AssetIntakeCases.InternalPreference", "AssetIntakeCases.DefinitionRoot", "AssetIntakeCases.AdjacentMaterials", "AssetIntakeCases.FolderDiscoveryFreeze", "AssetIntakeCases.PreparedValidation"],
-    "static": [], "moving": [], "integrated": []
+    "static": ["StaticNormalCases.TrueSpaceTransform", "StaticNormalCases.MixedStreams", "StaticNormalCases.MaterialAndShaderContract", "StaticNormalCases.GpuAuthoredDirection", "StaticNormalCases.ProductionLighting", "StaticNormalCases.GeometricResponsibilities", "StaticNormalCases.OracleControls"],
+    "moving": [],
+    "integrated": []
   },
   "paths": {
     "Source17/Models.cs": ["data", "intake", "static", "moving"],
@@ -35,6 +44,15 @@
     "tools/prepared_models/intake_fixtures.py": ["all"],
     "tools/validate_mod.py": ["intake"],
     "tests/test_prepared_models_gate.py": ["all"],
-    ".gitignore": ["all"]
+    ".gitignore": ["all"],
+    "Source17/Baking.cs": ["static", "moving", "integrated"],
+    "Source17/ShaderCut.cs": ["static", "moving", "integrated"],
+    "Source17/Layers.cs": ["static", "moving", "integrated"],
+    "Source17/Glow.cs": ["static", "moving", "integrated"],
+    "1.7/Shaders/IsoRim.vert.glsl": ["static", "moving", "integrated"],
+    "1.7/Shaders/IsoRimTex.vert.glsl": ["static", "moving", "integrated"],
+    "1.7/Shaders/IsoRimSolid.frag.glsl": ["static", "moving", "integrated"],
+    "1.7/Defs/ShaderDefs/IsoRim_Shaders.xml": ["static", "moving", "integrated"],
+    "Source17/ProbeNormalsStatic.cs": ["all"]
   }
 }

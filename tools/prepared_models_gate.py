@@ -12,6 +12,8 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import struct
+import zlib
 import sys
 import time
 import uuid
@@ -516,6 +518,14 @@ def stage_runtime(args, evidence, intake=False):
             "models": [node.findtext("defName") for node in ET.parse(ROOT / "1.7/Defs/Models.xml").getroot()],
             "gear": [node.findtext("defName") for node in ET.parse(ROOT / "1.7/Defs/WornGear.xml").getroot()],
         }, indent=2))
+    # An opaque white texel owned by the proof, staged before the immutable runtime manifest.
+    # It avoids all Core collection/sprite lookups for the texture framebuffer oracle.
+    neutral = staged / "1.7/Textures/Diagnostics/NormalProofNeutral.png"
+    neutral.parent.mkdir(parents=True, exist_ok=True)
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    neutral.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
+                        + chunk(b"IDAT", zlib.compress(b"\x00\xff\xff\xff\xff")) + chunk(b"IEND", b""))
     copy_tree(staged, runtime / "Mods/IsoRim")
     harmony_mod = runtime / "Mods/Harmony"
     (harmony_mod / "About").mkdir(parents=True, exist_ok=True)
@@ -553,6 +563,103 @@ def sandbox_lock():
             yield
     finally:
         path.unlink()
+
+
+def static_frame_requirements(cases):
+    """Fixed case/control matrix, independent of reported rows and shader state."""
+    required = {}
+    for case in cases:
+        rows = {}
+        for placement in ("standing", "scaled", "laid", "mirror"):
+            for surface in ("solid", "texture"):
+                stem = placement + "-" + surface
+                if case == "StaticNormalCases.GpuAuthoredDirection":
+                    rows["direction-" + stem + "-t0-l0"] = (True, 0, 0, 0, False)
+                elif case == "StaticNormalCases.ProductionLighting":
+                    for fault in range(3):
+                        rows[f"lighting-{stem}-t0-l{fault}"] = (False, 0, fault, fault, False)
+                    rows["lighting-" + stem + "-t0-l0reset"] = (False, 0, 0, 0, False)
+                    rows["lighting-" + stem + "-t0-l0legacy"] = (False, 0, 0, 1, True)
+                elif case == "StaticNormalCases.OracleControls":
+                    rows["direction-" + stem + "-t1-l0"] = (True, 1, 0, 1, False)
+                    for fault in (1, 2):
+                        rows[f"direction-{stem}-t0-l{fault}"] = (True, 0, fault, 0, False)
+        if case == "StaticNormalCases.ProductionLighting":
+            for surface in ("solid", "texture"):
+                rows["lighting-legacy-oblique-" + surface + "-t0-l0legacy"] = (False, 0, 0, 1, True)
+        if case == "StaticNormalCases.GeometricResponsibilities":
+            rows = {"lighting-standing-solid-t0-l0own-cell": (False, 0, 0, 0, False),
+                    "lighting-standing-solid-t0-l0cutaway": (False, 0, 0, 1, False)}
+        if rows:
+            required[case] = rows
+    return required
+
+
+def verify_static_pixels(evidence, cases, request, pid, started):
+    """Bind every required observation to fresh raw GPU bytes and its PNG."""
+    captures = []
+    serials = set()
+    for case, required in static_frame_requirements(cases).items():
+        path = evidence / (case + ".json")
+        report = json.loads(path.read_text())
+        if path.stat().st_mtime < started or report.get("caseId") != case or report.get("passed") is not True:
+            raise Refusal("A static pixel report is stale or invalid")
+        rows = report["readings"]
+        if case.endswith("GeometricResponsibilities"):
+            rows = [rows["ownCell"], rows["cutaway"]]
+        if len(rows) != len(required) or {row["name"] for row in rows} != set(required):
+            raise Refusal("The required framebuffer matrix is incomplete, duplicated or relabelled")
+        for row in rows:
+            diagnostic, transport, lighting, expected, legacy = required[row["name"]]
+            if (row["diagnostic"], row["transportFault"], row["lightingFault"], row["expectedIndex"]) != (diagnostic, transport, lighting, expected):
+                raise Refusal("The requested framebuffer control differs from its required matrix")
+            if (row["observedDiagnostic"], row["observedTransportFault"], row["observedLightingFault"], row["lightMode"], row["normalSpace"]) != (int(diagnostic), transport, lighting, 1, 0 if legacy else 1):
+                raise Refusal("The observed framebuffer controls differ")
+            if (row["width"], row["height"]) != (1024, 256) or row["backend"] != "RimWorldWaylith.Rendering.CameraTextureBaker":
+                raise Refusal("The approved framebuffer path differs")
+            serial = row["gpuFrameCompleted"]
+            if serial != row["gpuFrameBefore"] + 1 or serial in serials or row["unityFrame"] <= 0:
+                raise Refusal("A framebuffer has no unique completed GPU frame")
+            serials.add(serial)
+            if row["textured"] and (row["textureName"], row["textureWidth"], row["textureHeight"]) != ("NormalProofNeutral", 1, 1):
+                raise Refusal("The texture oracle did not use its staged neutral texel")
+            files = {}
+            for kind in ("raw", "png"):
+                relative = row[kind + "Path"]
+                capture = evidence / relative
+                if relative != row["name"] + (".rgba" if kind == "raw" else ".png") or capture.is_symlink() or capture.resolve().parent != evidence.resolve():
+                    raise Refusal("A framebuffer path escaped its fresh evidence directory")
+                if capture.stat().st_mtime < started or digest(capture) != row[kind + "Hash"]:
+                    raise Refusal("A framebuffer hash is stale or differs")
+                files[kind] = capture
+            raw = files["raw"].read_bytes()
+            png = files["png"].read_bytes()
+            if len(raw) != 1024 * 256 * 4 or png[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", png[16:24]) != (1024, 256):
+                raise Refusal("The framebuffer dimensions or PNG differ")
+            patches = [[list(raw[((128 + dy) * 1024 + slot * 256 + 128 + dx) * 4:((128 + dy) * 1024 + slot * 256 + 128 + dx) * 4 + 4])
+                        for dy in range(-1, 2) for dx in range(-1, 2)] for slot in range(4)]
+            if patches != row["patches"]:
+                raise Refusal("Reported patch samples differ from raw GPU bytes")
+            if any(pixel[3] != 255 or pixel[:3] == [255, 0, 255] for patch in patches for pixel in patch):
+                raise Refusal("An interior framebuffer patch is empty or nonopaque")
+            if any(max(abs(pixel[c] - patch[0][c]) for pixel in patch for c in range(3)) > 2 for patch in patches):
+                raise Refusal("An interior patch contains an edge or varying response")
+            differences = [max(abs(a[c] - b[c]) for a, b in zip(patches[0], patch) for c in range(3)) for patch in patches[1:]]
+            if differences != row["differences"] or differences[expected] > 2 or row["authoredComparisonPassed"] != (differences[0] <= 2):
+                raise Refusal("The framebuffer comparison differs or fails")
+            if expected and differences[0] <= 2:
+                raise Refusal("A required framebuffer fault silently passed")
+            if not diagnostic and any(abs(patches[i][0][c] - patches[j][0][c]) < 12 for i in range(1, 4) for j in range(i + 1, 4) for c in range(3)):
+                raise Refusal("Ordinary lighting references fail the 12/255 separation")
+            captures.append({"caseId": case, "name": row["name"], "gpuFrame": serial,
+                             "rawSha256": row["rawHash"], "pngSha256": row["pngHash"],
+                             "reportSha256": digest(path), "differences": differences})
+    if captures:
+        (evidence / "framebuffer-receipt.json").write_text(json.dumps({
+            "nonce": request["nonce"], "head": request["head"], "assemblyHash": request["assemblyHash"],
+            "processId": pid, "runtimeInputManifestSha256": digest(evidence / "runtime-inputs.json"),
+            "captures": captures}, indent=2))
+    return captures
 
 
 def runtime_cases(args, evidence, protected, cases, head):
@@ -602,6 +709,7 @@ def runtime_cases(args, evidence, protected, cases, head):
         if {node.text for node in active} != expected_active or len(active) != len(expected_active):
             raise Refusal("The runtime active package manifest changed")
         proofs = verify_proofs(list(evidence.glob("NormalProof-*.json")), cases, request, modules, child.pid, started)
+        verify_static_pixels(evidence, cases, request, child.pid, started)
         if validator_results and any((row["exit"] == 0) != row["expectedSuccess"] or not row["diagnosticMatched"] for row in validator_results["controls"]):
             raise Refusal("The staged validator accepted an invalid input or rejected the passing control")
         if validator_results and any(row["exit"] != row["cli"] or not row["diagnosticMatched"] or not row["bitMatched"] for row in validator_results["recovery"]):
@@ -698,6 +806,8 @@ def main():
                        compatibilityOnly=args.command == "ci")
         if (evidence / "recovery-receipt.json").is_file():
             receipt["recoveryReceiptSha256"] = digest(evidence / "recovery-receipt.json")
+        if (evidence / "framebuffer-receipt.json").is_file():
+            receipt["framebufferReceiptSha256"] = digest(evidence / "framebuffer-receipt.json")
         (evidence / "receipt.json").write_text(json.dumps(receipt, indent=2))
         print(f"PASS {args.command}: {len(proofs)} runtime cases. Evidence: {evidence}")
         return 0
