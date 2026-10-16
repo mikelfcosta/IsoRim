@@ -2163,7 +2163,8 @@ Each complete gate uses a deadline below 300 seconds. Private scripts remain ava
 
 ## Check results for the imported assets
 
-The checks below ran at IsoRim@1080268d03050320d631382de828b51fb6572120. The final documentation amendment changes only this report.
+The initial checks below ran at IsoRim@1080268d03050320d631382de828b51fb6572120. The first build checked source in isolated output.
+That import omitted the matching packaged DLL. The package correction below replaces the tracked assembly with that branch source build.
 
 | Check command | Outcome |
 |---|---|
@@ -2180,3 +2181,19 @@ Nine identical stone-stage copies share active paths. Twenty-seven delivered ide
 The byte-identical duplicate 30-trial ZIP contributes no second payload. Source/comparison geometry, rejected alternatives and procedural studies remain outside active Models.
 No listed ZIP is missing. No unknown selected runtime name remains. No geometry-selection or material-name conflict remains unresolved.
 No live-game, animation, collision, shader or rendered-scene check ran. Static census limitations and inherited contacts remain disclosed above.
+
+## Packaged 1.7 assembly correction
+
+The isolated installed-reference Release build checked source at IsoRim@8d60f7a7b6041fdf4c06de8d015b99b89dc5b6cb. The package-fix commit changes no C# source or asset inputs.
+The packaged `1.7/Assemblies/IsoRim.dll` now matches `.testruns/clay-asset-import/build/bin/IsoRim.dll` byte for byte.
+Both files have SHA-256 `eba30bc8d3377d10fb26d381c94393c3b41062b5d75a57e20db751a14fb7a032` and size 749,568 bytes.
+All 30 delivered hairstyle literals occur in the built assembly. The frozen root and 1.5/1.6 inputs remain unchanged.
+
+| Check command | Outcome |
+|---|---|
+| `python artifacts/clay-asset-import/code_checks.py` | Pass, 0.83 seconds. Incremental installed-reference 1.7 Release build from unchanged branch source. One inherited NU1900 feed warning, zero errors. |
+| `python artifacts/clay-asset-import/package_fix.py` | Pass. Exact artifact copy/equality, 30 hairstyle literals, unchanged source/assets and frozen-version scope. |
+| `git diff 8d60f7a7 --name-only` | Only 1.7/Assemblies/IsoRim.dll and this report change for the packaging correction. |
+
+The earlier 52.55-second intake result still covers identical source and asset inputs. This package-only correction does not repeat intake or run the live game.
+Asset totals, provenance, unmapped deliveries and census limits remain unchanged. The branch stays local and slot 2 stays claimed.
