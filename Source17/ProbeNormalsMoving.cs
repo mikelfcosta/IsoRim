@@ -42,6 +42,7 @@ namespace IsoRim
             {
                 switch (id)
                 {
+                    case "IntegratedNormalCases.AllPaths": observations = new { validity = new[] { "authored", "missing", "invalid" }, poses = new[] { "standing", "scaled", "laid", "mirror" } }; kind = "all-paths"; break;
                     case "MovingNormalCases.DynamicTrueSpace": observations = DynamicTrueSpace(fixtures); kind = "dynamic"; break;
                     case "MovingNormalCases.InstanceMatrices": observations = new { seam = "DynamicModels.DrawLocal -> PartBatches.Flush -> binding 4" }; kind = "instances"; break;
                     case "MovingNormalCases.MergedPartTransforms": observations = MergedPartTransforms(fixtures); kind = "merged"; break;
@@ -52,6 +53,7 @@ namespace IsoRim
                     default: throw new InvalidOperationException("Unknown moving case: " + id);
                 }
                 List<object> captures = Pixels(id, evidence, fixtures, kind);
+                if (kind == "all-paths") captures.AddRange(StaticNormalCases.IntegrationPaths(fixtures, evidence));
                 int singleInstanceMaximumDifference = 0;
                 if (kind == "agreement")
                 {
@@ -74,6 +76,27 @@ namespace IsoRim
 
         private static Waylith.Rendering.MeshBatchRenderer captureRenderer;
         private static int nativeBatches;
+        internal static byte[] RenderProofScene(RenderTexture target, Camera camera, List<MeshDrawCommand> commands, out int before, out int completed)
+        {
+            var backend = UnityStubs.Rendering.CameraTextureRenderer.Current;
+            Require(backend?.GetType().FullName == "RimWorldWaylith.Rendering.CameraTextureBaker", "Approved GPU backend unavailable");
+            FieldInfo serial = backend.GetType().GetField("_frameNumber", BindingFlags.Instance | BindingFlags.NonPublic);
+            captureRenderer = (Waylith.Rendering.MeshBatchRenderer)backend.GetType().GetField("_renderer", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(backend);
+            var hook = new Harmony("isorim.normalproof.s05.scene");
+            var record = typeof(Waylith.Rendering.MeshBatchRenderer).GetMethod("RecordBatch");
+            hook.Patch(record, prefix: new HarmonyMethod(typeof(MovingNormalCases).GetMethod("RecordMovingFrame", BindingFlags.Static | BindingFlags.NonPublic)));
+            before = (int)serial.GetValue(backend);
+            try
+            {
+                backend.Render(target, commands, UnityStubs.Rendering.CameraViewFactory.GetView(camera), new Rect(0, 0, 1, 1), Color.magenta);
+                completed = (int)serial.GetValue(backend);
+                bool read = backend.TryReadPixels(target, out byte[] raw);
+                Require(completed == before + 1 && read, "Scene has no completed GPU readback");
+                return raw;
+            }
+            finally { hook.Unpatch(record, HarmonyPatchType.Prefix, hook.Id); captureRenderer = null; }
+        }
+
         private static void DrawDiagnostic(Waylith.Rendering.MeshBatchRenderer __instance, ref string diagnosticPrefix)
         {
             if (!ReferenceEquals(__instance, captureRenderer)) return;
@@ -439,6 +462,20 @@ namespace IsoRim
             var rows = new List<object>();
             Model solid = Fixture(fixtures), texture = Fixture(fixtures, true);
             List<DynamicModels.Part> merged = null;
+            if (kind == "all-paths")
+            {
+                foreach (string validity in new[] { "authored", "missing", "invalid" })
+                {
+                    Model plain = Fixture(fixtures, false, validity != "missing"), tex = Fixture(fixtures, true, validity != "missing");
+                    if (validity == "invalid") { plain.shadingNormals[1] = Vector3.zero; tex.shadingNormals[1] = new Vector3(float.NaN, 0, 0); }
+                    var combined = DynamicModels.BuildMerged(new List<Model> { plain, plain }, new List<Matrix4x4> { PartLocal(0), PartLocal(1) }, new List<Color> { Color.white, Color.white }, 0);
+                    foreach (Spec spec in Specs())
+                        foreach (string path in spec.Part < 0 ? new[] { "single-solid", "single-texture", "instanced-solid", "instanced-texture" } : new[] { "merged-solid" })
+                            rows.Add(Capture(id, evidence, path, spec, path.EndsWith("texture", StringComparison.Ordinal) ? tex : plain,
+                                spec.Part >= 0 ? combined : null, true, 0, 0, validity == "authored" ? 0 : 1, validity));
+                }
+                return rows;
+            }
             if (kind == "merged" || kind == "agreement" || kind == "lighting")
                 merged = DynamicModels.BuildMerged(new List<Model> { solid, solid }, new List<Matrix4x4> { PartLocal(0), PartLocal(1) }, new List<Color> { Color.white, Color.white }, 0);
             if (kind == "fallback")

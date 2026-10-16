@@ -60,6 +60,72 @@ namespace IsoRim
             }
         }
 
+        internal static List<object> IntegrationPaths(string fixtures, string evidence)
+        {
+            bool textures = IsoRimMod.Settings.texturedModels;
+            var captures = new List<object>();
+            try
+            {
+                IsoRimMod.Settings.texturedModels = true;
+                foreach (string validity in new[] { "authored", "missing", "invalid" })
+                    foreach (Pair pair in Pairs())
+                        foreach (bool textured in new[] { false, true })
+                        {
+                            Model model = Fixture(fixtures, textured, validity != "missing");
+                            if (validity == "invalid") model.shadingNormals[1] = new Vector3(float.NaN, 0, 0);
+                            SectionLayer layer = Bake(model, Quaternion.AngleAxis(pair.Turn, Vector3.up), Quaternion.AngleAxis(pair.Lay, Vector3.right), pair.Scale);
+                            Upload(layer);
+                            LayerSubMesh face = Face(layer, textured);
+                            Require(face.mesh.normals.All(n => validity == "authored" ? NormalStreams.Usable(n) : n == Vector3.zero), "Integrated static validity differs");
+                            string pose = pair.Name;
+                            pair.Name = "integration-" + validity + "-" + pose;
+                            captures.Add(Capture(evidence, pair, face, textured, true, 0, 0, validity == "authored" ? 0 : 1));
+                            pair.Name = pose;
+                        }
+                return captures;
+            }
+            finally
+            {
+                IsoRimMod.Settings.texturedModels = textures;
+                foreach (SectionLayer layer in Layers)
+                    foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh);
+                Layers.Clear();
+            }
+        }
+
+        internal static List<LayerSubMesh[]> RegressionMeshes(string fixtures, bool authored, Thing owner)
+        {
+            var groups = new List<LayerSubMesh[]>();
+            bool outlines = IsoRimMod.Settings.outlines, textures = IsoRimMod.Settings.texturedModels;
+            try
+            {
+                IsoRimMod.Settings.outlines = true; IsoRimMod.Settings.texturedModels = true;
+                for (int control = 0; control < 4; control++)
+                {
+                    Model model = Fixture(fixtures, control == 0, authored);
+                    if (control == 3) model.materials[model.material[0]].glow = true;
+                    ModelBaker.DamageMarks = control == 1 ? 2 : 0;
+                    ModelBaker.Ghost = control == 2 ? new Color(.2f, .6f, .8f, .5f) : Color.clear;
+                    SectionLayer layer = Bake(model, Quaternion.identity, Quaternion.identity, Vector3.one, owner, 1);
+                    Upload(layer);
+                    groups.Add(layer.subMeshes.Where(sub => sub.mesh.vertexCount > 0).ToArray());
+                }
+                return groups;
+            }
+            finally
+            {
+                ModelBaker.DamageMarks = 0; ModelBaker.Ghost = Color.clear;
+                IsoRimMod.Settings.outlines = outlines; IsoRimMod.Settings.texturedModels = textures;
+            }
+        }
+
+        internal static void ClearIntegrationMeshes()
+        {
+            foreach (SectionLayer layer in Layers)
+                foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh);
+            Layers.Clear();
+        }
+
         private static Model Fixture(string fixtures, bool textured = false, bool authored = true)
         {
             // Cells, Y up, ground y=0, pivot origin, imported Z reflection. The bake lifts it three cells.

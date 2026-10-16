@@ -258,6 +258,89 @@ class GateHostTests(unittest.TestCase):
         gate.prepare_evidence(ROOT, cls.evidence)
         print("Host evidence: " + str(cls.evidence), flush=True)
 
+    def test_integration_completeness(self):
+        import prepared_models_gate as gate
+
+        # Host protocol control only. Actual acceptance also verifies every raw GPU source.
+        paths = ("static-solid", "static-texture", "single-solid", "single-texture", "instanced-solid", "instanced-texture", "merged-solid-part0", "merged-solid-part1")
+        tuples = []
+        for path in paths:
+            for pose in ("standing", "scaled", "laid", "mirror"):
+                tuples.append({"tupleId": path + "-" + pose, "frames": [
+                    {"diagnostic": diagnostic, "lighting": fault, "expected": expected}
+                    for diagnostic, fault, expected in ((False, 0, 0), (False, 1, 1), (True, 1, 0), (False, 2, 2), (True, 2, 0), (False, 0, 0))]})
+        self.assertEqual(gate.verify_lighting_coverage({"tuples": tuples}), 32)
+        for index in range(32):
+            for altered in (tuples[:index] + tuples[index+1:], tuples + [tuples[index]],
+                            [dict(row, tupleId="relabeled") if i == index else row for i, row in enumerate(tuples)]):
+                with self.assertRaises(gate.Refusal):
+                    gate.verify_lighting_coverage({"tuples": altered})
+        for changed in ([*tuples[0]["frames"][:-1]], [dict(frame, diagnostic=True) for frame in tuples[0]["frames"]],
+                        [dict(frame, expected=0) for frame in tuples[0]["frames"]]):
+            with self.assertRaises(gate.Refusal):
+                gate.verify_lighting_coverage({"tuples": [dict(tuples[0], frames=changed), *tuples[1:]]})
+
+    def test_artifact_identity(self):
+        import prepared_models_gate as gate
+
+        with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
+            files = [Path(tmp) / name for name in ("committed.dll", "built.dll", "staged.dll")]
+            for path in files:
+                path.write_bytes(b"verified-build")
+            self.assertEqual(gate.verify_artifact_files(files), hashlib.sha256(b"verified-build").hexdigest().upper())
+            for path in files:
+                path.write_bytes(b"stale-module")
+                with self.assertRaises(gate.Refusal):
+                    gate.verify_artifact_files(files)
+                path.write_bytes(b"verified-build")
+            files[-1].unlink()
+            with self.assertRaises(gate.Refusal):
+                gate.verify_artifact_files(files)
+
+    def test_ci_is_not_acceptance(self):
+        import prepared_models_gate as gate
+
+        with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "10.0.100\n", "")):
+            gate.verify_sdk(Path("dotnet"), acceptance=False)
+            with self.assertRaises(gate.Refusal):
+                gate.verify_sdk(Path("dotnet"), acceptance=True)
+        receipt = gate.result_receipt({"head": "committed"}, "ci", {}, {"passed": 8})
+        self.assertEqual(receipt["classification"], "portable-compatibility-only")
+        self.assertIs(receipt["acceptance"], False)
+        self.assertIs(receipt["compatibilityOnly"], True)
+        self.assertEqual(receipt["proofs"], {})
+        with self.assertRaises(gate.Refusal):
+            gate.result_receipt({}, "ci", {"case": {"passed": True}}, {})
+        for status in (b"", b" M 1.5/Assemblies/IsoRim.dll\0 M 1.6/Assemblies/IsoRim.dll\0 M 1.7/Assemblies/IsoRim.dll\0"):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, status, b"")):
+                gate.verify_tree("ci")
+                if status:
+                    with self.assertRaises(gate.Refusal):
+                        gate.verify_tree("t0")
+        for status in (b" M Source17/Models.cs\0", b"?? untracked-input.obj\0", b"M  1.7/Assemblies/IsoRim.dll\0"):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, status, b"")):
+                with self.assertRaises(gate.Refusal):
+                    gate.verify_tree("ci")
+
+    def test_final_gate_selection(self):
+        import prepared_models_gate as gate
+
+        manifest = gate.case_manifest()
+        baseline = "c43cd431232f0ba3e6a97a1911e9f4a5ef76917f"
+        # A frozen integrated head can equal its epic ref. Whole selection uses base..head.
+        self.assertEqual(gate.run_cases("t1", b"", "ISORIM-003.S05", manifest, baseline), sorted(manifest["cases"]))
+        for base in (None, "", "HEAD", "5b5ef184"):
+            with self.assertRaises(gate.Refusal):
+                gate.run_cases("t1", b"", "ISORIM-003.S05", manifest, base)
+        with self.assertRaises(gate.Refusal):
+            gate.run_cases("t1", b"M\0unknown.cs\0", "ISORIM-003.S05", manifest, baseline)
+        with self.assertRaises(gate.Refusal):
+            gate.run_cases("t0", b"", "ISORIM-003.S05", manifest, None)
+        help_result = subprocess.run([sys.executable, "tools/prepared_models_gate.py", "--help"],
+                                     cwd=ROOT, capture_output=True, text=True, check=False)
+        self.assertEqual(help_result.returncode, 0)
+        self.assertIn("--base", help_result.stdout)
+
     def test_framebuffer_receipts(self):
         import prepared_models_gate as gate
 
@@ -267,7 +350,7 @@ class GateHostTests(unittest.TestCase):
             "MovingNormalCases.DynamicTrueSpace": 4, "MovingNormalCases.InstanceMatrices": 16,
             "MovingNormalCases.MergedPartTransforms": 8, "MovingNormalCases.TexturesMarksAndFallback": 6,
             "MovingNormalCases.CacheAndBatchReuse": 1, "MovingNormalCases.GpuAgreement": 96,
-            "MovingNormalCases.ProductionLighting": 96})
+            "MovingNormalCases.ProductionLighting": 96, "IntegratedNormalCases.AllPaths": 72})
         tuples = {path + "-" + pose for path in ("single-solid", "single-texture", "instanced-solid", "instanced-texture")
                   for pose in ("standing", "scaled", "laid", "mirror")}
         tuples |= {"merged-solid-" + pose + "-part" + str(part) for pose in ("standing", "scaled", "laid", "mirror") for part in (0, 1)}
@@ -277,15 +360,23 @@ class GateHostTests(unittest.TestCase):
         self.assertEqual(set(moving["MovingNormalCases.GpuAgreement"]), {
             "moving-GpuAgreement-" + item + "-direction-" + control for item in tuples
             for control in ("t0-l0", "t1-l0", "t0-l1", "t0-l2")})
+        self.assertEqual(set(moving["IntegratedNormalCases.AllPaths"]), {
+            "moving-AllPaths-" + item + "-" + validity + "-direction-t0-l0"
+            for item in tuples for validity in ("authored", "missing", "invalid")})
+        self.assertEqual(set(required["IntegratedNormalCases.AllPaths"]), {
+            "direction-integration-" + validity + "-" + pose + "-" + surface + "-t0-l0"
+            for validity in ("authored", "missing", "invalid") for pose in ("standing", "scaled", "laid", "mirror") for surface in ("solid", "texture")})
         self.assertEqual({case: len(rows) for case, rows in required.items()}, {
             "StaticNormalCases.GpuAuthoredDirection": 8, "StaticNormalCases.ProductionLighting": 42,
-            "StaticNormalCases.OracleControls": 24, "StaticNormalCases.GeometricResponsibilities": 2})
+            "StaticNormalCases.OracleControls": 24, "StaticNormalCases.GeometricResponsibilities": 2,
+            "IntegratedNormalCases.AllPaths": 24})
         for case, rows in required.items():
             expected_controls = {
                 "StaticNormalCases.GpuAuthoredDirection": {(True, 0, 0, 0, False)},
                 "StaticNormalCases.ProductionLighting": {(False, 0, 0, 0, False), (False, 0, 1, 1, False), (False, 0, 2, 2, False), (False, 0, 0, 1, True)},
                 "StaticNormalCases.OracleControls": {(True, 1, 0, 1, False), (True, 0, 1, 0, False), (True, 0, 2, 0, False)},
                 "StaticNormalCases.GeometricResponsibilities": {(False, 0, 0, 0, False), (False, 0, 0, 1, False)},
+                "IntegratedNormalCases.AllPaths": {(True, 0, 0, 0, False), (True, 0, 0, 1, False)},
             }[case]
             self.assertEqual(set(rows.values()), expected_controls)
 
@@ -603,60 +694,66 @@ class GateHostTests(unittest.TestCase):
             "MovingNormalCases.CacheAndBatchReuse",
             "MovingNormalCases.GpuAgreement",
             "MovingNormalCases.ProductionLighting",
+            "IntegratedNormalCases.AllPaths",
+            "IntegratedNormalCases.ProductionLightingAllPaths",
+            "IntegratedNormalCases.RegressionControls",
+            "IntegratedNormalCases.ProvenanceAndCompleteness",
+            "IntegratedNormalCases.FrozenInputsAndArtifact",
+            "IntegratedNormalCases.HandoffContract",
         }
-        selected = gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S04", manifest)
+        selected = gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S05", manifest)
         self.assertEqual(set(selected), data)
-        self.assertEqual(set(manifest["cases"]), data)  # Independent literal complete-case oracle at this S04 head.
+        self.assertEqual(set(manifest["cases"]), data)  # Independent literal complete-case oracle at this S05 head.
         for missing in sorted(data):
-            group = {"NormalDataCases": "data", "AssetIntakeCases": "intake", "StaticNormalCases": "static", "MovingNormalCases": "moving"}[missing.split(".")[0]]
+            group = {"NormalDataCases": "data", "AssetIntakeCases": "intake", "StaticNormalCases": "static", "MovingNormalCases": "moving", "IntegratedNormalCases": "integrated"}[missing.split(".")[0]]
             shortened = deepcopy(manifest)
             del shortened["cases"][missing]
             shortened["groups"][group].remove(missing)
             with self.subTest(removed_required_case=missing):
                 with self.assertRaises(gate.Refusal):
-                    gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S04", shortened)
+                    gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S05", shortened)
                 with self.assertRaises(gate.Refusal):
-                    gate.select_cases(b"M\0tools/prepared_models/cases.json\0", "ISORIM-003.S04", shortened)
+                    gate.select_cases(b"M\0tools/prepared_models/cases.json\0", "ISORIM-003.S05", shortened)
             for relocate in (False, True):
                 ungrouped = deepcopy(manifest)
                 ungrouped["groups"][group].remove(missing)
                 if relocate:
-                    ungrouped["groups"]["integrated"].append(missing)
+                    ungrouped["groups"]["data" if group == "integrated" else "integrated"].append(missing)
                 with self.subTest(required_group_case=missing, relocated=relocate):
                     with self.assertRaises(gate.Refusal):
-                        gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S04", ungrouped)
+                        gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S05", ungrouped)
         gate.verify_registry(selected, manifest)
         with self.assertRaises(gate.Refusal):
             gate.verify_registry(["NormalDataCases.Missing"], manifest)
         for stream in (b"", b"M\0Source17/Models.cs", b"Q\0Source17/Models.cs\0", b"R100\0Source17/Models.cs\0"):
             with self.assertRaises(gate.Refusal):
-                gate.select_cases(stream, "ISORIM-003.S04", manifest)
+                gate.select_cases(stream, "ISORIM-003.S05", manifest)
         for story in ("S01", "ISORIM-003.S00", "ISORIM-003.S99"):
             with self.assertRaises(gate.Refusal):
                 gate.select_cases(b"M\0Source17/Models.cs\0", story, manifest)
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
             directory = Path(tmp)
             log = directory / "host-controls.stderr.log"
-            log.write_text("Ran 6 tests in 0.1s\n\nOK\n")
-            self.assertEqual(gate.verify_host_controls(manifest, directory)["passed"], 6)
-            for summary in ("Ran 0 tests in 0.0s\n\nOK\n", "Ran 6 tests in 0.1s\n\nOK (skipped=6)\n"):
+            log.write_text("Ran 10 tests in 0.1s\n\nOK\n")
+            self.assertEqual(gate.verify_host_controls(manifest, directory)["passed"], 10)
+            for summary in ("Ran 0 tests in 0.0s\n\nOK\n", "Ran 10 tests in 0.1s\n\nOK (skipped=10)\n"):
                 log.write_text(summary)
                 with self.assertRaises(gate.Refusal):
                     gate.verify_host_controls(manifest, directory)
         for changes in (b"M\0README.txt\0", b"D\0unknown.cs\0",
                         b"R100\0Source17/Models.cs\0unknown.cs\0"):
             with self.assertRaises(gate.Refusal):
-                gate.select_cases(changes, "ISORIM-003.S04", manifest)
-        self.assertEqual(set(gate.select_cases(b"D\0Source17/Models.cs\0", "ISORIM-003.S04", manifest)), data)
-        self.assertEqual(set(gate.select_cases(b"R100\0Source17/Models.cs\0Source17/Models.cs\0", "ISORIM-003.S04", manifest)), data)
+                gate.select_cases(changes, "ISORIM-003.S05", manifest)
+        self.assertEqual(set(gate.select_cases(b"D\0Source17/Models.cs\0", "ISORIM-003.S05", manifest)), data)
+        self.assertEqual(set(gate.select_cases(b"R100\0Source17/Models.cs\0Source17/Models.cs\0", "ISORIM-003.S05", manifest)), data)
         manifest["groups"]["static"] = ["StaticNormalCases.Example"]
         manifest["cases"]["StaticNormalCases.Example"] = {"story": 1}
         with self.assertRaises(gate.Refusal):
-            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S04", manifest)
+            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S05", manifest)
         manifest = gate.case_manifest()
         del manifest["cases"][next(iter(data))]
         with self.assertRaises(gate.Refusal):
-            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S04", manifest)
+            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-003.S05", manifest)
         request = {"nonce": "fresh", "head": "head", "assemblyHash": "product"}
         proof = dict(request, caseId="case", passed=True, modules={"module": "hash"},
                      runtime="10.0.10-waylithclr.dev", gameVersion="1.7.4980.60", processId=42, evidencePaths=[])
