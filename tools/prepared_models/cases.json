@@ -16,13 +16,20 @@
     "StaticNormalCases.GpuAuthoredDirection": {"story": 3},
     "StaticNormalCases.ProductionLighting": {"story": 3},
     "StaticNormalCases.GeometricResponsibilities": {"story": 3},
-    "StaticNormalCases.OracleControls": {"story": 3}
+    "StaticNormalCases.OracleControls": {"story": 3},
+    "MovingNormalCases.DynamicTrueSpace": {"story": 4},
+    "MovingNormalCases.InstanceMatrices": {"story": 4},
+    "MovingNormalCases.MergedPartTransforms": {"story": 4},
+    "MovingNormalCases.TexturesMarksAndFallback": {"story": 4},
+    "MovingNormalCases.CacheAndBatchReuse": {"story": 4},
+    "MovingNormalCases.GpuAgreement": {"story": 4},
+    "MovingNormalCases.ProductionLighting": {"story": 4}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
     "intake": ["AssetIntakeCases.InternalPreference", "AssetIntakeCases.DefinitionRoot", "AssetIntakeCases.AdjacentMaterials", "AssetIntakeCases.FolderDiscoveryFreeze", "AssetIntakeCases.PreparedValidation"],
     "static": ["StaticNormalCases.TrueSpaceTransform", "StaticNormalCases.MixedStreams", "StaticNormalCases.MaterialAndShaderContract", "StaticNormalCases.GpuAuthoredDirection", "StaticNormalCases.ProductionLighting", "StaticNormalCases.GeometricResponsibilities", "StaticNormalCases.OracleControls"],
-    "moving": [],
+    "moving": ["MovingNormalCases.DynamicTrueSpace", "MovingNormalCases.InstanceMatrices", "MovingNormalCases.MergedPartTransforms", "MovingNormalCases.TexturesMarksAndFallback", "MovingNormalCases.CacheAndBatchReuse", "MovingNormalCases.GpuAgreement", "MovingNormalCases.ProductionLighting"],
     "integrated": []
   },
   "paths": {
@@ -53,6 +60,8 @@
     "1.7/Shaders/IsoRimTex.vert.glsl": ["static", "moving", "integrated"],
     "1.7/Shaders/IsoRimSolid.frag.glsl": ["static", "moving", "integrated"],
     "1.7/Defs/ShaderDefs/IsoRim_Shaders.xml": ["static", "moving", "integrated"],
-    "Source17/ProbeNormalsStatic.cs": ["all"]
+    "Source17/ProbeNormalsStatic.cs": ["all"],
+    "Source17/ProbeNormalsMoving.cs": ["all"],
+    "Source17/Instancing.cs": ["moving", "integrated"]
   }
 }

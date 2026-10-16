@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -595,11 +596,55 @@ def static_frame_requirements(cases):
     return required
 
 
+def moving_frame_requirements(cases):
+    poses = ("standing", "scaled", "laid", "mirror")
+    paths = ("single-solid", "single-texture", "instanced-solid", "instanced-texture")
+    tuples = [path + "-" + pose for pose in poses for path in paths]
+    tuples += ["merged-solid-" + pose + "-part" + str(part) for pose in poses for part in (0, 1)]
+    required = {}
+    for case in cases:
+        if not case.startswith("MovingNormalCases."):
+            continue
+        kind = case.split(".")[1]
+        selected = tuples
+        if kind == "DynamicTrueSpace":
+            selected = ["single-solid-" + pose for pose in poses]
+        elif kind == "InstanceMatrices":
+            selected = [path + "-" + pose for pose in poses for path in paths]
+        elif kind == "MergedPartTransforms":
+            selected = [item for item in tuples if item.startswith("merged")]
+        elif kind == "CacheAndBatchReuse":
+            selected = ["instanced-solid-standing"]
+        rows = {}
+        prefix = "moving-" + kind + "-"
+        if kind == "TexturesMarksAndFallback":
+            for path in ("single-texture", "instanced-texture"):
+                for variant in ("missing", "invalid"):
+                    rows[prefix + path + "-mirror-" + variant + "-direction-t0-l0"] = (True, 0, 0, 1, False)
+                rows[prefix + path + "-standing-mark-lighting-t0-l0"] = (False, 0, 0, 0, False)
+        else:
+            for item in selected:
+                if kind == "ProductionLighting":
+                    for fault in range(3):
+                        rows[f"{prefix}{item}-lighting-t0-l{fault}"] = (False, 0, fault, fault, False)
+                    rows[prefix + item + "-lighting-t0-l0reset"] = (False, 0, 0, 0, False)
+                else:
+                    rows[prefix + item + "-direction-t0-l0"] = (True, 0, 0, 0, False)
+                    if kind == "GpuAgreement":
+                        rows[prefix + item + "-direction-t1-l0"] = (True, 1, 0, 1, False)
+                        for fault in (1, 2):
+                            rows[f"{prefix}{item}-direction-t0-l{fault}"] = (True, 0, fault, 0, False)
+        required[case] = rows
+    return required
+
+
 def verify_static_pixels(evidence, cases, request, pid, started):
     """Bind every required observation to fresh raw GPU bytes and its PNG."""
     captures = []
     serials = set()
-    for case, required in static_frame_requirements(cases).items():
+    cache_meshes = {}
+    for case, required in {**static_frame_requirements(cases), **moving_frame_requirements(cases)}.items():
+        moving = case.startswith("MovingNormalCases.")
         path = evidence / (case + ".json")
         report = json.loads(path.read_text())
         if path.stat().st_mtime < started or report.get("caseId") != case or report.get("passed") is not True:
@@ -607,14 +652,41 @@ def verify_static_pixels(evidence, cases, request, pid, started):
         rows = report["readings"]
         if case.endswith("GeometricResponsibilities"):
             rows = [rows["ownCell"], rows["cutaway"]]
+        if moving:
+            rows = rows["captures"]
         if len(rows) != len(required) or {row["name"] for row in rows} != set(required):
             raise Refusal("The required framebuffer matrix is incomplete, duplicated or relabelled")
         for row in rows:
             diagnostic, transport, lighting, expected, legacy = required[row["name"]]
             if (row["diagnostic"], row["transportFault"], row["lightingFault"], row["expectedIndex"]) != (diagnostic, transport, lighting, expected):
                 raise Refusal("The requested framebuffer control differs from its required matrix")
-            if (row["observedDiagnostic"], row["observedTransportFault"], row["observedLightingFault"], row["lightMode"], row["normalSpace"]) != (int(diagnostic), transport, lighting, 1, 0 if legacy else 1):
+            normal_space = 2 if moving else 0 if legacy else 1
+            if (row["observedDiagnostic"], row["observedTransportFault"], row["observedLightingFault"], row["lightMode"], row["normalSpace"]) != (int(diagnostic), transport, lighting, 1, normal_space):
                 raise Refusal("The observed framebuffer controls differ")
+            if moving:
+                instanced = row["pathKind"].startswith("instanced")
+                count = 2 if instanced else 1
+                if row["recordingPath"] != "MeshBatchRenderer.RecordPass" or row["nativeInstancedBatches"] != (len(row["submissions"]) if instanced else 0):
+                    raise Refusal("The framebuffer did not use the native instance-aware recording path")
+                if row["markSpace"] != 0 or row["markSubmissions"] != 1 or len(row["actualMatrices"]) != count:
+                    raise Refusal("Moving marks or matrix counts differ")
+                if not row["submissions"] or any(item["instanced"] != instanced or item["count"] != count for item in row["submissions"]):
+                    raise Refusal("The actual single/instanced submission path differs")
+                if len(row["actualMatrices"]) != len(row["expectedMatrices"]) or any(len(a) != 16 or len(b) != 16 or any(not math.isfinite(v) for v in [*a,*b]) or max(abs(x-y) for x, y in zip(a,b)) >= .002 for a,b in zip(row["actualMatrices"],row["expectedMatrices"])):
+                    raise Refusal("Actual moving matrices differ from requested placements")
+                data = bytes.fromhex(row["matrixBufferHex"])
+                if len(data) != (128 if instanced else 0):
+                    raise Refusal("The binding-4 matrix bytes differ")
+                if instanced:
+                    values = struct.unpack("<32f", data)
+                    reported = [value for matrix in row["actualMatrices"] for value in matrix]
+                    if any(abs(x-y) > 1e-6 * max(1,abs(x)) for x,y in zip(values,reported)):
+                        raise Refusal("The reported matrices differ from submission bytes")
+                if not case.endswith("TexturesMarksAndFallback"):
+                    identity = (case, "merged" if row["partIndex"] >= 0 else "texture" if row["textured"] else "solid")
+                    if identity in cache_meshes and cache_meshes[identity] != row["meshId"]:
+                        raise Refusal("Moving tuples rebuilt a mesh instead of reusing their cache")
+                    cache_meshes[identity] = row["meshId"]
             if (row["width"], row["height"]) != (1024, 256) or row["backend"] != "RimWorldWaylith.Rendering.CameraTextureBaker":
                 raise Refusal("The approved framebuffer path differs")
             serial = row["gpuFrameCompleted"]

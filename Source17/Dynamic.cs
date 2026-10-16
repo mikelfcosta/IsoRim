@@ -41,15 +41,17 @@ namespace IsoRim
         private class Lists
         {
             public List<Vector3> verts = new List<Vector3>();
+            public List<Vector3> normals = new List<Vector3>();
             public List<Color32> colors = new List<Color32>();
             public List<Vector2> uvs = new List<Vector2>();
             public List<int> tris = new List<int>();
             public Material material;
 
-            public void Add(Vector3 v, Color32 c, Vector2 uv)
+            public void Add(Vector3 v, Color32 c, Vector2 uv, Vector3 normal = default)
             {
                 tris.Add(verts.Count);
                 verts.Add(v);
+                normals.Add(normal);
                 colors.Add(c);
                 uvs.Add(uv);
             }
@@ -57,7 +59,11 @@ namespace IsoRim
             public Mesh ToMesh()
             {
                 Mesh mesh = new Mesh();
+                for (int i = 0; i + 2 < normals.Count; i += 3)
+                    if (!NormalStreams.Usable(normals[i]) || !NormalStreams.Usable(normals[i + 1]) || !NormalStreams.Usable(normals[i + 2]))
+                        normals[i] = normals[i + 1] = normals[i + 2] = Vector3.zero;
                 mesh.SetVertices(verts);
+                mesh.SetNormals(normals);
                 mesh.SetColors(colors);
                 mesh.SetUVs(0, uvs);
                 mesh.SetTriangles(tris, 0);
@@ -66,7 +72,8 @@ namespace IsoRim
             }
         }
 
-        private static readonly Dictionary<long, List<Part>> cache = new Dictionary<long, List<Part>>();
+        // Loaded streams are immutable. Replacing either authored array changes upload identity.
+        private static readonly Dictionary<(Model, Vector3[], bool[], long), List<Part>> cache = new Dictionary<(Model, Vector3[], bool[], long), List<Part>>();
         private static readonly Color32 White = new Color32(255, 255, 255, 255);
 
         // Meshes no longer wanted are destroyed a couple of frames later rather than at once:
@@ -107,7 +114,7 @@ namespace IsoRim
         // Throws away every ready-made mesh; they are made again as they are needed.
         public static void Forget()
         {
-            foreach (KeyValuePair<long, List<Part>> pair in cache)
+            foreach (var pair in cache)
             {
                 List<Part> parts = pair.Value;
                 for (int i = 0; i < parts.Count; i++)
@@ -184,7 +191,7 @@ namespace IsoRim
         {
             List<Part> parts = new List<Part>();
             Material solidMat = R3DMaterials.Solid;
-            Material litMat = R3DMaterials.LitModel;
+            Material litMat = R3DMaterials.Lit(0, 0, ShadingNormalSpace.ModelLocal);
             if (solidMat == null || litMat == null)
             {
                 return parts;
@@ -198,12 +205,17 @@ namespace IsoRim
                 {
                     Model m = models[k];
                     Matrix4x4 local = locals[k];
+                    Matrix4x4 normalTransform = local.inverse.transpose;
+                    float determinant = Vector3.Dot(new Vector3(local.m00, local.m10, local.m20),
+                        Vector3.Cross(new Vector3(local.m01, local.m11, local.m21), new Vector3(local.m02, local.m12, local.m22)));
+                    bool invertible = float.IsFinite(determinant) && determinant != 0f;
                     Color tint = tints[k];
                     int n = m.positions.Length;
                     for (int i = 0; i + 2 < n; i += 3)
                     {
                         int mi = m.material != null ? m.material[i] : 0;
                         ModelMaterial mm = m.materials != null ? m.materials[mi] : null;
+                        bool authored = invertible && AuthoredTriangle(m, i);
                         Lists into = mm != null && mm.glow ? glowing : solid;
                         for (int v = i; v < i + 3; v++)
                         {
@@ -212,7 +224,7 @@ namespace IsoRim
                             {
                                 c *= tint;
                             }
-                            into.Add(local.MultiplyPoint3x4(m.positions[v]), R3DMaterials.Shaded(c, 1f), Vector2.zero);
+                            into.Add(local.MultiplyPoint3x4(m.positions[v]), R3DMaterials.Shaded(c, 1f), Vector2.zero, authored ? normalTransform.MultiplyVector(m.shadingNormals[v]).normalized : Vector3.zero);
                             if (m.hull != null && (m.noOutline == null || !m.noOutline[v]))
                             {
                                 outline.Add(local.MultiplyPoint3x4(m.positions[v] + m.hull[v]), R3DMaterials.Shaded(c, ModelBaker.OutlineShade), Vector2.zero);
@@ -313,13 +325,14 @@ namespace IsoRim
             long key = ((long)m.id << 34) | ((long)(textured ? 1 : 0) << 27) | ((long)R3DTextures.SwatchIndex(swatch) << 24)
                 | (uint)((t.r << 16) | (t.g << 8) | t.b);
 
+            var identity = (m, m.shadingNormals, m.authoredNormals, key);
             List<Part> parts;
-            if (cache.TryGetValue(key, out parts))
+            if (cache.TryGetValue(identity, out parts))
             {
                 return parts;
             }
             parts = new List<Part>();
-            cache[key] = parts;
+            cache[identity] = parts;
             try
             {
                 Build(m, tint, swatch, textured, parts);
@@ -332,13 +345,18 @@ namespace IsoRim
             return parts;
         }
 
+        private static bool AuthoredTriangle(Model model, int corner) => model.shadingNormals != null && model.authoredNormals != null
+            && model.shadingNormals.Length >= corner + 3 && model.authoredNormals.Length >= corner + 3
+            && model.authoredNormals[corner] && model.authoredNormals[corner + 1] && model.authoredNormals[corner + 2]
+            && NormalStreams.Usable(model.shadingNormals[corner]) && NormalStreams.Usable(model.shadingNormals[corner + 1]) && NormalStreams.Usable(model.shadingNormals[corner + 2]);
+
         // The same three layers ModelBaker writes: a plain solid copy (lit; glowing faces unlit),
         // an enlarged inside-out copy for the outline, and the textured faces (lit like ModelBaker's,
         // texture colour * TextureLift; glowing ones unlit).
         private static void Build(Model m, Color tint, string swatch, bool textured, List<Part> parts)
         {
             Material solidMat = R3DMaterials.Solid;
-            Material litMat = R3DMaterials.LitModel;
+            Material litMat = R3DMaterials.Lit(0, 0, ShadingNormalSpace.ModelLocal);
             if (solidMat == null || litMat == null)
             {
                 return;
@@ -368,7 +386,7 @@ namespace IsoRim
                             c *= tint;
                         }
                         string path = mm.texture.Replace("{stuff}", swatch);
-                        Material tmat = glow ? R3DTextures.MaterialFor(path, c) : R3DMaterials.LitTexture(path, c);
+                        Material tmat = glow ? R3DTextures.MaterialFor(path, c) : R3DMaterials.LitTexture(path, c, 0, 0, ShadingNormalSpace.ModelLocal);
                         if (tmat != null)
                         {
                             texturedLists[mi] = new Lists();
@@ -378,6 +396,7 @@ namespace IsoRim
                     tl = texturedLists[mi];
                 }
 
+                bool authored = AuthoredTriangle(m, i);
                 Lists into = glow ? glowing : solid;
                 for (int k = i; k < i + 3; k++)
                 {
@@ -387,14 +406,14 @@ namespace IsoRim
                     {
                         c *= tint;
                     }
-                    into.Add(tl != null ? m.positions[k] - hull * ModelBaker.Inset : m.positions[k], R3DMaterials.Shaded(c, 1f), Vector2.zero);
+                    into.Add(tl != null ? m.positions[k] - hull * ModelBaker.Inset : m.positions[k], R3DMaterials.Shaded(c, 1f), Vector2.zero, authored ? m.shadingNormals[k] : Vector3.zero);
                     if (m.hull != null && (m.noOutline == null || !m.noOutline[k]))
                     {
                         outline.Add(m.positions[k] + hull, R3DMaterials.Shaded(c, ModelBaker.OutlineShade), Vector2.zero);
                     }
                     if (tl != null)
                     {
-                        tl.Add(m.positions[k] + m.normals[i] * ModelBaker.FaceLift, White, m.uvs[k]);
+                        tl.Add(m.positions[k] + m.normals[i] * ModelBaker.FaceLift, White, m.uvs[k], authored ? m.shadingNormals[k] : Vector3.zero);
                     }
                 }
             }
