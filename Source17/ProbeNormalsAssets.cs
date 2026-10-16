@@ -562,7 +562,7 @@ R29-valid|0|A|-";
                     && hash == item.GetProperty("objHash").GetString() && hash == control.GetProperty("objHash").GetString()
                     && hash == control.GetProperty("actualInputHash").GetString(),
                     "The loader and CLI did not observe the same input bytes: " + id);
-                string material = Path.Combine(root, id, "sample.mtl");
+                string material = Path.GetFullPath(Path.Combine(root, id, "sample.mtl"));
                 Require(item.GetProperty("mtlHex").ValueKind == JsonValueKind.Null ? !File.Exists(material)
                     : Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(material))) == item.GetProperty("mtlHash").GetString(),
                     "The recovery material input differs: " + id);
@@ -622,14 +622,19 @@ R29-valid|0|A|-";
                 if (id == "R27-missing-mtl" || id == "R27-escaping-mtl")
                     shadingMatch &= diagnostics.Any(message => message.Contains("Material file not found"));
                 bool passed = flagsMatch && shadingMatch && bitsMatch;
-                if (!passed) failures.Add(id + ": expected=" + oracle[2] + " actual=" + actual + " bits=" + Bits(scalar));
+                if (!passed) failures.Add(id + ": expected=" + oracle[2] + " actual=" + actual + " bits=" + Bits(scalar)
+                    + " flagsMatch=" + flagsMatch + " shadingMatch=" + shadingMatch + " bitsMatch=" + bitsMatch);
                 observations.Add(new
                 {
                     id,
+                    selectedFile = file,
                     expectedCli = oracle[1],
                     expectedLoader = oracle[2],
                     actualLoader = actual,
                     passed,
+                    flagsMatch,
+                    shadingMatch,
+                    bitsMatch,
                     strictProfile = item.GetProperty("strictProfile").GetBoolean(),
                     inputHex = Convert.ToHexString(bytes),
                     inputHash = hash,

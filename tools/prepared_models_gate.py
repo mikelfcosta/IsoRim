@@ -257,13 +257,18 @@ def validate_staged_intake(evidence, protected):
 
     def run(name, root, diagnostic=""):
         command = [sys.executable, "tools/validate_mod.py", "--mod-dir", str(root), "--check-assemblies"]
-        result = run_child(command, evidence, "validator-" + name, protected, expected_exit=None)
+        inputs = [root / relative for relative in ("1.7/Defs/Diagnostics/Models.xml", "1.7/Defs/Diagnostics/WornGear.xml",
+                  "1.7/Models/Diagnostics/internal.obj", "1.7/Models/Diagnostics/sample.mtl", "1.7/Models/Diagnostics/legacy.obj")]
+        inputs = [path for path in inputs if path.is_file()]
+        snapshot = {path: digest(path) for path in inputs}
+        raw_inputs = [{"path": path.relative_to(root).as_posix(), "sha256": snapshot[path], "hex": path.read_bytes().hex()} for path in inputs]
+        result = run_child(command, evidence, "validator-" + name, {**protected, **snapshot}, expected_exit=None)
         output = (evidence / f"validator-{name}.stdout.log").read_text()
         error = (evidence / f"validator-{name}.stderr.log").read_text()
         marker = next((line[len("Prepared inputs: "):] for line in output.splitlines() if line.startswith("Prepared inputs: ")), "[]")
         rows.append({"name": name, "command": command, "exit": result.returncode,
                      "expectedSuccess": not bool(diagnostic), "diagnosticMatched": not diagnostic or diagnostic in error,
-                     "checkedPaths": json.loads(marker)})
+                     "checkedPaths": json.loads(marker), "inputFiles": raw_inputs})
 
     run("passing", staged)
     if rows[0]["exit"] == 0:
@@ -566,6 +571,8 @@ def runtime_cases(args, evidence, protected, cases, head):
         Path(request["fixtureDirectory"]).mkdir(parents=True)
         (save / "IsoRimNormalRequest.json").write_text(json.dumps(request))
         runtime_inputs = {path: digest(path) for path in runtime.rglob("*") if path.is_file()}
+        runtime_manifest = evidence / "runtime-inputs.json"
+        runtime_manifest.write_text(json.dumps({str(path): value for path, value in runtime_inputs.items()}, indent=2))
         started = time.time()
         with (evidence / "runtime.stdout.log").open("wb") as stdout, (evidence / "runtime.stderr.log").open("wb") as stderr:
             environment = dict(os.environ)
@@ -584,7 +591,8 @@ def runtime_cases(args, evidence, protected, cases, head):
                 (evidence / "runtime-process.json").write_text(json.dumps({
                     "pid": child.pid, "argv": child.args, "exit": child.returncode, "started": started,
                     "ended": time.time(), "protectedInputs": len(protected), "runtimeInputs": len(runtime_inputs),
-                    "expectedModules": modules, "assemblyHash": request["assemblyHash"]}, indent=2))
+                    "expectedModules": modules, "assemblyHash": request["assemblyHash"],
+                    "runtimeInputManifestSha256": digest(runtime_manifest)}, indent=2))
         if child.returncode:
             raise Refusal(f"The runtime exited {child.returncode}")
         active = ET.parse(save / "Config/ModsConfig.xml").findall(".//activeMods/li")
@@ -598,6 +606,20 @@ def runtime_cases(args, evidence, protected, cases, head):
             raise Refusal("The staged validator accepted an invalid input or rejected the passing control")
         if validator_results and any(row["exit"] != row["cli"] or not row["diagnosticMatched"] or not row["bitMatched"] for row in validator_results["recovery"]):
             raise Refusal("A recovery full-CLI matrix control failed")
+        if validator_results:
+            loader_path = evidence / "RecoveryLoader.json"
+            observed = json.loads(loader_path.read_text())
+            required = {row["id"]: row for row in validator_results["recovery"]}
+            if loader_path.stat().st_mtime < started or len(observed) != len(required) or {row["id"] for row in observed} != set(required):
+                raise Refusal("The actual recovery observations are stale, missing, duplicated or relabelled")
+            if any(not row["passed"] or row["actualLoader"] != required[row["id"]]["loader"]
+                   or row["inputHash"] != required[row["id"]]["actualInputHash"] for row in observed):
+                raise Refusal("The actual loader differs from the required recovery inputs or outcomes")
+            (evidence / "recovery-receipt.json").write_text(json.dumps({
+                "nonce": evidence.name, "head": head, "assemblyHash": request["assemblyHash"], "processId": child.pid,
+                "subcaseIds": sorted(required), "runtimeInputManifestSha256": digest(runtime_manifest),
+                "validatorReportSha256": digest(evidence / "validator-results.json"),
+                "loaderReportSha256": digest(loader_path)}, indent=2))
         return proofs
 
 
@@ -674,6 +696,8 @@ def main():
             raise Refusal("The execution tree changed during validation")
         receipt = dict(selection, command=args.command, acceptance=args.command != "ci", proofs=proofs, hostResults=host_results,
                        compatibilityOnly=args.command == "ci")
+        if (evidence / "recovery-receipt.json").is_file():
+            receipt["recoveryReceiptSha256"] = digest(evidence / "recovery-receipt.json")
         (evidence / "receipt.json").write_text(json.dumps(receipt, indent=2))
         print(f"PASS {args.command}: {len(proofs)} runtime cases. Evidence: {evidence}")
         return 0
