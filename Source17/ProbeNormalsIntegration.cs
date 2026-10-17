@@ -827,6 +827,165 @@ namespace IsoRim
 
         private static readonly List<object> outlineFrames = new List<object>();
 
+        private sealed class SettingsLayoutRow
+        {
+            public int mode { get; set; }
+            public bool outlines { get; set; }
+            public string position { get; set; }
+            public float[] label { get; set; }
+            public float[] slider { get; set; }
+            public float[][] clips { get; set; }
+            public float[] scroll { get; set; }
+            public float contentHeight { get; set; }
+            public float leftHeight { get; set; }
+            public float rightHeight { get; set; }
+            public float[] inRect { get; set; }
+            public string pngPath { get; set; }
+            public string pngHash { get; set; }
+        }
+
+        private static readonly List<SettingsLayoutRow> settingsLayout = new List<SettingsLayoutRow>();
+        private static ProbeNormals.Request layoutRequest;
+        private static Dialog_ModSettings layoutWindow;
+        private static IsoRimSettings layoutPreviousSettings;
+        private static Harmony layoutHook;
+        private static int layoutFrame, layoutMode;
+        private static bool layoutFinished, layoutOutlineLabel;
+        private static SettingsLayoutRow layoutRow;
+        private static int layoutColumn, layoutPreviousTab;
+        private static Vector2 layoutPreviousScroll;
+        private static float layoutPreviousHeight;
+        private static readonly FieldInfo layoutTab = typeof(SettingsWindow).GetField("tab", Hidden);
+        private static readonly FieldInfo layoutScroll = typeof(SettingsWindow).GetField("objectsScroll", Hidden);
+        private static readonly FieldInfo layoutHeight = typeof(SettingsWindow).GetField("objectsHeight", Hidden);
+        private static float[] LayoutRect(Rect rect) => new[] { rect.x, rect.y, rect.width, rect.height };
+
+        // Observe the real window and widgets over completed engine frames. Do not replace any
+        // listing, layout, label or slider implementation in this visibility witness.
+        private static void LayoutLabel(Rect rect, string label)
+        {
+            if (label == "Buildings and nature") layoutColumn = 0;
+            if (layoutRow == null || label != "Outline width" || Event.current.type != EventType.Repaint) return;
+            layoutOutlineLabel = true;
+            layoutRow.label = LayoutRect(GUIUtility.GUIToScreenRect(rect));
+        }
+
+        private static void LayoutColumnEnd(Listing_Standard __instance)
+        {
+            if (layoutRow == null || Event.current.type != EventType.Repaint) return;
+            if (layoutColumn++ == 0) layoutRow.leftHeight = __instance.CurHeight;
+            else layoutRow.rightHeight = __instance.CurHeight;
+        }
+
+        private static void LayoutWindowRect(Rect inRect)
+        {
+            if (layoutRow != null) layoutRow.inRect = LayoutRect(inRect);
+        }
+
+        private static void LayoutSlider(Rect rect)
+        {
+            if (!layoutOutlineLabel || layoutRow == null || Event.current.type != EventType.Repaint) return;
+            layoutOutlineLabel = false;
+            layoutRow.slider = LayoutRect(GUIUtility.GUIToScreenRect(rect));
+            var backend = UnityStubs.Gui.GuiBackend.Current;
+            var clips = new List<float[]>();
+            Vector2 parentOffset = Vector2.zero;
+            for (int i = 0; i < backend.GroupCount; i++)
+            {
+                backend.GetGroup(i, out Rect clip, out Vector2 offset);
+                clips.Add(new[] { clip.x + parentOffset.x, clip.y + parentOffset.y, clip.width, clip.height });
+                parentOffset = offset;
+            }
+            layoutRow.clips = clips.ToArray();
+            Vector2 scroll = (Vector2)layoutScroll.GetValue(null);
+            layoutRow.scroll = new[] { scroll.x, scroll.y };
+            layoutRow.contentHeight = (float)layoutHeight.GetValue(null);
+        }
+
+        internal static bool SettingsLayoutTick(ProbeNormals.Request request)
+        {
+            if (layoutFinished) return true;
+            if (layoutRequest == null)
+            {
+                layoutRequest = request;
+                if (!layoutRequest.caseIds.Contains("ModelStyleCases.ControlledOutlines")) { layoutFinished = true; return true; }
+                layoutPreviousSettings = IsoRimMod.Settings;
+                layoutPreviousTab = (int)layoutTab.GetValue(null);
+                layoutPreviousScroll = (Vector2)layoutScroll.GetValue(null);
+                layoutPreviousHeight = (float)layoutHeight.GetValue(null);
+                IsoRimMod.Settings = new IsoRimSettings();
+                layoutTab.SetValue(null, 3);
+                layoutHeight.SetValue(null, 800f);
+                layoutHook = new Harmony("isorim.style.real-settings-layout");
+                layoutHook.Patch(typeof(Listing_Standard).GetMethod("End"),
+                    postfix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod(nameof(LayoutColumnEnd), Hidden)));
+                layoutHook.Patch(typeof(IsoRimMod).GetMethod("DoSettingsWindowContents"),
+                    prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod(nameof(LayoutWindowRect), Hidden)));
+                layoutHook.Patch(typeof(Widgets).GetMethod("Label", new[] { typeof(Rect), typeof(string) }),
+                    prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod(nameof(LayoutLabel), Hidden)));
+                foreach (MethodInfo method in typeof(Widgets).GetMethods().Where(m => m.Name == "HorizontalSlider" && m.ReturnType == typeof(float) && m.GetParameters()[0].ParameterType == typeof(Rect)))
+                    layoutHook.Patch(method, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod(nameof(LayoutSlider), Hidden)));
+                layoutWindow = new Dialog_ModSettings(LoadedModManager.GetMod<IsoRimMod>());
+                Find.WindowStack.Add(layoutWindow);
+            }
+            // Leave each state up for several real GUI frames, then capture top and maximum
+            // scroll. The next tick occurs after the engine has written the requested screenshot.
+            if (layoutFrame == 0)
+            {
+                IsoRimMod.Settings.modelStyle = layoutMode % 3;
+                IsoRimMod.Settings.outlines = layoutMode < 3;
+                layoutScroll.SetValue(null, Vector2.zero);
+                layoutRow = new SettingsLayoutRow { mode = layoutMode % 3, outlines = layoutMode < 3, position = "top" };
+            }
+            if (layoutFrame == 5 || layoutFrame == 11)
+            {
+                layoutRow.pngPath = "settings-window-" + layoutMode + "-" + layoutRow.position + ".png";
+                settingsLayout.Add(layoutRow);
+                ScreenCapture.CaptureScreenshot(Path.Combine(layoutRequest.outputDirectory, layoutRow.pngPath));
+                layoutRow = null;
+            }
+            if (layoutFrame == 7)
+            {
+                layoutScroll.SetValue(null, new Vector2(0, 10000));
+                layoutRow = new SettingsLayoutRow { mode = layoutMode % 3, outlines = layoutMode < 3, position = "bottom" };
+            }
+            if (++layoutFrame < 14) return false;
+            layoutFrame = 0;
+            if (++layoutMode < 6) return false;
+            foreach (SettingsLayoutRow row in settingsLayout)
+                row.pngHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(layoutRequest.outputDirectory, row.pngPath))));
+            File.WriteAllText(Path.Combine(layoutRequest.outputDirectory, "settings-window-layout.json"), JsonSerializer.Serialize(new
+            {
+                screen = new[] { Screen.width, Screen.height },
+                window = LayoutRect(layoutWindow.windowRect),
+                rows = settingsLayout
+            }));
+            layoutWindow.Close();
+            layoutHook.UnpatchAll(layoutHook.Id);
+            IsoRimMod.Settings = layoutPreviousSettings;
+            layoutTab.SetValue(null, layoutPreviousTab);
+            layoutScroll.SetValue(null, layoutPreviousScroll);
+            layoutHeight.SetValue(null, layoutPreviousHeight);
+            layoutFinished = true;
+            return true;
+        }
+
+        private static object SettingsWindowVisibility()
+        {
+            Check(settingsLayout.Count == 12, "Real settings window captures are incomplete");
+            foreach (SettingsLayoutRow row in settingsLayout.Where(row => row.position == "bottom"))
+            {
+                Check(row.label != null && row.slider != null && row.clips != null && row.clips.Length >= 4,
+                    "Real settings window never reached Outline width: mode=" + row.mode);
+                foreach (float[] rect in new[] { row.label, row.slider })
+                    foreach (float[] clip in row.clips)
+                        Check(rect[0] >= clip[0] - .1f && rect[1] >= clip[1] - .1f
+                            && rect[0] + rect[2] <= clip[0] + clip[2] + .1f && rect[1] + rect[3] <= clip[1] + clip[3] + .1f,
+                            "Outline width is clipped in the real settings window: mode=" + row.mode + " outlines=" + row.outlines);
+            }
+            return settingsLayout;
+        }
+
         private static readonly HashSet<string> uiLabels = new HashSet<string>();
         private static readonly Dictionary<string, float> uiSliders = new Dictionary<string, float> { { "Soft light wrap", .31f }, { "Matte highlight", .08f }, { "Roughness", .9f }, { "Outline width", 1.25f } };
         private static string uiSlider;
@@ -858,7 +1017,7 @@ namespace IsoRim
             var hook = new Harmony("isorim.style.settings-ui-proof");
             var label = typeof(Widgets).GetMethods().Where(method => method.Name == "Label" && method.GetParameters().Length >= 2 && method.GetParameters()[0].ParameterType == typeof(Rect) && method.GetParameters()[1].ParameterType == typeof(string)).OrderBy(method => method.GetParameters().Length).First();
             var button = typeof(Widgets).GetMethods().Where(method => method.Name == "ButtonText" && method.GetParameters().Length >= 2 && method.GetParameters()[0].ParameterType == typeof(Rect) && method.GetParameters()[1].ParameterType == typeof(string)).OrderBy(method => method.GetParameters().Length).First();
-            var slider = typeof(Listing_Standard).GetMethods().Where(method => method.Name == "Slider" && method.ReturnType == typeof(float)).OrderBy(method => method.GetParameters().Length).First();
+            var slider = typeof(Widgets).GetMethods().Where(method => method.Name == "HorizontalSlider" && method.ReturnType == typeof(float) && method.GetParameters()[0].ParameterType == typeof(Rect)).OrderBy(method => method.GetParameters().Length).First();
             hook.Patch(label, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod("UiLabel", Hidden)));
             hook.Patch(button, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod("UiButton", Hidden)));
             hook.Patch(slider, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod("UiSlider", Hidden)));
@@ -928,6 +1087,7 @@ namespace IsoRim
                 {
                     automatedProxyOnly = true,
                     manualWitnessPerformed = false,
+                    realWindow = SettingsWindowVisibility(),
                     modes = readings,
                     settingsReloaded = true,
                     frames = outlineFrames.Skip(frameStart).ToArray()

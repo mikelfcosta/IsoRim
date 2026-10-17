@@ -329,12 +329,26 @@ class GateHostTests(unittest.TestCase):
                                   "input": [.75, .25, 1.5], "value": 1.25, "settingsReloaded": True,
                                   "beforePixels": 4096, "afterPixels": 4356 if enabled else 4096,
                                   "beforeFrame": stem + "-before", "afterFrame": stem + "-after"})
-            ui = {"modes": modes, "frames": frames, "settingsReloaded": True}
+            layout = [{"mode": mode, "outlines": enabled, "position": position,
+                       "label": [100, 100, 100, 22], "slider": [100, 122, 100, 22],
+                       "clips": [[0, 0, 512, 512]] * 4,
+                       "pngPath": frames[0]["pngPath"], "pngHash": frames[0]["pngHash"]}
+                      for mode in range(3) for enabled in (True, False) for position in ("top", "bottom")]
+            ui = {"modes": modes, "frames": frames, "settingsReloaded": True, "realWindow": layout}
             def verify_ui(value):
                 (root / "ModelStyleCases.ControlledOutlines.json").write_text(json.dumps({
                     "caseId": "ModelStyleCases.ControlledOutlines", "passed": True, "readings": {"uiProxy": value}}))
                 gate.verify_integrated(root, ["ModelStyleCases.ControlledOutlines"], {}, 1, 0, [])
             verify_ui(ui)
+            bad = deepcopy(ui); bad.pop("realWindow")
+            with self.assertRaisesRegex(gate.Refusal, "real settings window"):
+                verify_ui(bad)
+            for index in range(1, 12, 2):
+                for key, value in (("label", [600, 100, 100, 22]), ("slider", [100, 600, 100, 22]),
+                                   ("slider", None), ("clips", [[0, 0, 512, 512]] * 3)):
+                    bad = deepcopy(ui); bad["realWindow"][index][key] = value
+                    with self.assertRaises(gate.Refusal):
+                        verify_ui(bad)
             bad = deepcopy(ui); bad["modes"].pop()
             with self.assertRaises(gate.Refusal):
                 verify_ui(bad)
