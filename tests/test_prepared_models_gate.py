@@ -302,6 +302,59 @@ class GateHostTests(unittest.TestCase):
             with self.assertRaises(gate.Refusal):
                 verify_timings(bad)
 
+        # The UI protocol covers every shading mode with outlines enabled and disabled.
+        with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
+            root = Path(tmp); modes = []; frames = []
+            labels = ("Classic faceted", "Matte clay (wrapped)", "Matte clay (Oren-Nayar)")
+            for mode in range(3):
+                for enabled in (True, False):
+                    stem = f"ui-{mode}-{'on' if enabled else 'off'}"
+                    for phase in ("before", "after"):
+                        side = 66 if enabled and phase == "after" else 64
+                        raw = bytearray(bytes((255, 0, 255, 255)) * 512 * 512)
+                        for y in range(100, 100 + side):
+                            for x in range(100, 100 + side):
+                                raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 4] = bytes((50, 80, 100, 255))
+                        def chunk(kind, data):
+                            return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+                        png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 512, 512, 8, 6, 0, 0, 0))
+                        png += chunk(b"IDAT", zlib.compress(b"".join(b"\x00" + raw[y*2048:(y+1)*2048] for y in range(512)))) + chunk(b"IEND", b"")
+                        name = stem + "-" + phase
+                        (root / (name + ".rgba")).write_bytes(raw); (root / (name + ".png")).write_bytes(png)
+                        frames.append({"name": name, "pixels": side * side, "commands": 1,
+                                       "gpuFrameBefore": len(frames), "gpuFrameCompleted": len(frames) + 1,
+                                       "rawPath": name + ".rgba", "rawHash": gate.digest(root / (name + ".rgba")),
+                                       "pngPath": name + ".png", "pngHash": gate.digest(root / (name + ".png"))})
+                    modes.append({"mode": mode, "outlines": enabled, "labels": ["Outline width", "Model shading: " + labels[mode]],
+                                  "input": [.75, .25, 1.5], "value": 1.25, "settingsReloaded": True,
+                                  "beforePixels": 4096, "afterPixels": 4356 if enabled else 4096,
+                                  "beforeFrame": stem + "-before", "afterFrame": stem + "-after"})
+            ui = {"modes": modes, "frames": frames, "settingsReloaded": True}
+            def verify_ui(value):
+                (root / "ModelStyleCases.ControlledOutlines.json").write_text(json.dumps({
+                    "caseId": "ModelStyleCases.ControlledOutlines", "passed": True, "readings": {"uiProxy": value}}))
+                gate.verify_integrated(root, ["ModelStyleCases.ControlledOutlines"], {}, 1, 0, [])
+            verify_ui(ui)
+            bad = deepcopy(ui); bad["modes"].pop()
+            with self.assertRaises(gate.Refusal):
+                verify_ui(bad)
+            for index in range(6):
+                bad = deepcopy(ui); bad["modes"][index]["labels"].remove("Outline width")
+                with self.assertRaises(gate.Refusal):
+                    verify_ui(bad)
+            for key, value in (("input", [.75, 0, 2]), ("value", .75), ("settingsReloaded", False)):
+                bad = deepcopy(ui); bad["modes"][0][key] = value
+                with self.assertRaises(gate.Refusal):
+                    verify_ui(bad)
+            # Valid hashes and coverage cannot impersonate an enabled slider with no effect.
+            bad = deepcopy(ui); target = bad["frames"][1]; source = bad["frames"][0]
+            for kind in ("raw", "png"):
+                (root / target[kind + "Path"]).write_bytes((root / source[kind + "Path"]).read_bytes())
+                target[kind + "Hash"] = gate.digest(root / target[kind + "Path"])
+            target["pixels"] = 4096; bad["modes"][0]["afterPixels"] = 4096
+            with self.assertRaisesRegex(gate.Refusal, "rendered effect"):
+                verify_ui(bad)
+
         # Synthetic protocol controls bind all eight real-capture paths. These bytes
         # exercise refusal behavior only; the acceptance witness runs in the game.
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:

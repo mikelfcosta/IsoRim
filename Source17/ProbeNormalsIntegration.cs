@@ -830,6 +830,7 @@ namespace IsoRim
         private static readonly HashSet<string> uiLabels = new HashSet<string>();
         private static readonly Dictionary<string, float> uiSliders = new Dictionary<string, float> { { "Soft light wrap", .31f }, { "Matte highlight", .08f }, { "Roughness", .9f }, { "Outline width", 1.25f } };
         private static string uiSlider;
+        private static readonly List<float[]> uiOutlineInputs = new List<float[]>();
         private static bool UiLabel(object[] __args)
         {
             foreach (object value in __args)
@@ -845,9 +846,10 @@ namespace IsoRim
             string label = __args.OfType<string>().FirstOrDefault() ?? "";
             uiLabels.Add(label); __result = label.StartsWith("Model shading:", StringComparison.Ordinal); return false;
         }
-        private static bool UiSlider(ref float __result)
+        private static bool UiSlider(object[] __args, ref float __result)
         {
             Check(uiSlider != null && uiSliders.ContainsKey(uiSlider), "UI slider has no model-style label");
+            if (uiSlider == "Outline width") uiOutlineInputs.Add(__args.OfType<float>().Take(3).ToArray());
             __result = uiSliders[uiSlider]; uiSlider = null; return false;
         }
 
@@ -862,36 +864,74 @@ namespace IsoRim
             hook.Patch(slider, prefix: new HarmonyMethod(typeof(ModelStyleCases).GetMethod("UiSlider", Hidden)));
             string[] names = { "Classic faceted", "Matte clay (wrapped)", "Matte clay (Oren-Nayar)" };
             var readings = new List<object>();
+            int frameStart = outlineFrames.Count;
+            Model model = ObjLoader.Load(Path.Combine(request.fixtureDirectory, "outline-cube.obj"));
+            Check(model != null, "UI effect fixture is unavailable");
             try
             {
                 for (int mode = 0; mode < 3; mode++)
+                    foreach (bool enabled in new[] { true, false })
+                    {
+                        uiLabels.Clear(); uiSlider = null; uiOutlineInputs.Clear();
+                        IsoRimSettings st = IsoRimMod.Settings;
+                        st.modelStyle = mode; st.outlines = enabled; st.outlineWidth = .75f;
+                        string stem = "ui-" + mode + "-" + (enabled ? "on" : "off");
+                        DynamicModels.Forget();
+                        OutlineGeometry before = Geometry(model, "dynamic");
+                        int beforePixels = OutlinePixels(request, stem + "-before", before);
+                        DynamicModels.Destroy(before.Parts);
+                        var listing = new Listing_Standard(); listing.Begin(new Rect(0, 0, 700, 1600));
+                        typeof(SettingsWindow).GetMethod("ObjectsTab", Hidden).Invoke(null, new object[] { null, listing, st });
+                        listing.End();
+                        Check(uiLabels.Contains("Model style") && uiLabels.Contains("Model shading: " + names[mode]), "Actual settings tab lacks the shading selector");
+                        foreach (string name in new[] { "Soft light wrap", "Matte highlight", "Roughness", "Outline width" })
+                            Check(uiLabels.Contains(name) == (name == "Outline width" || name == "Roughness" && mode == 2 || (name == "Soft light wrap" || name == "Matte highlight") && mode > 0),
+                                "Model-style slider visibility differs: " + name + " mode=" + mode + " outlines=" + enabled);
+                        Check(uiOutlineInputs.Count == 1 && uiOutlineInputs[0].SequenceEqual(new[] { .75f, .25f, 1.50f }), "Outline slider changed its value or range");
+                        Check(st.outlineWidth == 1.25f && st.outlines == enabled, "Actual outline slider input changed value or enabled state");
+                        DynamicModels.Forget();
+                        OutlineGeometry after = Geometry(model, "dynamic");
+                        int afterPixels = OutlinePixels(request, stem + "-after", after);
+                        DynamicModels.Destroy(after.Parts);
+                        Check(enabled ? afterPixels > beforePixels : afterPixels == beforePixels, "UI outline width did not preserve its rendered effect");
+                        FloatMenu menu = Find.WindowStack.Windows.OfType<FloatMenu>().LastOrDefault();
+                        Check(menu != null, "Shading selector did not open the real FloatMenu");
+                        var options = (List<FloatMenuOption>)typeof(FloatMenu).GetField("options", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu);
+                        Check(options.Select(option => option.Label).SequenceEqual(names), "Shading selector choices differ");
+                        options[(mode + 1) % 3].action(); menu.Close();
+                        Check(st.modelStyle == (mode + 1) % 3, "Shading menu callback did not update settings");
+                        View3D.Tick();
+                        Check(R3DMaterials.LitModel.GetFloat("_ClayMode") == (mode + 1) % 3, "UI selection did not reach live materials");
+                        string file = Path.Combine(request.fixtureDirectory, stem + "-settings.xml");
+                        Scribe.saver.InitSaving(file, "settings"); st.ExposeData(); Scribe.saver.FinalizeSaving();
+                        var reopened = new IsoRimSettings(); Scribe.loader.InitLoading(file); reopened.ExposeData(); Scribe.loader.FinalizeLoading();
+                        Check(reopened.modelStyle == (mode + 1) % 3 && reopened.outlines == enabled && reopened.outlineWidth == 1.25f
+                            && reopened.clayWrap == st.clayWrap && reopened.clayHighlight == st.clayHighlight && reopened.clayRoughness == st.clayRoughness,
+                            "UI selections did not survive settings reload");
+                        readings.Add(new
+                        {
+                            mode,
+                            outlines = enabled,
+                            labels = uiLabels.OrderBy(value => value).ToArray(),
+                            input = uiOutlineInputs[0],
+                            value = st.outlineWidth,
+                            beforePixels,
+                            afterPixels,
+                            beforeFrame = stem + "-before",
+                            afterFrame = stem + "-after",
+                            settingsReloaded = true
+                        });
+                    }
+                IsoRimSettings final = IsoRimMod.Settings;
+                Check(final.clayWrap == .31f && final.clayHighlight == .08f && final.clayRoughness == .9f && final.outlineWidth == 1.25f, "Actual tab did not accept slider input");
+                return new
                 {
-                    uiLabels.Clear(); uiSlider = null;
-                    IsoRimMod.Settings.modelStyle = mode;
-                    var listing = new Listing_Standard(); listing.Begin(new Rect(0, 0, 700, 1600));
-                    typeof(SettingsWindow).GetMethod("ObjectsTab", Hidden).Invoke(null, new object[] { null, listing, IsoRimMod.Settings });
-                    listing.End();
-                    Check(uiLabels.Contains("Model style") && uiLabels.Contains("Model shading: " + names[mode]), "Actual settings tab lacks the shading selector");
-                    foreach (string name in new[] { "Soft light wrap", "Matte highlight", "Roughness", "Outline width" })
-                        Check(uiLabels.Contains(name) == (name == "Outline width" || name == "Roughness" && mode == 2 || (name == "Soft light wrap" || name == "Matte highlight") && mode > 0), "Model-style slider visibility differs: " + name);
-                    FloatMenu menu = Find.WindowStack.Windows.OfType<FloatMenu>().LastOrDefault();
-                    Check(menu != null, "Shading selector did not open the real FloatMenu");
-                    var options = (List<FloatMenuOption>)typeof(FloatMenu).GetField("options", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu);
-                    Check(options.Select(option => option.Label).SequenceEqual(names), "Shading selector choices differ");
-                    options[(mode + 1) % 3].action(); menu.Close();
-                    Check(IsoRimMod.Settings.modelStyle == (mode + 1) % 3, "Shading menu callback did not update settings");
-                    View3D.Tick();
-                    Check(R3DMaterials.LitModel.GetFloat("_ClayMode") == (mode + 1) % 3, "UI selection did not reach live materials");
-                    readings.Add(new { mode, labels = uiLabels.OrderBy(value => value).ToArray() });
-                }
-                IsoRimSettings st = IsoRimMod.Settings;
-                Check(st.clayWrap == .31f && st.clayHighlight == .08f && st.clayRoughness == .9f && st.outlineWidth == 1.25f, "Actual tab did not accept slider input");
-                string file = Path.Combine(request.fixtureDirectory, "ui-proxy-settings.xml");
-                Scribe.saver.InitSaving(file, "settings"); st.ExposeData(); Scribe.saver.FinalizeSaving();
-                var reopened = new IsoRimSettings(); Scribe.loader.InitLoading(file); reopened.ExposeData(); Scribe.loader.FinalizeLoading();
-                Check(reopened.modelStyle == 0 && reopened.clayWrap == .31f && reopened.clayHighlight == .08f && reopened.clayRoughness == .9f && reopened.outlineWidth == 1.25f,
-                    "UI selections did not survive settings reload");
-                return new { automatedProxyOnly = true, manualWitnessPerformed = false, modes = readings, settingsReloaded = true };
+                    automatedProxyOnly = true,
+                    manualWitnessPerformed = false,
+                    modes = readings,
+                    settingsReloaded = true,
+                    frames = outlineFrames.Skip(frameStart).ToArray()
+                };
             }
             finally { hook.Unpatch(label, HarmonyPatchType.Prefix, hook.Id); hook.Unpatch(button, HarmonyPatchType.Prefix, hook.Id); hook.Unpatch(slider, HarmonyPatchType.Prefix, hook.Id); }
         }
