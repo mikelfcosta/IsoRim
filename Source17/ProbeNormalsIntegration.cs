@@ -1208,7 +1208,10 @@ namespace IsoRim
 
             var section = new Section(new IntVec3(0, 0, 0), Find.CurrentMap);
             Thing wallThing = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
-            GenSpawn.Spawn(wallThing, Find.CurrentMap.Center + new IntVec3(5, 0, 5), Find.CurrentMap);
+            // The rim witness needs exposed faces, independent of generated mountain terrain.
+            IntVec3 wallCell = new CellRect(2, 2, Find.CurrentMap.Size.x - 4, Find.CurrentMap.Size.z - 4)
+                .First(c => c.GetEdifice(Find.CurrentMap) == null && GenAdj.CardinalDirections.All(d => (c + d).GetEdifice(Find.CurrentMap) == null));
+            GenSpawn.Spawn(wallThing, wallCell, Find.CurrentMap);
 
             IsoRimMod.Settings.modelStyle = 0;
             var wallLayerClassic = new SectionLayer_IsoRimWalls(section);
@@ -1295,7 +1298,8 @@ namespace IsoRim
                 WallBoxes.PrintBlock(layer100, wallThing, 1f);
                 LayerSubMesh solid100 = layer100.subMeshes.First(s => s.material == R3DMaterials.Solid);
                 int rimIdx100 = solid100.colors.FindIndex(c => c.r == lineColor.r && c.g == lineColor.g && c.b == lineColor.b);
-                Check(rimIdx100 >= 0, "Wall rim line vertices missing at outlineWidth=1.00");
+                Check(rimIdx100 >= 0, "Wall rim line vertices missing at outlineWidth=1.00; scale=" + WallBoxes.LineScale + "; solid=" + solid100.verts.Count
+                    + "; neighbours=" + string.Join(",", GenAdj.CardinalDirections.Select(d => (wallThing.Position + d).GetEdifice(Find.CurrentMap)?.def.defName ?? "none")));
                 width100 = (solid100.verts[rimIdx100 + 1] - solid100.verts[rimIdx100]).magnitude;
                 float footHeight100 = (solid100.verts[rimIdx100 + 5] - solid100.verts[rimIdx100 + 4]).magnitude;
 
@@ -2480,6 +2484,15 @@ namespace IsoRim
                 .ToDictionary(c => c, c => Find.CurrentMap.terrainGrid.TerrainAt(c));
             foreach (IntVec3 c in terrainBefore.Keys) Find.CurrentMap.terrainGrid.SetTerrain(c, soilDef);
 
+            Vector3 atRoof = center + new Vector3(2f, 0f, -5f);
+            var roofCells = new List<IntVec3>();
+            for (int rz = -2; rz <= 1; rz++)
+                for (int rx = -1; rx <= 2; rx++)
+                    roofCells.Add(new IntVec3((int)atRoof.x + rx, 0, (int)atRoof.z + rz));
+            var roofSections = roofCells.Select(c => Find.CurrentMap.mapDrawer.SectionAt(c)).Distinct().ToArray();
+            var roofBefore = roofSections.SelectMany(section => section.CellRect.ExpandedBy(SectionLayer_IsoRimRoofs.Reach))
+                .Where(c => c.InBounds(Find.CurrentMap)).Distinct().ToDictionary(c => c, c => Find.CurrentMap.roofGrid.RoofAt(c));
+
             ModelEntry armEntry, lampEntry, vatEntry;
             ModelLibrary.TryGet(armchair.def, out armEntry);
             ModelLibrary.TryGet(lamp.def, out lampEntry);
@@ -2489,6 +2502,7 @@ namespace IsoRim
             {
                 IsoRimMod.Settings = new IsoRimSettings { squash = .003f, texturedModels = true, workAnimations = false, showRoofs = true };
                 View3D.Active = true;
+                foreach (IntVec3 cell in roofBefore.Keys) Find.CurrentMap.roofGrid.SetRoof(cell, null);
                 Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
 
                 for (int preset = 0; preset < ModelStyleCases.ComparisonPresets.Length; preset++)
@@ -2577,19 +2591,11 @@ namespace IsoRim
 
                     // 3. BuiltRoof
                     var sRoof = new ModelStyleCases.ComparisonSample { Name = "BuiltRoof" }; samples.Add(sRoof);
-                    Vector3 atRoof = center + new Vector3(2f, 0f, -5f);
                     using (MeshDrawSubmission.BeginCapture(sRoof.Commands))
                     {
-                        var roofCells = new List<IntVec3>();
-                        for (int rz = -2; rz <= 1; rz++)
-                            for (int rx = -1; rx <= 2; rx++)
-                            {
-                                IntVec3 cell = new IntVec3((int)atRoof.x + rx, 0, (int)atRoof.z + rz);
-                                roofCells.Add(cell);
-                                Find.CurrentMap.roofGrid.SetRoof(cell, RoofDefOf.RoofConstructed);
-                            }
+                        foreach (IntVec3 cell in roofCells) Find.CurrentMap.roofGrid.SetRoof(cell, RoofDefOf.RoofConstructed);
                         int roofVertices = 0;
-                        foreach (Section section in roofCells.Select(c => Find.CurrentMap.mapDrawer.SectionAt(c)).Distinct())
+                        foreach (Section section in roofSections)
                         {
                             var roofLayer = new SectionLayer_IsoRimRoofs(section);
                             layers.Add(roofLayer);
@@ -2607,7 +2613,7 @@ namespace IsoRim
                         }
                         // A 4x4 hip has 16 cells (192 facet vertices) and 16 eaves (128 vertices).
                         // Outlines add 16 four-corner strips. This catches an omitted section or line stream.
-                        Check(roofVertices == (st.outlines ? 384 : 320), "Comparison did not submit the complete 4x4 roof and its eave lines");
+                        Check(roofVertices == (st.outlines ? 384 : 320), "Comparison did not submit the complete 4x4 roof and its eave lines: " + roofVertices + " " + JsonSerializer.Serialize(roofSubmissions));
                     }
 
                     // 4. PlantCard
@@ -2960,9 +2966,7 @@ namespace IsoRim
                 IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0f, 0f, 0f); R3DMaterials.SyncSceneStyle(0, 0f, 0f, 0f);
                 RenderTexture.active = active; RenderTexture.ReleaseTemporary(target); UnityEngine.Object.Destroy(owner);
                 View3D.Active = prevView;
-                for (int rz = -2; rz <= 1; rz++)
-                    for (int rx = -1; rx <= 2; rx++)
-                        Find.CurrentMap.roofGrid.SetRoof(new IntVec3((int)(center.x + 2f) + rx, 0, (int)(center.z - 5f) + rz), null);
+                foreach (var cell in roofBefore) Find.CurrentMap.roofGrid.SetRoof(cell.Key, cell.Value);
                 UnityEngine.Object.Destroy(plantSource);
             }
         }
