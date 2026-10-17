@@ -1107,6 +1107,51 @@ namespace IsoRim
             Check(shipMat.GetFloat("_SceneClay") == 0f && shipMat.GetFloat("_ClayMode") == 0f,
                 "Cached ship roof return to mode 0 failed");
 
+            IsoRimSettings prevSettings = IsoRimMod.Settings;
+            try
+            {
+                var testSettings = new IsoRimSettings
+                {
+                    modelStyle = 2,
+                    clayWrap = 0.31f,
+                    clayHighlight = 0.08f,
+                    clayRoughness = 0.9f
+                };
+                IsoRimMod.Settings = testSettings;
+                View3D.Tick();
+                Material wallSolidTick = R3DMaterials.Lit(0, 1);
+                Material roofMatTick = R3DMaterials.Roof;
+                Material texRoofTick = (Material)texMatMethod.Invoke(null, new object[] { 0, 0 });
+                Material shipMatTick = (Material)shipMatProp.GetValue(null);
+
+                Check(wallSolidTick.GetFloat("_SceneClay") == 1f && wallSolidTick.GetFloat("_ClayMode") == 2f
+                    && Math.Abs(wallSolidTick.GetFloat("_ClayWrap") - 0.31f) < 1e-5f
+                    && Math.Abs(wallSolidTick.GetFloat("_ClayHighlight") - 0.08f) < 1e-5f
+                    && Math.Abs(wallSolidTick.GetFloat("_ClayRoughness") - 0.9f) < 1e-5f,
+                    "View3D.Tick() did not sync scene clay to wall");
+                Check(roofMatTick.GetFloat("_SceneClay") == 1f && roofMatTick.GetFloat("_ClayMode") == 2f
+                    && Math.Abs(roofMatTick.GetFloat("_ClayWrap") - 0.31f) < 1e-5f
+                    && Math.Abs(roofMatTick.GetFloat("_ClayHighlight") - 0.08f) < 1e-5f
+                    && Math.Abs(roofMatTick.GetFloat("_ClayRoughness") - 0.9f) < 1e-5f,
+                    "View3D.Tick() did not sync scene clay to roof");
+                Check(texRoofTick.GetFloat("_SceneClay") == 1f && texRoofTick.GetFloat("_ClayMode") == 2f
+                    && Math.Abs(texRoofTick.GetFloat("_ClayWrap") - 0.31f) < 1e-5f
+                    && Math.Abs(texRoofTick.GetFloat("_ClayHighlight") - 0.08f) < 1e-5f
+                    && Math.Abs(texRoofTick.GetFloat("_ClayRoughness") - 0.9f) < 1e-5f,
+                    "View3D.Tick() did not sync scene clay to textured roof");
+                Check(shipMatTick.GetFloat("_SceneClay") == 1f && shipMatTick.GetFloat("_ClayMode") == 2f
+                    && Math.Abs(shipMatTick.GetFloat("_ClayWrap") - 0.31f) < 1e-5f
+                    && Math.Abs(shipMatTick.GetFloat("_ClayHighlight") - 0.08f) < 1e-5f
+                    && Math.Abs(shipMatTick.GetFloat("_ClayRoughness") - 0.9f) < 1e-5f,
+                    "View3D.Tick() did not sync scene clay to ship roof");
+            }
+            finally
+            {
+                IsoRimMod.Settings = prevSettings;
+                syncScene.Invoke(null, new object[] { 0, 0f, 0f, 0f });
+                syncModel.Invoke(null, new object[] { 0, 0f, 0f, 0f });
+            }
+
             MethodInfo stateSigMethod = typeof(View3D).GetMethod("StateSignature", BindingFlags.NonPublic | BindingFlags.Static);
             Check(stateSigMethod != null, "View3D.StateSignature method missing");
             IsoRimMod.Settings.modelStyle = 0;
@@ -1155,24 +1200,31 @@ namespace IsoRim
             typeof(ShipRoofs).GetMethod("Load", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
             Model roofPiece = (Model)typeof(ShipRoofs).GetField("square", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
             Check(roofPiece != null && roofPiece.authoredNormals != null && roofPiece.shadingNormals != null, "ShipRoofs model roof_square missing authored normals");
+            Check(roofPiece.shadingNormals.Any(n => Math.Abs(n.x) > 0.5f || Math.Abs(n.z) > 0.5f), "Roof model has no horizontal normals");
 
             float m00 = 0f, m01 = 1f, m10 = -1f, m11 = 0f;
-            Vector3 horizontalAuthored = roofPiece.shadingNormals.First(n => Math.Abs(n.x) > 0.5f || Math.Abs(n.z) > 0.5f);
-            Check(Math.Abs(horizontalAuthored.y) < 0.5f, "Authored roof normal is constant-up");
-            Vector3 expectedRotatedNormal = new Vector3(m00 * horizontalAuthored.x + m01 * horizontalAuthored.z, horizontalAuthored.y, m10 * horizontalAuthored.x + m11 * horizontalAuthored.z).normalized;
-            Check(Math.Abs(expectedRotatedNormal.y) < 0.5f, "Rotated roof normal is constant-up");
-
             MethodInfo shipPut = typeof(ShipRoofs).GetMethod("Put", BindingFlags.NonPublic | BindingFlags.Static);
             var roofLayer = new SectionLayer_IsoRimRoofs(section);
             Material shipMatRef = (Material)typeof(ShipRoofs).GetProperty("Mat", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
             LayerSubMesh sm = MeshWriter.Sub(roofLayer, shipMatRef);
             shipPut.Invoke(null, new object[] { sm, roofPiece, Vector2.zero, m00, m01, m10, m11, 0f });
-            Check(sm.normals.Count == sm.verts.Count, "ShipRoofs.Put normals count differs from vertices");
+            Check(sm.normals.Count == sm.verts.Count && sm.normals.Count == roofPiece.positions.Length, "ShipRoofs.Put normals count differs from vertices");
 
             StaticNormalCases.Upload(roofLayer);
             LayerSubMesh shipSub = roofLayer.subMeshes.First(s => s.material.name.Contains("ShipRoof"));
             Vector3[] uploadedNormals = shipSub.mesh.normals;
-            Check(uploadedNormals.Any(un => (un - expectedRotatedNormal).sqrMagnitude < 0.001f), "Uploaded ship-roof normals omitted expected independently rotated normal");
+            Check(uploadedNormals.Length == roofPiece.positions.Length, "Uploaded normals count differs from model positions");
+
+            bool hasNonVertical = false;
+            for (int k = 0; k < roofPiece.positions.Length; k++)
+            {
+                Vector3 origN = roofPiece.shadingNormals[k];
+                Vector3 expectedK = new Vector3(m00 * origN.x + m01 * origN.z, origN.y, m10 * origN.x + m11 * origN.z).normalized;
+                if (Math.Abs(expectedK.y) < 0.5f) hasNonVertical = true;
+                Check((uploadedNormals[k] - expectedK).sqrMagnitude < 0.0001f,
+                    $"Uploaded ship-roof normal at vertex {k} differs from expected rotated direction: observed {uploadedNormals[k]} expected {expectedK}");
+            }
+            Check(hasNonVertical, "Ship-roof model normals are constant-up");
 
             IsoRimSettings settingsCopy = IsoRimMod.Settings;
             Thing rockThing = null;
@@ -1287,7 +1339,6 @@ namespace IsoRim
                 LayerSubMesh plainSolid0 = plainLayer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
                 Check(plainSolid0 == null || !plainSolid0.colors.Any(c => c.r == lineColor.r && c.g == lineColor.g && c.b == lineColor.b),
                     "Plain sides emitted outlines when outlines=false");
-
                 // Builder (d): Hull prism PrintPrism and RimSquare
                 Vector2[] prismPoly = { new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 1) };
                 WallBoxes.PrismEdge[] prismEdges = {
@@ -1299,7 +1350,6 @@ namespace IsoRim
                 IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
                 var prismLayer100 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPrism(prismLayer100, prismPoly, prismEdges, 0f, 1f, WallKind.Metal, Color.white);
-                WallBoxes.RimSquare(prismLayer100, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
                 LayerSubMesh prismSolid100 = prismLayer100.subMeshes.First(s => s.material == R3DMaterials.Solid);
                 Color32 prismLineColor = R3DMaterials.Shaded(Color.white, 0.32f);
                 int prismIdx100 = prismSolid100.colors.FindIndex(c => c.r == prismLineColor.r && c.g == prismLineColor.g && c.b == prismLineColor.b);
@@ -1309,7 +1359,6 @@ namespace IsoRim
                 IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
                 var prismLayer75 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPrism(prismLayer75, prismPoly, prismEdges, 0f, 1f, WallKind.Metal, Color.white);
-                WallBoxes.RimSquare(prismLayer75, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
                 LayerSubMesh prismSolid75 = prismLayer75.subMeshes.First(s => s.material == R3DMaterials.Solid);
                 int prismIdx75 = prismSolid75.colors.FindIndex(c => c.r == prismLineColor.r && c.g == prismLineColor.g && c.b == prismLineColor.b);
                 Check(prismIdx75 >= 0, "Prism rim line vertices missing at outlineWidth=0.75");
@@ -1319,10 +1368,82 @@ namespace IsoRim
                 IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
                 var prismLayer0 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPrism(prismLayer0, prismPoly, prismEdges, 0f, 1f, WallKind.Metal, Color.white);
-                WallBoxes.RimSquare(prismLayer0, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
                 LayerSubMesh prismSolid0 = prismLayer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
                 Check(prismSolid0 == null || !prismSolid0.colors.Any(c => c.r == prismLineColor.r && c.g == prismLineColor.g && c.b == prismLineColor.b),
                     "Prism emitted outlines when outlines=false");
+
+                // Builder (e): RimSquare
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                var rsLayer100 = new SectionLayer_IsoRimWalls(section);
+                WallBoxes.RimSquare(rsLayer100, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
+                LayerSubMesh rsSolid100 = rsLayer100.subMeshes.First(s => s.material == R3DMaterials.Solid);
+                float rsWidth100 = (rsSolid100.verts[1] - rsSolid100.verts[0]).magnitude;
+                Check(Math.Abs(rsWidth100 - 0.05f) < 0.001f, "RimSquare width at 1.00 differs from 0.05");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                var rsLayer75 = new SectionLayer_IsoRimWalls(section);
+                WallBoxes.RimSquare(rsLayer75, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
+                LayerSubMesh rsSolid75 = rsLayer75.subMeshes.First(s => s.material == R3DMaterials.Solid);
+                float rsWidth75 = (rsSolid75.verts[1] - rsSolid75.verts[0]).magnitude;
+                Check(Math.Abs(rsWidth75 / rsWidth100 - 0.75f) < 0.01f, "RimSquare did not scale to 0.75");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                var rsLayer0 = new SectionLayer_IsoRimWalls(section);
+                WallBoxes.RimSquare(rsLayer0, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
+                LayerSubMesh rsSolid0 = rsLayer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
+                Check(rsSolid0 == null || rsSolid0.verts.Count == 0, "RimSquare emitted quads when outlines=false");
+
+                // Builder (f): EndLine UV encoded width
+                MethodInfo endLineMethod = typeof(WallBoxes).GetMethod("EndLine", BindingFlags.NonPublic | BindingFlags.Static);
+                Check(endLineMethod != null, "WallBoxes.EndLine method missing");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                var elLayer100 = new SectionLayer_IsoRimWalls(section);
+                LayerSubMesh elSm100 = MeshWriter.Sub(elLayer100, R3DMaterials.Solid);
+                endLineMethod.Invoke(null, new object[] { elSm100, 0, Vector3.zero, Vector3.right, Vector3.right, 1f, lineColor, true });
+                Vector2 elUv100 = new Vector2(elSm100.uvs[0].x, elSm100.uvs[0].y);
+                float elWidth100 = elUv100.magnitude;
+                Check(Math.Abs(elWidth100 - 0.05f) < 0.001f, "EndLine UV width at 1.00 differs from 0.05");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                var elLayer75 = new SectionLayer_IsoRimWalls(section);
+                LayerSubMesh elSm75 = MeshWriter.Sub(elLayer75, R3DMaterials.Solid);
+                endLineMethod.Invoke(null, new object[] { elSm75, 0, Vector3.zero, Vector3.right, Vector3.right, 1f, lineColor, true });
+                Vector2 elUv75 = new Vector2(elSm75.uvs[0].x, elSm75.uvs[0].y);
+                float elWidth75 = elUv75.magnitude;
+                Check(Math.Abs(elWidth75 / elWidth100 - 0.75f) < 0.01f, "EndLine UV width did not scale to 0.75");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                var elLayer0 = new SectionLayer_IsoRimWalls(section);
+                LayerSubMesh elSm0 = MeshWriter.Sub(elLayer0, R3DMaterials.Solid);
+                endLineMethod.Invoke(null, new object[] { elSm0, 0, Vector3.zero, Vector3.right, Vector3.right, 1f, lineColor, true });
+                Check(elSm0.verts.Count == 0, "EndLine emitted quad when outlines=false");
+
+                // Builder (g): CornerLine UV encoded width
+                MethodInfo cornerLineMethod = typeof(WallBoxes).GetMethod("CornerLine", BindingFlags.NonPublic | BindingFlags.Static);
+                Check(cornerLineMethod != null, "WallBoxes.CornerLine method missing");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                var clLayer100 = new SectionLayer_IsoRimWalls(section);
+                LayerSubMesh clSm100 = MeshWriter.Sub(clLayer100, R3DMaterials.Solid);
+                cornerLineMethod.Invoke(null, new object[] { clSm100, Vector2.zero, Vector2.right, Vector2.up, Vector2.up, true, 0f, 1f, lineColor });
+                Vector2 clUv100 = new Vector2(clSm100.uvs[2].x, clSm100.uvs[2].y);
+                float clWidth100 = clUv100.magnitude;
+                Check(Math.Abs(clWidth100 - 0.05f) < 0.001f, "CornerLine UV width at 1.00 differs from 0.05");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                var clLayer75 = new SectionLayer_IsoRimWalls(section);
+                LayerSubMesh clSm75 = MeshWriter.Sub(clLayer75, R3DMaterials.Solid);
+                cornerLineMethod.Invoke(null, new object[] { clSm75, Vector2.zero, Vector2.right, Vector2.up, Vector2.up, true, 0f, 1f, lineColor });
+                Vector2 clUv75 = new Vector2(clSm75.uvs[2].x, clSm75.uvs[2].y);
+                float clWidth75 = clUv75.magnitude;
+                Check(Math.Abs(clWidth75 / clWidth100 - 0.75f) < 0.01f, "CornerLine UV width did not scale to 0.75");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                var clLayer0 = new SectionLayer_IsoRimWalls(section);
+                LayerSubMesh clSm0 = MeshWriter.Sub(clLayer0, R3DMaterials.Solid);
+                cornerLineMethod.Invoke(null, new object[] { clSm0, Vector2.zero, Vector2.right, Vector2.up, Vector2.up, true, 0f, 1f, lineColor });
+                Check(clSm0.verts.Count == 0, "CornerLine emitted quad when outlines=false");
 
                 // Builder (e): SectionLayer_IsoRimRoofs.Build roof eave lines and roof opening tags
                 IntVec3 roofCell = new IntVec3(5, 0, 5);
@@ -1401,46 +1522,43 @@ namespace IsoRim
             LayerSubMesh faceTex = StaticNormalCases.Face(bakeLayerTex, true);
 
             var captures = new List<object>();
-            var wallNormQuant = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, true, 0, 0, -1,
-                "-wall-norm-quant", sceneClay: 0f, lightMode: 2);
-            var wallNormClay = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, true, 0, 0, -1,
+            var wallNormClay = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, true, 0, 0, 1,
                 "-wall-norm-clay", sceneClay: 1f, lightMode: 2, style: 1);
-            captures.Add(wallNormQuant);
             captures.Add(wallNormClay);
 
-            var wallLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
-                "-wall-lit-classic", sceneClay: 0f, lightMode: 2, style: 0);
-            var wallLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
-                "-wall-lit-mode1", sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
-            var wallLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
-                "-wall-lit-mode2", sceneClay: 1f, lightMode: 2, style: 2, highlight: 0.04f);
+            var wallLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
+                "-wall-lit-classic", referenceRgb: 122.0 / 255.0, sceneClay: 0f, lightMode: 2, style: 0);
+            var wallLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
+                "-wall-lit-mode1", referenceRgb: 134.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
+            var wallLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
+                "-wall-lit-mode2", referenceRgb: 118.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 2, highlight: 0.04f);
             captures.Add(wallLitClassic);
             captures.Add(wallLitMode1);
             captures.Add(wallLitMode2);
 
-            // Textured wall clay capture
-            var wallTexturedClay = StaticNormalCases.Capture(request.outputDirectory, pair, faceTex, true, false, 0, 0, -1,
-                "-wall-tex-clay", sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
+            // Textured wall clay capture compared against independently derived reference
+            var wallTexturedClay = StaticNormalCases.Capture(request.outputDirectory, pair, faceTex, true, false, 0, 0, 0,
+                "-wall-tex-clay", referenceRgb: 134.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
             captures.Add(wallTexturedClay);
 
-            // Cutaway wall clay capture
+            // Cutaway wall clay capture compared against independently lowered geometry
             SectionLayer bakeLayerCut = StaticNormalCases.Bake(StaticNormalCases.Fixture(request.fixtureDirectory, false, false),
                 Quaternion.AngleAxis(20, Vector3.up), Quaternion.identity, pair.Scale);
             LayerSubMesh cutSub = StaticNormalCases.Face(bakeLayerCut, false);
             cutSub.uvsChannelTwo.Clear();
             cutSub.uvsChannelTwo.AddRange(Enumerable.Repeat(CutTags.Tag(new IntVec3(4, 0, 5), ShaderCut.Lower | ShaderCut.TexSide), 3));
             StaticNormalCases.Upload(bakeLayerCut);
-            var wallCutawayClay = StaticNormalCases.Capture(request.outputDirectory, pair, cutSub, false, false, 0, 0, -1,
-                "-wall-cutaway-clay", cutaway: true, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
+            var wallCutawayClay = StaticNormalCases.Capture(request.outputDirectory, pair, cutSub, false, false, 0, 0, 0,
+                "-wall-cutaway-clay", cutaway: true, referenceRgb: 134.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
             captures.Add(wallCutawayClay);
 
             // Roof SkyOnly captures (glowMode = 2)
-            var roofLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
-                "-roof-lit-classic", sceneClay: 0f, lightMode: 3, style: 0, glowMode: 2);
-            var roofLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
-                "-roof-lit-mode1", sceneClay: 1f, lightMode: 3, style: 1, highlight: 0.04f, glowMode: 2);
-            var roofLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
-                "-roof-lit-mode2", sceneClay: 1f, lightMode: 3, style: 2, highlight: 0.04f, glowMode: 2);
+            var roofLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
+                "-roof-lit-classic", referenceRgb: 141.0 / 255.0, sceneClay: 0f, lightMode: 3, style: 0, glowMode: 2);
+            var roofLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
+                "-roof-lit-mode1", referenceRgb: 144.0 / 255.0, sceneClay: 1f, lightMode: 3, style: 1, highlight: 0.04f, glowMode: 2);
+            var roofLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
+                "-roof-lit-mode2", referenceRgb: 117.0 / 255.0, sceneClay: 1f, lightMode: 3, style: 2, highlight: 0.04f, glowMode: 2);
             captures.Add(roofLitClassic);
             captures.Add(roofLitMode1);
             captures.Add(roofLitMode2);
@@ -1478,7 +1596,7 @@ namespace IsoRim
                 view3DSyncVerified = true,
                 builtWallRegressionVerified = true,
                 wallTopCaps = new { classic = capClassic.color.r, clay = capClay.color.r, lightMode = 2, glowMode = 1 },
-                shipRoofs = new { normalStreamStamped = true, normalsCount = sm.normals.Count, expectedRotatedNormal = new[] { expectedRotatedNormal.x, expectedRotatedNormal.y, expectedRotatedNormal.z } },
+                shipRoofs = new { normalStreamStamped = true, normalsCount = sm.normals.Count },
                 outlineScaling = new { lineScale75 = 0.75, width100, width75, ratio = width75 / width100, zeroOutlineVerified = true },
                 captures
             };
