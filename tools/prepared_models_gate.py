@@ -906,6 +906,8 @@ def verify_static_pixels(evidence, cases, request, pid, started):
                              "reportSha256": digest(path), "differences": differences})
     if GAMEPLAY_CASE in cases:
         verify_gameplay_pixels(evidence, started, captures)
+    if COLONY_CASE in cases:
+        verify_colony_pixels(evidence, started, captures)
     if captures:
         (evidence / "framebuffer-receipt.json").write_text(json.dumps({
             "nonce": request["nonce"], "head": request["head"], "assemblyHash": request["assemblyHash"],
@@ -1007,9 +1009,126 @@ def verify_gameplay_timings(rows):
             raise Refusal("The comparison timing statistics do not match the observations")
 
 
+COLONY_CASE = "SceneStyleCases.ColonySceneComparisonAndPerf"
+COLONY_SAMPLES = {
+    "TerrainAndFloor", "WallAndRock", "BuiltRoof", "PlantCard",
+    "SpriteSlabs", "Water", "Armchair", "Colonist", "Muffalo",
+    "StandingLamp", "GrowthVat"
+}
+COLONY_PRESETS = ("Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines")
+
+
+def colony_readings(evidence, started):
+    path = evidence / (COLONY_CASE + ".json")
+    report = json.loads(path.read_text())
+    if path.stat().st_mtime < started or report.get("caseId") != COLONY_CASE or report.get("passed") is not True:
+        raise Refusal("The colony comparison report is stale or invalid")
+    return report["readings"]
+
+
+def verify_colony_timings(rows):
+    if len(rows) != 4 or {row["preset"] for row in rows} != set(COLONY_PRESETS):
+        raise Refusal("The colony comparison timing modes are incomplete or duplicated")
+    for row in rows:
+        values = row["samplesMs"]
+        if len(values) != 60 or any(not math.isfinite(value) or value <= 0 for value in values) or row["commands"] <= 0:
+            raise Refusal("The colony comparison lacks 60 positive warm render timings or commands")
+        if row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 60:
+            raise Refusal("The colony comparison warm renders did not complete 60 GPU frames")
+        ordered = sorted(values)
+        expected = ((ordered[29] + ordered[30]) / 2, sum(values) / 60, ordered[56])
+        if any(not math.isfinite(row[key]) or abs(row[key] - value) > 1e-6
+               for key, value in zip(("medianMs", "meanMs", "p95Ms"), expected)):
+            raise Refusal("The colony comparison timing statistics do not match the observations")
+
+
+def verify_colony_pixels(evidence, started, captures):
+    readings = colony_readings(evidence, started)
+    rows = readings["frames"]
+    required = {(preset, pitch, yaw) for preset in COLONY_PRESETS for pitch, yaw in ((35.3, 45), (55, 0))}
+    if len(rows) != 8 or {(row["preset"], round(row["pitch"], 1), row["yaw"]) for row in rows} != required:
+        raise Refusal("The colony comparison preset/camera matrix is incomplete")
+    if not readings.get("samples") or readings["backend"] != "RimWorldWaylith.Rendering.CameraTextureBaker":
+        raise Refusal("The colony comparison lacks samples or approved GPU backend")
+    serials = {row["gpuFrame"] for row in captures}
+    images = {}
+    sample_maps = {}
+    for row in rows:
+        if (row["width"], row["height"], row["orthographicSize"]) != (512, 512, 11) or row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 1 or row["gpuFrameCompleted"] in serials:
+            raise Refusal("The colony comparison lacks a unique completed frame at normal zoom")
+        serials.add(row["gpuFrameCompleted"])
+        for kind in ("raw", "png"):
+            path = evidence / row[kind + "Path"]
+            if path.resolve().parent != evidence.resolve() or path.is_symlink() or path.stat().st_mtime < started or digest(path) != row[kind + "Hash"]:
+                raise Refusal("A colony capture is missing, stale or redirected")
+        raw, png = [(evidence / row[kind + "Path"]).read_bytes() for kind in ("raw", "png")]
+        if len(raw) != 512 * 512 * 4 or png[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", png[16:24]) != (512, 512):
+            raise Refusal("A colony capture has invalid dimensions")
+        samples = row["samples"]
+        if len(samples) != len(COLONY_SAMPLES) or {sample["name"] for sample in samples} != COLONY_SAMPLES:
+            raise Refusal("The colony comparison omits required sample regions")
+        for sample in samples:
+            x0, y0, x1, y1 = sample["bounds"]
+            if not (2 <= x0 < x1 <= 509 and 2 <= y0 < y1 <= 509):
+                raise Refusal("A colony sample is clipped")
+            count = sum(raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 3] != bytes((255, 0, 255))
+                        for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if count < 5 or count != sample["pixels"]:
+                raise Refusal("A colony sample is blank, occluded or its pixel observation differs: " + sample["name"])
+        images[(row["preset"], round(row["pitch"], 1))] = (raw, row["pngHash"])
+        sample_maps[(row["preset"], round(row["pitch"], 1))] = {sample["name"]: sample for sample in samples}
+        captures.append({"caseId": COLONY_CASE, "name": row["name"], "gpuFrame": row["gpuFrameCompleted"],
+                         "rawSha256": row["rawHash"], "pngSha256": row["pngHash"], "reportSha256": digest(evidence / (COLONY_CASE + ".json"))})
+    for pitch in (35.3, 55):
+        first_w, _ = images["MatteWrapped", pitch]
+        second_o, _ = images["MatteOrenNayar", pitch]
+        second_no, _ = images["MatteNoOutlines", pitch]
+        first_c, _ = images["Classic", pitch]
+
+        # (a) Classic vs MatteWrapped: all six scene surface classes + 3D models have >= 10 changed pixels
+        samples_w = sample_maps["MatteWrapped", pitch]
+        for name, sample in samples_w.items():
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_c[(y * 512 + x) * 4 + c] - first_w[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed < 10:
+                raise Refusal(f"Classic vs MatteWrapped failed to differ across {name}: {changed} pixels")
+
+        # (b) MatteWrapped vs MatteOrenNayar: silhouettes match, 3D rough-diffuse samples differ, 2D/cards/water not required to differ
+        if any((first_w[i:i+3] == bytes((255, 0, 255))) != (second_o[i:i+3] == bytes((255, 0, 255))) for i in range(0, len(first_w), 4)):
+            raise Refusal("Wrapped/Oren-Nayar changed colony geometry silhouette instead of shading")
+        rough_diffuse = ("WallAndRock", "BuiltRoof", "Armchair", "Colonist", "Muffalo", "StandingLamp", "GrowthVat")
+        for name in rough_diffuse:
+            sample = samples_w[name]
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_w[(y * 512 + x) * 4 + c] - second_o[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed < 10:
+                raise Refusal(f"Wrapped vs Oren-Nayar failed to differ on 3D rough-diffuse sample {name}: {changed} pixels")
+
+        # (c) MatteWrapped vs MatteNoOutlines: outlined samples differ, un-outlined (TerrainAndFloor, PlantCard, Water) match
+        outlined = ("WallAndRock", "BuiltRoof", "SpriteSlabs", "Armchair", "Colonist", "Muffalo", "StandingLamp", "GrowthVat")
+        for name in outlined:
+            sample = samples_w[name]
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_w[(y * 512 + x) * 4 + c] - second_no[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed < 10:
+                raise Refusal(f"Wrapped vs NoOutlines failed to differ on outlined sample {name}: {changed} pixels")
+        unoutlined = ("TerrainAndFloor", "PlantCard", "Water")
+        for name in unoutlined:
+            sample = samples_w[name]
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_w[(y * 512 + x) * 4 + c] - second_no[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed != 0:
+                raise Refusal(f"Wrapped vs NoOutlines unexpectedly differed on un-outlined sample {name}: {changed} pixels")
+
 def verify_integrated(evidence, cases, request, pid, started, captures):
     if GAMEPLAY_CASE in cases:
         verify_gameplay_timings(gameplay_readings(evidence, started)["timings"])
+    if COLONY_CASE in cases:
+        verify_colony_timings(colony_readings(evidence, started)["timings"])
     integrated = {case for case in cases if case.startswith("IntegratedNormalCases.")}
     if not integrated:
         return
@@ -1116,7 +1235,7 @@ def runtime_cases(args, evidence, protected, cases, head):
                    "if (Get-Process -Name 'RimWorld*' -ErrorAction SilentlyContinue) { exit 2 }"],
                   evidence, "game-exclusion", protected)
         intake = any(case.startswith("AssetIntakeCases.") for case in cases)
-        comparison = "ModelStyleCases.GameplayComparisonAndPerf" in cases
+        comparison = "ModelStyleCases.GameplayComparisonAndPerf" in cases or "SceneStyleCases.ColonySceneComparisonAndPerf" in cases
         runtime, save, product = stage_runtime(args, evidence, intake=intake, comparison=comparison)
         validator_results = validate_staged_intake(evidence, protected) if intake else None
         modules = {name: digest(runtime / name) for name in [*FINGERPRINTS, "System.Private.CoreLib.dll", "coreclr.dll"]}
