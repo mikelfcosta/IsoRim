@@ -2412,11 +2412,13 @@ namespace IsoRim
             return night >= 1f ? moon : Vector3.Slerp(sun, moon, night).normalized;
         }
 
-        public static void SetLight(Vector3 dir)
+        public static void SetLight(Vector3 dir) => SetLight(dir, 0f);
+
+        public static void SetLight(Vector3 dir, float night)
         {
             lightSet = true;
             LightDir = dir;
-            Shader.SetGlobalVector(isoSunId, new Vector4(LightDir.x, LightDir.y, LightDir.z, 0f));
+            Shader.SetGlobalVector(isoSunId, new Vector4(LightDir.x, LightDir.y, LightDir.z, Mathf.Clamp01(night)));
         }
 
         // The direction toward the camera in true space, and the squash, for the shaders' face
@@ -2443,8 +2445,41 @@ namespace IsoRim
         private static float clayWrap, clayHighlight, clayRoughness;
         private static int sceneClayMode;
         private static float sceneClayWrap, sceneClayHighlight, sceneClayRoughness;
+        private static int lightingMode;
+        private static float clayWarmth;
+        public static float ClayWarmth => clayWarmth;
+
+        public static void SyncLightingStyle(int mode, float warmth)
+        {
+            lightingMode = mode;
+            clayWarmth = mode > 0 ? Mathf.Clamp01(warmth) : 0f;
+            foreach (Material m in litSolid) ApplyLightingStyle(m);
+            foreach (Material m in litByKey.Values) ApplyLightingStyle(m);
+            ApplyLightingStyle(roof);
+            ApplyLightingStyle(waterOverlay);
+            ApplyGhostStyle();
+            SectionLayer_IsoRimRoofs.SyncLighting(clayWarmth);
+            ShipRoofs.SyncLighting(clayWarmth);
+            Shader.SetGlobalVector("_IsoClayCard", new Vector4(sceneClayMode, sceneClayWrap, clayWarmth, sceneClayRoughness));
+            IsoGlow.SyncLighting(clayWarmth);
+        }
+
+        private static void ApplyLightingStyle(Material material)
+        {
+            if (material != null) material.SetFloat("_ClayWarmth", clayWarmth);
+        }
+
+        private static void ApplyGhostStyle()
+        {
+            if (ghost == null) return;
+            ghost.SetFloat("_ClayMode", lightingMode);
+            ghost.SetFloat("_SceneClay", lightingMode > 0 ? 1f : 0f);
+            ApplyLightingStyle(ghost);
+        }
+
         public static void SyncModelStyle(int mode, float wrap, float highlight, float roughness)
         {
+            if (mode == 0) SyncLightingStyle(0, 0f);
             clayMode = mode; clayWrap = wrap; clayHighlight = highlight; clayRoughness = roughness;
             for (int i = 0; i < 3; i++) ApplyModelStyle(litSolid[i]);
             foreach (var entry in litByKey)
@@ -2453,8 +2488,9 @@ namespace IsoRim
         }
         public static void SyncSceneStyle(int mode, float wrap, float highlight, float roughness)
         {
+            if (mode == 0) SyncLightingStyle(0, 0f);
             sceneClayMode = mode; sceneClayWrap = wrap; sceneClayHighlight = highlight; sceneClayRoughness = roughness;
-            Shader.SetGlobalVector("_IsoClayCard", new Vector4(mode > 0 ? mode : 0, wrap, highlight, roughness));
+            Shader.SetGlobalVector("_IsoClayCard", new Vector4(mode > 0 ? mode : 0, wrap, clayWarmth, roughness));
             for (int i = 3; i < 6; i++) ApplySceneStyle(litSolid[i]);
             foreach (var entry in litByKey)
                 if (entry.Key.Contains("|1|")) ApplySceneStyle(entry.Value);
@@ -2472,6 +2508,7 @@ namespace IsoRim
             material.SetFloat("_ClayWrap", sceneClayWrap);
             material.SetFloat("_ClayHighlight", sceneClayHighlight);
             material.SetFloat("_ClayRoughness", sceneClayRoughness);
+            ApplyLightingStyle(material);
         }
 
         private static void ApplyModelStyle(Material material)
@@ -2479,6 +2516,7 @@ namespace IsoRim
             if (material == null) return;
             material.SetFloat("_ClayMode", clayMode); material.SetFloat("_ClayWrap", clayWrap);
             material.SetFloat("_ClayHighlight", clayHighlight); material.SetFloat("_ClayRoughness", clayRoughness);
+            ApplyLightingStyle(material);
         }
 
         // Which direction group a face pointing along normal belongs to.
@@ -2696,6 +2734,7 @@ namespace IsoRim
                     // it, a ghost over a face that carries its own light was never darkened.
                     ghost = Make(GhostDef, "IsoRim_Ghost", 3101);
                     IsoGlow.Use(ghost, IsoGlow.OwnCellUnmarked);
+                    ApplyGhostStyle();
                 }
                 return ghost;
             }

@@ -131,7 +131,7 @@ namespace IsoRim
 
         private static object Provenance(ProbeNormals.Request request)
         {
-            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).Concat(ModelStyleCases.Cases).Concat(SceneStyleCases.Cases).OrderBy(id => id).ToArray();
+            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).Concat(ModelStyleCases.Cases).Concat(SceneStyleCases.Cases).Concat(LightingReadabilityCases.Cases).OrderBy(id => id).ToArray();
             Require(request.caseIds.Length == expected.Length && request.caseIds.OrderBy(id => id).SequenceEqual(expected), "The integrated request omits or duplicates a required case");
             var proofs = Directory.GetFiles(request.outputDirectory, "NormalProof-*.json").Select(path => JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path))).ToArray();
             var rows = new List<object>();
@@ -381,7 +381,7 @@ namespace IsoRim
             double[] defaults = { 1, .22, .04, .65, .75, .003 };
             FieldInfo[] members = fields.Select(name => typeof(IsoRimSettings).GetField(name)).ToArray();
             Check(members.All(field => field != null), "Missing approved model-style setting");
-            var settings = new IsoRimSettings();
+            var settings = new IsoRimSettings { clayWarmth = 0f };
             void Values(IsoRimSettings value, double[] expected, string label)
             {
                 for (int i = 0; i < members.Length; i++)
@@ -449,7 +449,7 @@ namespace IsoRim
             Camera.CameraCallback submit = null;
             try
             {
-                IsoRimMod.Settings = new IsoRimSettings { squash = .003f, texturedModels = true, workAnimations = false };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, squash = .003f, texturedModels = true, workAnimations = false };
                 Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
                 colonist = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
                 if (colonist.apparel.WornApparel.Count == 0)
@@ -1228,7 +1228,7 @@ namespace IsoRim
             string Layout(string source) => System.Text.RegularExpressions.Regex.Replace(source.Substring(source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal),
                 source.IndexOf("} uMaterial;", StringComparison.Ordinal) - source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal)), @"//[^\r\n]*|\s+", "");
             Check(sources.All(source => Layout(source) == Layout(sources[0])), "Shader material layouts diverged");
-            string[] requiredFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness", "_SceneClay" };
+            string[] requiredFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness", "_SceneClay", "_ClayWarmth" };
             foreach (string field in requiredFields)
                 Check(sources.All(source => source.Contains("float " + field + "; // @default = 0.0")), "Missing zero-default style field: " + field);
 
@@ -1318,6 +1318,7 @@ namespace IsoRim
             {
                 var testSettings = new IsoRimSettings
                 {
+                    clayWarmth = 0f,
                     modelStyle = 2,
                     clayWrap = 0.31f,
                     clayHighlight = 0.08f,
@@ -1443,17 +1444,17 @@ namespace IsoRim
             float width100 = 0f, width75 = 0f;
             try
             {
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f };
                 Check(Math.Abs(WallBoxes.LineScale - 0.75f) < 1e-5f, "LineScale differs for outlineWidth=0.75");
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f };
                 Check(Math.Abs(WallBoxes.LineScale - 1.00f) < 1e-5f, "LineScale differs for outlineWidth=1.00");
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f };
                 Check(WallBoxes.LineScale == 0f, "LineScale not 0 when outlines=false");
 
                 // Builder (a): WallBoxes.PrintBlock (cap rim and foot lines)
                 Color32 lineColor = R3DMaterials.Shaded(wallThing.DrawColor, 0.32f);
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f, ruggedRock = false };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f, ruggedRock = false };
                 var layer100 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintBlock(layer100, wallThing, 1f);
                 LayerSubMesh solid100 = layer100.subMeshes.First(s => s.material == R3DMaterials.Solid);
@@ -1463,7 +1464,7 @@ namespace IsoRim
                 width100 = (solid100.verts[rimIdx100 + 1] - solid100.verts[rimIdx100]).magnitude;
                 float footHeight100 = (solid100.verts[rimIdx100 + 5] - solid100.verts[rimIdx100 + 4]).magnitude;
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f, ruggedRock = false };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f, ruggedRock = false };
                 var layer75 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintBlock(layer75, wallThing, 1f);
                 LayerSubMesh solid75 = layer75.subMeshes.First(s => s.material == R3DMaterials.Solid);
@@ -1474,7 +1475,7 @@ namespace IsoRim
                 Check(Math.Abs(width75 / width100 - 0.75f) < 0.02f, "Wall rim line did not scale to 0.75");
                 Check(Math.Abs(footHeight75 / footHeight100 - 0.75f) < 0.02f, "Wall foot line did not scale to 0.75");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f, ruggedRock = false };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f, ruggedRock = false };
                 var layer0 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintBlock(layer0, wallThing, 1f);
                 LayerSubMesh solid0 = layer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
@@ -1488,7 +1489,7 @@ namespace IsoRim
                 GenSpawn.Spawn(adjacentWall, Find.CurrentMap.Center + new IntVec3(7, 0, 8), Find.CurrentMap);
                 CutTags.Enabled = true;
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f, ruggedRock = true };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f, ruggedRock = true };
                 var rockLayer100 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintBlock(rockLayer100, rockThing, 1f);
                 CutTags.Finish(rockLayer100);
@@ -1505,7 +1506,7 @@ namespace IsoRim
                 Check(rockSolid100.uvsChannelTwo != null && rockSolid100.uvsChannelTwo.Count > 0, "Rugged rock missing cutaway UV channel");
                 Check(rockSolid100.uvsChannelTwo.Any(uv => ((int)uv.z & expectedCond) == expectedCond), "PrintRock backing face or outline omitted conditional cutaway tags (defect #2)");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f, ruggedRock = true };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f, ruggedRock = true };
                 var rockLayer75 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintBlock(rockLayer75, rockThing, 1f);
                 CutTags.Finish(rockLayer75);
@@ -1517,7 +1518,7 @@ namespace IsoRim
                 Check(Math.Abs(rockRim75 / rockRim100 - 0.75f) < 0.02f, "Rock rim line did not scale to 0.75");
                 Check(Math.Abs(rockFoot75 / rockFoot100 - 0.75f) < 0.02f, "Rock foot line did not scale to 0.75");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f, ruggedRock = true };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f, ruggedRock = true };
                 var rockLayer0 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintBlock(rockLayer0, rockThing, 1f);
                 CutTags.Finish(rockLayer0);
@@ -1528,7 +1529,7 @@ namespace IsoRim
                 CutTags.Enabled = false;
 
                 // Builder (c): Plain wall sides PrintPlainSides
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f };
                 var plainLayer100 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPlainSides(plainLayer100, wallThing, 1f);
                 LayerSubMesh plainSolid100 = plainLayer100.subMeshes.First(s => s.material == R3DMaterials.Solid);
@@ -1536,7 +1537,7 @@ namespace IsoRim
                 Check(plainIdx100 >= 0, "Plain sides foot line missing at outlineWidth=1.00");
                 float plainFoot100 = (plainSolid100.verts[plainIdx100 + 1] - plainSolid100.verts[plainIdx100]).magnitude;
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f };
                 var plainLayer75 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPlainSides(plainLayer75, wallThing, 1f);
                 LayerSubMesh plainSolid75 = plainLayer75.subMeshes.First(s => s.material == R3DMaterials.Solid);
@@ -1545,7 +1546,7 @@ namespace IsoRim
                 float plainFoot75 = (plainSolid75.verts[plainIdx75 + 1] - plainSolid75.verts[plainIdx75]).magnitude;
                 Check(Math.Abs(plainFoot75 / plainFoot100 - 0.75f) < 0.02f, "Plain sides foot line did not scale to 0.75");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f };
                 var plainLayer0 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPlainSides(plainLayer0, wallThing, 1f);
                 LayerSubMesh plainSolid0 = plainLayer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
@@ -1559,7 +1560,7 @@ namespace IsoRim
                     new WallBoxes.PrismEdge { open = false }
                 };
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f };
                 var prismLayer100 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPrism(prismLayer100, prismPoly, prismEdges, 0f, 1f, WallKind.Metal, Color.white);
                 LayerSubMesh prismSolid100 = prismLayer100.subMeshes.First(s => s.material == R3DMaterials.Solid);
@@ -1568,7 +1569,7 @@ namespace IsoRim
                 Check(prismIdx100 >= 0, "Prism rim line vertices missing at outlineWidth=1.00");
                 float prismRim100 = (prismSolid100.verts[prismIdx100 + 1] - prismSolid100.verts[prismIdx100]).magnitude;
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f };
                 var prismLayer75 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPrism(prismLayer75, prismPoly, prismEdges, 0f, 1f, WallKind.Metal, Color.white);
                 LayerSubMesh prismSolid75 = prismLayer75.subMeshes.First(s => s.material == R3DMaterials.Solid);
@@ -1577,7 +1578,7 @@ namespace IsoRim
                 float prismRim75 = (prismSolid75.verts[prismIdx75 + 1] - prismSolid75.verts[prismIdx75]).magnitude;
                 Check(Math.Abs(prismRim75 / prismRim100 - 0.75f) < 0.02f, "Prism rim quad did not scale to 0.75");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f };
                 var prismLayer0 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintPrism(prismLayer0, prismPoly, prismEdges, 0f, 1f, WallKind.Metal, Color.white);
                 LayerSubMesh prismSolid0 = prismLayer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
@@ -1585,21 +1586,21 @@ namespace IsoRim
                     "Prism emitted outlines when outlines=false");
 
                 // Builder (e): RimSquare
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f };
                 var rsLayer100 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.RimSquare(rsLayer100, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
                 LayerSubMesh rsSolid100 = rsLayer100.subMeshes.First(s => s.material == R3DMaterials.Solid);
                 float rsWidth100 = (rsSolid100.verts[1] - rsSolid100.verts[0]).magnitude;
                 Check(Math.Abs(rsWidth100 - 0.05f) < 0.001f, "RimSquare width at 1.00 differs from 0.05");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f };
                 var rsLayer75 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.RimSquare(rsLayer75, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
                 LayerSubMesh rsSolid75 = rsLayer75.subMeshes.First(s => s.material == R3DMaterials.Solid);
                 float rsWidth75 = (rsSolid75.verts[1] - rsSolid75.verts[0]).magnitude;
                 Check(Math.Abs(rsWidth75 / rsWidth100 - 0.75f) < 0.01f, "RimSquare did not scale to 0.75");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f };
                 var rsLayer0 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.RimSquare(rsLayer0, new Vector2(0, 0), new Vector2(1, 1), 0f, 1f, Color.white);
                 LayerSubMesh rsSolid0 = rsLayer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
@@ -1609,7 +1610,7 @@ namespace IsoRim
                 MethodInfo endLineMethod = typeof(WallBoxes).GetMethod("EndLine", BindingFlags.NonPublic | BindingFlags.Static);
                 Check(endLineMethod != null, "WallBoxes.EndLine method missing");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f };
                 var elLayer100 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh elSm100 = MeshWriter.Sub(elLayer100, R3DMaterials.Solid);
                 endLineMethod.Invoke(null, new object[] { elSm100, 0, Vector3.zero, Vector3.right, Vector3.right, 1f, lineColor, true });
@@ -1617,7 +1618,7 @@ namespace IsoRim
                 float elWidth100 = elUv100.magnitude;
                 Check(Math.Abs(elWidth100 - 0.05f) < 0.001f, "EndLine UV width at 1.00 differs from 0.05");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f };
                 var elLayer75 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh elSm75 = MeshWriter.Sub(elLayer75, R3DMaterials.Solid);
                 endLineMethod.Invoke(null, new object[] { elSm75, 0, Vector3.zero, Vector3.right, Vector3.right, 1f, lineColor, true });
@@ -1625,7 +1626,7 @@ namespace IsoRim
                 float elWidth75 = elUv75.magnitude;
                 Check(Math.Abs(elWidth75 / elWidth100 - 0.75f) < 0.01f, "EndLine UV width did not scale to 0.75");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f };
                 var elLayer0 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh elSm0 = MeshWriter.Sub(elLayer0, R3DMaterials.Solid);
                 endLineMethod.Invoke(null, new object[] { elSm0, 0, Vector3.zero, Vector3.right, Vector3.right, 1f, lineColor, true });
@@ -1635,7 +1636,7 @@ namespace IsoRim
                 MethodInfo cornerLineMethod = typeof(WallBoxes).GetMethod("CornerLine", BindingFlags.NonPublic | BindingFlags.Static);
                 Check(cornerLineMethod != null, "WallBoxes.CornerLine method missing");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f };
                 var clLayer100 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh clSm100 = MeshWriter.Sub(clLayer100, R3DMaterials.Solid);
                 cornerLineMethod.Invoke(null, new object[] { clSm100, Vector2.zero, Vector2.right, Vector2.up, Vector2.up, true, 0f, 1f, lineColor });
@@ -1643,7 +1644,7 @@ namespace IsoRim
                 float clWidth100 = clUv100.magnitude;
                 Check(Math.Abs(clWidth100 - 0.05f) < 0.001f, "CornerLine UV width at 1.00 differs from 0.05");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f };
                 var clLayer75 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh clSm75 = MeshWriter.Sub(clLayer75, R3DMaterials.Solid);
                 cornerLineMethod.Invoke(null, new object[] { clSm75, Vector2.zero, Vector2.right, Vector2.up, Vector2.up, true, 0f, 1f, lineColor });
@@ -1651,7 +1652,7 @@ namespace IsoRim
                 float clWidth75 = clUv75.magnitude;
                 Check(Math.Abs(clWidth75 / clWidth100 - 0.75f) < 0.01f, "CornerLine UV width did not scale to 0.75");
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f };
                 var clLayer0 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh clSm0 = MeshWriter.Sub(clLayer0, R3DMaterials.Solid);
                 cornerLineMethod.Invoke(null, new object[] { clSm0, Vector2.zero, Vector2.right, Vector2.up, Vector2.up, true, 0f, 1f, lineColor });
@@ -1666,7 +1667,7 @@ namespace IsoRim
                 {
                     CutTags.Enabled = true;
 
-                    IsoRimMod.Settings = new IsoRimSettings { showRoofs = true, outlines = true, outlineWidth = 1.00f };
+                    IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, showRoofs = true, outlines = true, outlineWidth = 1.00f };
                     var bldRoof100 = new SectionLayer_IsoRimRoofs(section);
                     roofBuildMethod.Invoke(bldRoof100, null);
                     CutTags.Finish(bldRoof100);
@@ -1679,7 +1680,7 @@ namespace IsoRim
                     // Roof opening tag check:
                     Check(bldSm100.uvsChannelTwo != null && bldSm100.uvsChannelTwo.Any(uv => ((int)uv.z & ShaderCut.Roof) != 0), "Roof opening cutaway tag missing");
 
-                    IsoRimMod.Settings = new IsoRimSettings { showRoofs = true, outlines = true, outlineWidth = 0.75f };
+                    IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, showRoofs = true, outlines = true, outlineWidth = 0.75f };
                     var bldRoof75 = new SectionLayer_IsoRimRoofs(section);
                     roofBuildMethod.Invoke(bldRoof75, null);
                     CutTags.Finish(bldRoof75);
@@ -1689,7 +1690,7 @@ namespace IsoRim
                     float eaveWidth75 = (bldSm75.verts[eaveIdx75 + 1] - bldSm75.verts[eaveIdx75]).magnitude;
                     Check(Math.Abs(eaveWidth75 / eaveWidth100 - 0.75f) < 0.02f, "Roof eave line did not scale to 0.75");
 
-                    IsoRimMod.Settings = new IsoRimSettings { showRoofs = true, outlines = false, outlineWidth = 0.75f };
+                    IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, showRoofs = true, outlines = false, outlineWidth = 0.75f };
                     var bldRoof0 = new SectionLayer_IsoRimRoofs(section);
                     roofBuildMethod.Invoke(bldRoof0, null);
                     CutTags.Finish(bldRoof0);
@@ -1893,14 +1894,14 @@ namespace IsoRim
                 Texture origRichTex = soilRichDef.DrawMatSingle.mainTexture;
                 Color origRichCol = soilRichDef.DrawMatSingle.color;
                 // Sync with modelStyle = 0 (Classic)
-                IsoRimMod.Settings = new IsoRimSettings { groundStyle = true, grassSoil = false, modelStyle = 0 };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, groundStyle = true, grassSoil = false, modelStyle = 0 };
                 Ground.Sync();
                 Texture classicSoilTex = soilDef.DrawMatSingle.mainTexture;
                 Texture classicRichTex = soilRichDef.DrawMatSingle.mainTexture;
                 Check(classicSoilTex != null && classicRichTex != null, "Ground.Sync failed to assign textures at modelStyle=0");
 
                 // Sync with modelStyle = 1 (Clay mode)
-                IsoRimMod.Settings = new IsoRimSettings { groundStyle = true, grassSoil = false, modelStyle = 1 };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, groundStyle = true, grassSoil = false, modelStyle = 1 };
                 Ground.Sync();
                 Texture claySoilTex = soilDef.DrawMatSingle.mainTexture;
                 Texture clayRichTex = soilRichDef.DrawMatSingle.mainTexture;
@@ -2329,7 +2330,7 @@ namespace IsoRim
                 Vector3 ev3 = new Vector3(11f, 0f, 10f);
                 Material extMat = weaponThing.Graphic.MatSingleFor(weaponThing);
 
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f, modelStyle = 1 };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f, modelStyle = 1 };
                 var extLayer100 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh extSm100 = MeshWriter.Sub(extLayer100, extMat);
                 MeshWriter.TexturedQuad(extSm100, ev0, ev1, ev2, ev3, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f), Color.white);
@@ -2360,7 +2361,7 @@ namespace IsoRim
                     if (bottomShadeObs100 > 0f) break;
                 }
                 Check(bottomShadeObs100 > 0f && Math.Abs(bottomShadeObs100 - 0.86f) < 0.03f, "Extruder bottom shade is not 0.86 in clay mode: observed " + bottomShadeObs100);
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f, modelStyle = 1 };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 0.75f, modelStyle = 1 };
                 var extLayer75 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh extSm75 = MeshWriter.Sub(extLayer75, extMat);
                 MeshWriter.TexturedQuad(extSm75, ev0, ev1, ev2, ev3, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f), Color.white);
@@ -2373,7 +2374,7 @@ namespace IsoRim
                 Check(Math.Abs(observedH75 / observedH100 - 0.75f) < 0.02f, "Extruder ground line height did not scale to 0.75");
 
                 // Extruder bottom shade check in classic mode (0.78):
-                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f, modelStyle = 0 };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = true, outlineWidth = 1.00f, modelStyle = 0 };
                 var extLayerClassic = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh extSmClassic = MeshWriter.Sub(extLayerClassic, extMat);
                 MeshWriter.TexturedQuad(extSmClassic, ev0, ev1, ev2, ev3, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f), Color.white);
@@ -2395,7 +2396,7 @@ namespace IsoRim
                     if (bottomShadeObsClassic > 0f) break;
                 }
                 Check(bottomShadeObsClassic > 0f && Math.Abs(bottomShadeObsClassic - 0.78f) < 0.03f, "Extruder bottom shade is not 0.78 in classic mode: observed " + bottomShadeObsClassic);
-                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f, modelStyle = 1 };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, outlines = false, outlineWidth = 0.75f, modelStyle = 1 };
                 var extLayer0 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh extSm0 = MeshWriter.Sub(extLayer0, extMat);
                 MeshWriter.TexturedQuad(extSm0, ev0, ev1, ev2, ev3, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f), Color.white);
@@ -2439,7 +2440,7 @@ namespace IsoRim
                 try
                 {
                     // Water in Clay mode (modelStyle = 1):
-                    IsoRimMod.Settings = new IsoRimSettings { waterStyle = true, effects3D = true, modelStyle = 1 };
+                    IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, waterStyle = true, effects3D = true, modelStyle = 1 };
                     var waterLayerClay = new SectionLayer_IsoRimWater(waterSection);
                     waterLayerClay.Regenerate();
                     LayerSubMesh waterSmClay = waterLayerClay.subMeshes.First(s => s.material == R3DMaterials.WaterOverlay);
@@ -2481,7 +2482,7 @@ namespace IsoRim
                     Check(flow1 != flow2, "Flow texture offset did not scroll with game ticks");
 
                     // Water in Classic mode (modelStyle = 0):
-                    IsoRimMod.Settings = new IsoRimSettings { waterStyle = true, effects3D = true, modelStyle = 0 };
+                    IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, waterStyle = true, effects3D = true, modelStyle = 0 };
                     var waterLayerClassic = new SectionLayer_IsoRimWater(waterSection);
                     waterLayerClassic.Regenerate();
                     LayerSubMesh waterSmClassic = waterLayerClassic.subMeshes.First(s => s.material == R3DMaterials.WaterOverlay);
@@ -2660,7 +2661,7 @@ namespace IsoRim
 
             try
             {
-                IsoRimMod.Settings = new IsoRimSettings { squash = .003f, texturedModels = true, workAnimations = false, showRoofs = true };
+                IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, squash = .003f, texturedModels = true, workAnimations = false, showRoofs = true };
                 View3D.Active = true;
                 foreach (IntVec3 cell in roofBefore.Keys) Find.CurrentMap.roofGrid.SetRoof(cell, null);
                 Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
@@ -3148,6 +3149,419 @@ namespace IsoRim
                     File.WriteAllText(path3, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = ColonySceneComparisonAndPerf(request) }));
                     return path3;
                 default: throw new InvalidOperationException("Unknown scene style case: " + id);
+            }
+        }
+    }
+
+    internal static class LightingReadabilityCases
+    {
+        internal static readonly string[] Cases = { "LightingReadabilityCases.ClayDaylightAndGlow" };
+        private static void Check(bool condition, string message)
+        {
+            if (!condition) throw new InvalidOperationException(message);
+        }
+
+        private static void MaterialTransport(ProbeNormals.Request request)
+        {
+            string root = Path.Combine(AppContext.BaseDirectory, "Mods", "IsoRim", "1.7", "Shaders");
+            string[] sources = new[] { "IsoRim.vert.glsl", "IsoRimTex.vert.glsl", "IsoRimSolid.frag.glsl" }
+                .Select(file => File.ReadAllText(Path.Combine(root, file))).ToArray();
+            string Layout(string s) => System.Text.RegularExpressions.Regex.Replace(s.Substring(s.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal),
+                s.IndexOf("} uMaterial;", StringComparison.Ordinal) - s.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal)), @"//[^\r\n]*|\s+", "");
+            Check(sources.All(s => Layout(s) == Layout(sources[0]) && s.Contains("float _ClayWarmth; // @default = 0.0")), "Missing lockstep zero-default _ClayWarmth");
+            FieldInfo warmth = typeof(IsoRimSettings).GetField("clayWarmth");
+            Check(warmth != null && Math.Abs((float)warmth.GetValue(new IsoRimSettings()) - .55f) < 1e-6f, "Missing persisted default clay warmth");
+            string settingsPath = Path.Combine(request.fixtureDirectory, "lighting-settings.xml");
+            var saved = new IsoRimSettings(); warmth.SetValue(saved, .73f);
+            Scribe.saver.InitSaving(settingsPath, "settings"); saved.ExposeData(); Scribe.saver.FinalizeSaving();
+            var loaded = new IsoRimSettings();
+            Scribe.loader.InitLoading(settingsPath); loaded.ExposeData(); Scribe.loader.FinalizeLoading();
+            Check(Math.Abs((float)warmth.GetValue(loaded) - .73f) < 1e-6f, "Clay warmth did not persist");
+            File.WriteAllText(settingsPath, "<settings />"); warmth.SetValue(loaded, .1f);
+            Scribe.loader.InitLoading(settingsPath); loaded.ExposeData(); Scribe.loader.FinalizeLoading();
+            Check(Math.Abs((float)warmth.GetValue(loaded) - .55f) < 1e-6f, "Clay warmth missing-field fallback differs");
+            MethodInfo sync = typeof(R3DMaterials).GetMethod("SyncLightingStyle");
+            Check(sync != null, "Missing lighting style sync");
+            IsoRimSettings previous = IsoRimMod.Settings;
+            var texRoof = typeof(SectionLayer_IsoRimRoofs).GetMethod("TextureMaterial", BindingFlags.NonPublic | BindingFlags.Static);
+            var shipRoof = typeof(ShipRoofs).GetProperty("Mat", BindingFlags.NonPublic | BindingFlags.Static);
+            Material[] Materials() => new[] { R3DMaterials.LitModel, R3DMaterials.Lit(0, 1), R3DMaterials.Roof,
+                (Material)texRoof.Invoke(null, new object[] { 0, 0 }), (Material)shipRoof.GetValue(null), R3DMaterials.WaterOverlay, R3DMaterials.Ghost };
+            void AssertWarm(Material m, float value)
+            {
+                Check(m != null && Math.Abs(m.GetFloat("_ClayWarmth") - value) < 1e-6f, "Material warmth differs: " + m?.name);
+                if (IsoGlow.Marked(m)) Check(Math.Abs(IsoGlow.MarkFor(m).GetFloat("_ClayWarmth") - value) < 1e-6f, "Mark warmth differs: " + m.name);
+            }
+            try
+            {
+                Material[] cached = Materials();
+                IsoRimMod.Settings = new IsoRimSettings { modelStyle = 1 };
+                warmth.SetValue(IsoRimMod.Settings, .55f);
+                View3D.Tick();
+                foreach (Material m in cached) AssertWarm(m, .55f);
+                Check(R3DMaterials.Ghost.GetFloat("_ClayMode") == 1 && R3DMaterials.Ghost.GetFloat("_SceneClay") == 1, "Cached ghost lost clay state");
+                Check(Math.Abs(Shader.GetGlobalVector("_IsoClayCard").z - .55f) < 1e-6f, "Card warmth was not transported");
+                // New texture keys and a previously unused roof style cross the lazy factories.
+                foreach (int curve in new[] { 0, 1 })
+                    AssertWarm(R3DMaterials.LitTexture("Diagnostics/NormalProofNeutral", new Color(.31f, .47f, .63f), curve: curve), .55f);
+                AssertWarm((Material)texRoof.Invoke(null, new object[] { 3, 0 }), .55f);
+                foreach (string field in new[] { "ghost", "roof", "waterOverlay" })
+                {
+                    FieldInfo cache = typeof(R3DMaterials).GetField(field, BindingFlags.NonPublic | BindingFlags.Static);
+                    Material old = (Material)cache.GetValue(null);
+                    cache.SetValue(null, null);
+                    Material fresh = field == "ghost" ? R3DMaterials.Ghost : field == "roof" ? R3DMaterials.Roof : R3DMaterials.WaterOverlay;
+                    AssertWarm(fresh, .55f);
+                    if (field == "ghost") Check(fresh.GetFloat("_ClayMode") == 1 && fresh.GetFloat("_SceneClay") == 1, "Lazy ghost lost clay state");
+                    cache.SetValue(null, old); UnityEngine.Object.Destroy(fresh);
+                }
+                FieldInfo shipCache = typeof(ShipRoofs).GetField("material", BindingFlags.NonPublic | BindingFlags.Static);
+                Material oldShip = (Material)shipCache.GetValue(null);
+                shipCache.SetValue(null, null);
+                Material newShip = (Material)shipRoof.GetValue(null);
+                AssertWarm(newShip, .55f);
+                shipCache.SetValue(null, oldShip); UnityEngine.Object.Destroy(newShip);
+                sync.Invoke(null, new object[] { 1, 2f });
+                foreach (Material m in Materials()) AssertWarm(m, 1f);
+                sync.Invoke(null, new object[] { 1, -1f });
+                foreach (Material m in Materials()) AssertWarm(m, 0f);
+                foreach (bool scene in new[] { false, true })
+                {
+                    sync.Invoke(null, new object[] { 1, .55f });
+                    if (scene) R3DMaterials.SyncSceneStyle(0, 0, 0, 0);
+                    else R3DMaterials.SyncModelStyle(0, 0, 0, 0);
+                    foreach (Material m in Materials()) AssertWarm(m, 0f);
+                    Check(Shader.GetGlobalVector("_IsoClayCard").z == 0f, "Classic did not reset card warmth");
+                }
+            }
+            finally
+            {
+                IsoRimMod.Settings = previous;
+                R3DMaterials.SyncModelStyle(0, 0, 0, 0); R3DMaterials.SyncSceneStyle(0, 0, 0, 0);
+            }
+        }
+
+        private static readonly List<object> lightingFrames = new List<object>();
+
+        private static Color Sample(ProbeNormals.Request request, string name, Vector3 normal, Vector3 sun,
+            float warmth = .55f, int mode = 1, float night = 0f, float highlight = 0f,
+            Texture glow = null, Vector4 sky = default, int glowMode = 0, bool marked = false, Texture cells = null,
+            Vector3? position = null, float albedo = .5f)
+        {
+            var owner = new GameObject("IsoRim clay lighting proof");
+            Camera camera = owner.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.aspect = 1f; camera.cullingMask = 0;
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.magenta;
+            camera.orthographicSize = .5f;
+            Vector3 center = position ?? new Vector3(1.5f, 1f, 1.5f);
+            camera.transform.position = center + normal * 4f;
+            camera.transform.rotation = Quaternion.LookRotation(-normal, Mathf.Abs(normal.y) > .95f ? Vector3.forward : Vector3.up);
+            var mesh = new Mesh();
+            Quaternion turn = Quaternion.FromToRotation(Vector3.forward, normal);
+            mesh.vertices = new[] { new Vector3(-.4f, -.4f, 0), new Vector3(.4f, -.4f, 0), new Vector3(.4f, .4f, 0), new Vector3(-.4f, .4f, 0) }
+                .Select(p => center + turn * p).ToArray();
+            mesh.normals = Enumerable.Repeat(normal, 4).ToArray();
+            mesh.colors = Enumerable.Repeat(new Color(albedo, albedo, albedo), 4).ToArray();
+            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 }; mesh.RecalculateBounds();
+            R3DMaterials.SyncModelStyle(1, .22f, highlight, .65f);
+            R3DMaterials.SyncSceneStyle(1, .22f, highlight, .65f);
+            var mat = R3DMaterials.Make(R3DMaterials.SolidDef, "IsoRim_LightingProof", lightMode: mode);
+            mat.SetFloat("_NormalSpace", 1f); mat.SetFloat("_ClayMode", 1f); mat.SetFloat("_SceneClay", 1f);
+            mat.SetFloat("_ClayWrap", .22f); mat.SetFloat("_ClayHighlight", highlight); mat.SetFloat("_ClayRoughness", .65f);
+            mat.SetVector("_IsoSun", new Vector4(sun.x, sun.y, sun.z, night));
+            mat.SetVector("_IsoView", new Vector4(normal.x, normal.y, normal.z, 1));
+            mat.SetVector("_IsoSky", sky); mat.SetFloat("_GlowMode", glowMode);
+            mat.SetVector("_IsoCellMap", cells == null ? Vector4.zero : new Vector4(0, 0, 3, 3));
+            if (cells != null) mat.SetTexture("_IsoCellTex", cells);
+            if (glow != null) mat.SetTexture("_IsoGlowTex", glow);
+            mat.SetVector("_IsoGlowMap", new Vector4(0, 0, 1f / 3f, 1f / 3f));
+            if (marked) IsoGlow.Use(mat, IsoGlow.OwnCell);
+            R3DMaterials.SyncLightingStyle(1, warmth);
+            mat.SetFloat("_ClayWarmth", warmth);
+            Material mark = marked ? IsoGlow.MarkFor(mat) : null;
+            // The mark receives warmth only through production sync. Texture and sky are controlled system inputs.
+            if (mark != null)
+            {
+                mark.SetVector("_IsoView", new Vector4(normal.x, normal.y, normal.z, 1)); mark.SetVector("_IsoSky", sky);
+                mark.SetVector("_IsoGlowMap", new Vector4(0, 0, 1f / 3f, 1f / 3f)); mark.SetTexture("_IsoGlowTex", glow);
+            }
+            RenderTexture target = RenderTexture.GetTemporary(64, 64, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            camera.targetTexture = target;
+            var backend = UnityStubs.Rendering.CameraTextureRenderer.Current;
+            FieldInfo serial = backend.GetType().GetField("_frameNumber", BindingFlags.Instance | BindingFlags.NonPublic);
+            int before = (int)serial.GetValue(backend);
+            Camera.CameraCallback draw = active =>
+            {
+                if (active != camera) return;
+                Check(mat.SetPass(0), "Clay base shader did not bind"); Graphics.DrawMeshNow(mesh, Matrix4x4.identity);
+                if (mark != null) { Check(mark.SetPass(0), "Clay mark shader did not bind"); Graphics.DrawMeshNow(mesh, Matrix4x4.identity); }
+            };
+            Texture2D image = null;
+            try
+            {
+                Camera.onPreRender += draw; camera.Render(); Camera.onPreRender -= draw;
+                int completed = (int)serial.GetValue(backend);
+                Check(completed == before + 1 && backend.TryReadPixels(target, out _), "Clay proof has no completed GPU frame");
+                Check(backend.TryReadPixels(target, out byte[] raw) && raw.Length == 64 * 64 * 4, "Clay framebuffer is missing");
+                string rawPath = name + ".rgba", pngPath = name + ".png";
+                File.WriteAllBytes(Path.Combine(request.outputDirectory, rawPath), raw);
+                RenderTexture previous = RenderTexture.active;
+                RenderTexture.active = target;
+                image = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+                image.ReadPixels(new Rect(0, 0, 64, 64), 0, 0); image.Apply();
+                RenderTexture.active = previous;
+                File.WriteAllBytes(Path.Combine(request.outputDirectory, pngPath), image.EncodeToPNG());
+                Color32 p = image.GetPixels32()[32 * 64 + 32];
+                Check(p.a == 255 && !(p.r == 255 && p.g == 0 && p.b == 255), "Clay patch is empty");
+                lightingFrames.Add(new { name, rawPath, pngPath, gpuFrameBefore = before, gpuFrameCompleted = completed, rgb = new[] { (int)p.r, p.g, p.b } });
+                return new Color(p.r / 255f, p.g / 255f, p.b / 255f);
+            }
+            finally
+            {
+                Camera.onPreRender -= draw;
+                UnityEngine.Object.Destroy(image); UnityEngine.Object.Destroy(mat); UnityEngine.Object.Destroy(mark);
+                UnityEngine.Object.Destroy(mesh); UnityEngine.Object.Destroy(owner); RenderTexture.ReleaseTemporary(target);
+            }
+        }
+
+        private static void ChromaticLight(ProbeNormals.Request request)
+        {
+            foreach (int mode in new[] { 1, 2, 3 })
+            {
+                Color key = Sample(request, "clay-key-" + mode, Vector3.forward, new Vector3(0, .8f, .6f), mode: mode);
+                Color shadow = Sample(request, "clay-shadow-" + mode, Vector3.forward, new Vector3(0, .8f, -.6f), mode: mode);
+                Check(key.r > key.b + .005f && shadow.b > shadow.r + .005f, "Clay key or shadow lacks chromatic separation: " + mode);
+                Color zero = Sample(request, "clay-zero-" + mode, Vector3.forward, new Vector3(0, .8f, -.6f), warmth: 0, mode: mode);
+                Check(zero.r == zero.g && zero.g == zero.b, "Zero warmth changed achromatic clay");
+                Color up = Sample(request, "clay-up-" + mode, new Vector3(.2f, .9f, .3872983f), Vector3.right, mode: mode);
+                Color down = Sample(request, "clay-down-" + mode, new Vector3(.2f, -.6f, .7745967f), Vector3.right, mode: mode);
+                Check(up.r + up.g + up.b > down.r + down.g + down.b + .03f, "Hemisphere fill did not ground undercuts: " + mode);
+            }
+        }
+
+        private static object CreasesAndShadows(ProbeNormals.Request request)
+        {
+            IsoRimSettings previous = IsoRimMod.Settings;
+            var readings = new List<object>();
+            Thing wall = null;
+            Texture2D cells = null;
+            try
+            {
+                IsoRimMod.Settings = new IsoRimSettings { modelStyle = 1, clayWarmth = .55f, fogLid = false, texturedWalls = false, groundShadows = true };
+                Shader.SetGlobalVector("_IsoCellMap", Vector4.zero);
+                IsoCellMap.BeginFrame(Find.CurrentMap);
+                Vector4 map = Shader.GetGlobalVector("_IsoCellMap");
+                Check(map.z == Find.CurrentMap.Size.x && map.w == Find.CurrentMap.Size.z, "Clay mode did not bind the cell map without fog or textured walls");
+                MethodInfo signature = typeof(View3D).GetMethod("StateSignature", BindingFlags.NonPublic | BindingFlags.Static);
+                int lit = (int)signature.Invoke(null, null);
+                IsoRimMod.Settings.clayWarmth = 0f;
+                Check(lit != (int)signature.Invoke(null, null), "State signature omits the clay lighting toggle");
+                IsoRimMod.Settings.clayWarmth = .55f;
+                cells = new Texture2D(3, 3, TextureFormat.RGBA32, false, true);
+                cells.filterMode = FilterMode.Point; cells.wrapMode = TextureWrapMode.Clamp;
+                foreach (int mode in new[] { 1, 2 })
+                    foreach (IntVec3 dir in GenAdj.CardinalDirections)
+                    {
+                        Vector3 p = new Vector3(1.5f + dir.x * .44f, .15f, 1.5f + dir.z * .44f);
+                        cells.SetPixels32(new Color32[9]); cells.Apply();
+                        Color open = Sample(request, "crease-open-" + mode + "-" + dir, Vector3.up, Vector3.up, mode: mode, cells: cells, position: p);
+                        var heights = new Color32[9]; heights[(1 + dir.z) * 3 + 1 + dir.x] = new Color32(19, 51, 0, 0);
+                        cells.SetPixels32(heights); cells.Apply();
+                        Color corner = Sample(request, "crease-wall-" + mode + "-" + dir, Vector3.up, Vector3.up, mode: mode, cells: cells, position: p);
+                        Check(corner.r < open.r - .01f && corner.r >= open.r * .85f, "Cardinal crease shading is missing or exceeds its bound: " + mode + " " + dir);
+                    }
+
+                IntVec3 cell = new CellRect(2, 2, Find.CurrentMap.Size.x - 4, Find.CurrentMap.Size.z - 4)
+                    .First(c => c.GetEdifice(Find.CurrentMap) == null && GenAdj.CardinalDirections.All(d => (c + d).GetEdifice(Find.CurrentMap) == null));
+                wall = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+                GenSpawn.Spawn(wall, cell, Find.CurrentMap);
+                var model = new Model { maxY = 1f, positions = new[] { new Vector3(-.5f, 0, -.5f), new Vector3(-.5f, 0, .5f), new Vector3(.5f, 1, .5f), new Vector3(.5f, 0, -.5f) } };
+                foreach (string kind in new[] { "model", "sprite", "block" })
+                {
+                    float[] reach = new float[2]; int[] alpha = new int[2];
+                    for (int active = 0; active <= 1; active++)
+                    {
+                        R3DMaterials.SyncLightingStyle(1, active == 0 ? 0 : .55f);
+                        var layer = new SectionLayer_IsoRimBodies(new Section(new IntVec3(0, 0, 0), Find.CurrentMap));
+                        if (kind == "model") GroundShadows.UnderModel(layer, model, Vector3.zero, Quaternion.identity, Vector3.one, Vector3.zero, false, false, false);
+                        if (kind == "sprite") GroundShadows.UnderSprite(layer, new Vector3(-.5f, 0, -.5f), Vector2.right, Vector2.up, null, 1f);
+                        if (kind == "block") GroundShadows.AroundBlock(layer, wall);
+                        LayerSubMesh sub = layer.subMeshes.Single(s => s.verts.Count > 0);
+                        reach[active] = kind == "block" ? sub.verts.Max(v => v.x) - cell.x - 1f
+                            : new Vector2(sub.verts[1].x - sub.verts[0].x, sub.verts[1].z - sub.verts[0].z).magnitude;
+                        alpha[active] = sub.colors.Max(c => (int)c.a);
+                        UnityEngine.Object.Destroy(sub.mesh);
+                    }
+                    float expectedReach = kind == "model" ? .17f : kind == "sprite" ? .20f : .30f;
+                    int expectedAlpha = kind == "model" ? 65 : kind == "sprite" ? 60 : 69;
+                    Check(Math.Abs(reach[0] - expectedReach) < .0001f && Math.Abs(reach[1] - expectedReach * 1.35f) < .0001f
+                        && alpha[1] == expectedAlpha, "Contact fringe or alpha did not scale: " + kind + " " + string.Join(",", reach) + " " + string.Join(",", alpha));
+                    readings.Add(new { kind, reach, alpha });
+                }
+                var blobOwner = new GameObject("IsoRim contact blob proof");
+                Camera camera = blobOwner.AddComponent<Camera>(); camera.enabled = false; camera.orthographic = true; camera.aspect = 1f; camera.orthographicSize = 2f;
+                camera.transform.position = new Vector3(0, 10, 0); camera.transform.rotation = Quaternion.LookRotation(Vector3.down, Vector3.forward);
+                RenderTexture target = RenderTexture.GetTemporary(64, 64, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+                try
+                {
+                    foreach (int active in new[] { 0, 1, 0 })
+                    {
+                        R3DMaterials.SyncLightingStyle(1, active == 0 ? 0 : .55f);
+                        var commands = new List<MeshDrawCommand>();
+                        using (MeshDrawSubmission.BeginCapture(commands)) GroundShadows.Blob(Vector3.zero, 0, .5f, .7f);
+                        Check(commands.Count == 1, "Blob did not submit one mesh");
+                        float expectedWidth = active == 0 ? .5f : .675f, expectedLength = active == 0 ? .7f : .945f;
+                        Check(Math.Abs(commands[0].Matrix.M11 - expectedWidth) < 1e-5f && Math.Abs(commands[0].Matrix.M33 - expectedLength) < 1e-5f, "Blob reach did not scale");
+                        byte[] raw = MovingNormalCases.RenderProofScene(target, camera, commands, out int before, out int completed);
+                        int red = raw[(32 * 64 + 32) * 4];
+                        Check(Math.Abs(red - (active == 0 ? 179 : 190)) <= 2, "Submitted blob alpha did not scale: " + red);
+                        File.WriteAllBytes(Path.Combine(request.outputDirectory, "contact-blob-" + active + ".rgba"), raw);
+                        readings.Add(new { kind = "blob", active, red, before, completed });
+                    }
+                }
+                finally { UnityEngine.Object.Destroy(blobOwner); RenderTexture.ReleaseTemporary(target); }
+                return readings;
+            }
+            finally
+            {
+                if (wall != null) wall.Destroy();
+                UnityEngine.Object.Destroy(cells);
+                IsoRimMod.Settings = previous;
+                R3DMaterials.SyncLightingStyle(0, 0);
+            }
+        }
+
+        private static float proofSunGlow;
+        private static bool SunGlowPrefix(ref float __result)
+        {
+            __result = proofSunGlow;
+            return false;
+        }
+
+        private static object DayNightAndGlow(ProbeNormals.Request request)
+        {
+            IsoRimSettings previous = IsoRimMod.Settings;
+            var hook = new Harmony("isorim.lightingproof.sun-glow");
+            MethodInfo sunGlow = typeof(GenCelestial).GetMethod("CurCelestialSunGlow", new[] { typeof(Map) });
+            hook.Patch(sunGlow, prefix: new HarmonyMethod(typeof(LightingReadabilityCases).GetMethod(nameof(SunGlowPrefix), BindingFlags.NonPublic | BindingFlags.Static)));
+            var transport = new List<object>();
+            var textures = new List<Texture2D>();
+            var hdrTextures = new List<RenderTexture>();
+            Texture Glow(Color value)
+            {
+                if (Math.Max(value.r, Math.Max(value.g, value.b)) > 1f)
+                {
+                    RenderTexture hdr = RenderTexture.GetTemporary(32, 32, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+                    hdrTextures.Add(hdr);
+                    var owner = new GameObject("IsoRim HDR glow input");
+                    Camera camera = owner.AddComponent<Camera>(); camera.enabled = false; camera.cullingMask = 0;
+                    camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = value; camera.targetTexture = hdr;
+                    camera.Render(); UnityEngine.Object.Destroy(owner);
+                    return hdr;
+                }
+                var t = new Texture2D(3, 3, TextureFormat.RGBA32, false, true);
+                t.wrapMode = TextureWrapMode.Clamp; t.filterMode = FilterMode.Bilinear;
+                t.SetPixels32(Enumerable.Repeat((Color32)value, 9).ToArray()); t.Apply(); textures.Add(t); return t;
+            }
+            try
+            {
+                IsoRimMod.Settings = new IsoRimSettings { modelStyle = 1, clayWarmth = .55f, sunMoves = true, lightingFix = true };
+                var relight = typeof(View3D).GetMethod("Relight", BindingFlags.NonPublic | BindingFlags.Static);
+                foreach (float glow in new[] { 1f, .6f, 0f })
+                {
+                    proofSunGlow = glow;
+                    float expected = glow == 1f ? 0 : glow == .6f ? .5f : 1;
+                    relight.Invoke(null, null);
+                    float afterRelight = Shader.GetGlobalVector("_IsoSun").w;
+                    Check(Math.Abs(afterRelight - expected) < 1e-5f, "View3D.Relight lost night weight: " + glow);
+                    // Force the production rebuild arm of Tick without a wall-clock wait.
+                    typeof(View3D).GetField("lastActive", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, false);
+                    typeof(View3D).GetField("appliedSig", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, int.MinValue);
+                    View3D.Tick();
+                    float afterTick = Shader.GetGlobalVector("_IsoSun").w;
+                    Check(Math.Abs(afterTick - expected) < 1e-5f, "View3D.Tick rebuild lost night weight: " + glow);
+                    transport.Add(new { glow, expected, afterRelight, afterTick });
+                }
+                IsoRimMod.Settings.sunMoves = false; View3D.Tick(); relight.Invoke(null, null);
+                Check(Shader.GetGlobalVector("_IsoSun").w == 0f, "Fixed sun retained night weight");
+                R3DMaterials.SetLight(Vector3.up);
+                Check(Shader.GetGlobalVector("_IsoSun").w == 0f, "Isolation light overload retained night weight");
+                IsoGlow.BeginFrame(Find.CurrentMap);
+                Check(Shader.GetGlobalVector("_IsoSky").w == 1f, "Active glow lacks its flag");
+                IsoGlow.BindNeutral();
+                Check(Shader.GetGlobalVector("_IsoSky").w == 0f, "Neutral glow retained the active flag");
+
+                Color noon = Sample(request, "light-noon", Vector3.forward, new Vector3(0, .8f, .6f));
+                Color dusk = Sample(request, "light-dusk", Vector3.forward, new Vector3(0, .25f, .9682458f));
+                Color night = Sample(request, "light-night", Vector3.forward, new Vector3(0, .8f, .6f), night: 1);
+                Check(dusk.r / dusk.b > noon.r / noon.b + .02f && night.b / night.r > noon.b / noon.r + .02f, "Dusk or moonlight lacks its colour shift");
+                Vector4 activeSky = new Vector4(1, 1, 1, 1);
+                foreach (float cover in new[] { 0f, 1f })
+                {
+                    Texture flat = Glow(new Color(0, 0, 0, cover));
+                    Color lit = Sample(request, "roof-lit-" + cover, Vector3.forward, new Vector3(0, .8f, .6f), glow: flat, sky: activeSky, glowMode: 1);
+                    Color away = Sample(request, "roof-away-" + cover, Vector3.forward, new Vector3(0, .8f, -.6f), glow: flat, sky: activeSky, glowMode: 1);
+                    Color hl = Sample(request, "roof-highlight-" + cover, Vector3.forward, new Vector3(0, .8f, .6f), highlight: .1f, glow: flat, sky: activeSky, glowMode: 1);
+                    roofContrasts[(int)cover] = lit.r + lit.g + lit.b - away.r - away.g - away.b;
+                    roofHighlights[(int)cover] = hl.r + hl.g + hl.b - lit.r - lit.g - lit.b;
+                }
+                Check(roofContrasts[1] < roofContrasts[0] * .7f && roofHighlights[1] < roofHighlights[0] * .7f, "Roof cover did not attenuate sun contrast and highlight");
+                Texture2D gradient = (Texture2D)Glow(new Color(.6f, .4f, .2f, 1));
+                Color[] lamp = new Color[9];
+                for (int z = 0; z < 3; z++) for (int x = 0; x < 3; x++) lamp[z * 3 + x] = new Color(.2f + .4f * x, .1f + .25f * x, .05f + .1f * x, 1);
+                gradient.SetPixels32(lamp.Select(c => (Color32)c).ToArray()); gradient.Apply();
+                Vector3 toward = new Vector3(.8f, 0, .6f), awayLamp = new Vector3(-.8f, 0, .6f);
+                Color lampFace = Sample(request, "lamp-toward", toward, Vector3.up, glow: gradient, sky: activeSky, glowMode: 1);
+                Color lampBack = Sample(request, "lamp-away", awayLamp, Vector3.up, glow: gradient, sky: activeSky, glowMode: 1);
+                Check(lampFace.r + lampFace.g + lampFace.b > lampBack.r + lampBack.g + lampBack.b + .03f
+                    && lampFace.r / lampFace.b > lampBack.r / lampBack.b + .01f, "Lamp gradient lacks directional warm relief");
+                Texture fallback = Glow(new Color(.6f, .4f, .2f, 1));
+                Color flatA = Sample(request, "lamp-flat-a", toward, Vector3.up, glow: fallback, sky: activeSky, glowMode: 1);
+                Color flatB = Sample(request, "lamp-flat-b", awayLamp, Vector3.up, glow: fallback, sky: activeSky, glowMode: 1);
+                Check(Math.Abs(flatA.r - flatB.r) <= 1f / 255f && flatA.r > flatA.b, "Flat lamp fallback is directional or cold");
+                Texture dark = Glow(Color.clear);
+                Color baseline = Sample(request, "mark-base", Vector3.forward, Vector3.up, mode: 0);
+                Color floor = Sample(request, "mark-floor", Vector3.forward, Vector3.up, mode: 0, glow: dark, marked: true);
+                Color zero = Sample(request, "mark-zero", Vector3.forward, Vector3.up, warmth: 0, mode: 0, glow: dark, marked: true);
+                Check(Math.Abs(floor.r / baseline.r - .036f) < .009f && Math.Abs(floor.g / baseline.g - .040f) < .009f
+                    && Math.Abs(floor.b / baseline.b - .048f) < .009f && zero.r == 0 && zero.g == 0 && zero.b == 0, "Synced two-pass light lost its nocturnal floor or zero-warmth control");
+                Texture g1 = Glow(new Color(1.35f, 1.08f, .81f, 1)), g2 = Glow(new Color(1.80f, 1.44f, 1.08f, 1));
+                Color knee1 = Sample(request, "mark-knee-1", Vector3.forward, Vector3.up, mode: 0, glow: g1, marked: true);
+                Color knee2 = Sample(request, "mark-knee-2", Vector3.forward, Vector3.up, mode: 0, glow: g2, marked: true);
+                float multiplier1 = knee1.r / baseline.r, multiplier2 = knee2.r / baseline.r;
+                Check(multiplier1 > 1.25f && multiplier1 < 1.35f && multiplier2 > multiplier1 && multiplier2 < 1.50f
+                    && Math.Abs(knee1.g / knee1.r - .8f) < .015f && Math.Abs(knee2.b / knee2.r - .6f) < .015f, "Glow highlight knee clips or changes the RGB ratio");
+                Color legacy = Sample(request, "mark-hard-clamp", Vector3.forward, Vector3.up, warmth: 0, mode: 0, glow: g2, marked: true);
+                Check(Math.Abs(legacy.r / baseline.r - 1.5f) < .012f, "Legacy hard clamp changed");
+                Color roofDark = Sample(request, "sky-only-dark", Vector3.forward, Vector3.up, mode: 3, glow: dark, sky: activeSky, glowMode: 2);
+                Color roofLamp = Sample(request, "sky-only-lamp", Vector3.forward, Vector3.up, mode: 3, glow: g2, sky: activeSky, glowMode: 2);
+                Check(roofDark == roofLamp, "Sky-only roof leaked indoor glow");
+                return new { transport, multiplier1, multiplier2, floor = new[] { floor.r / baseline.r, floor.g / baseline.g, floor.b / baseline.b }, roofContrasts, roofHighlights };
+            }
+            finally
+            {
+                hook.Unpatch(sunGlow, HarmonyPatchType.Prefix, hook.Id);
+                foreach (Texture2D t in textures) UnityEngine.Object.Destroy(t);
+                foreach (RenderTexture t in hdrTextures) RenderTexture.ReleaseTemporary(t);
+                IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0, 0, 0); R3DMaterials.SyncSceneStyle(0, 0, 0, 0);
+            }
+        }
+        private static readonly float[] roofContrasts = new float[2], roofHighlights = new float[2];
+
+        internal static string Run(string id, ProbeNormals.Request request)
+        {
+            switch (id)
+            {
+                case "LightingReadabilityCases.ClayDaylightAndGlow":
+                    lightingFrames.Clear();
+                    MaterialTransport(request);
+                    ChromaticLight(request);
+                    object shadows = CreasesAndShadows(request);
+                    object glow = DayNightAndGlow(request);
+                    string path = Path.Combine(request.outputDirectory, id + ".json");
+                    File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, materialTransport = true, frames = lightingFrames, shadows, glow }));
+                    return path;
+                default: throw new InvalidOperationException("Unknown lighting case: " + id);
             }
         }
     }

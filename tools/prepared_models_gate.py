@@ -23,7 +23,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "artifacts/prepared-models"
-EVIDENCE = ROOT / ".testruns/ISORIM-005"
+EVIDENCE = ROOT / ".testruns/ISORIM-006"
 SDK = Path("C:/Users/mikel/AppData/Local/Microsoft/dotnet/dotnet.exe")
 GAME = Path("C:/Program Files (x86)/Steam/steamapps/common/RimWorld")
 HARMONY = Path("C:/Program Files (x86)/Steam/steamapps/workshop/content/294100/2009463077/1.7/Assemblies/0Harmony.dll")
@@ -36,7 +36,7 @@ FINGERPRINTS = {
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
 # Execution pin shared by frozen-input comparison and T1 selection.
-BASELINE = "e68a46ae3e547f8d099c1243dc4621456f071161"
+BASELINE = "6a0e2cbcb2cfc46473292f86419bdefb2718ca73"
 DEADLINE = None
 
 
@@ -155,6 +155,7 @@ def verify_registry(cases, manifest):
         "IntegratedNormalCases": "integrated",
         "ModelStyleCases": "style",
         "SceneStyleCases": "style",
+        "LightingReadabilityCases": "style",
     }
     for case in registered:
         group = required_groups.get(case.split(".")[0])
@@ -203,7 +204,8 @@ def changed_paths(records):
 def select_cases(records, story, manifest):
     ordinals = {**{f"ISORIM-003.S{i:02d}": i for i in range(1, 6)},
                 **{f"ISORIM-004.S{i:02d}": i + 5 for i in range(1, 4)},
-                **{f"ISORIM-005.S{i:02d}": i + 8 for i in range(1, 4)}}
+                **{f"ISORIM-005.S{i:02d}": i + 8 for i in range(1, 4)},
+                **{f"ISORIM-006.S{i:02d}": i + 11 for i in range(1, 4)}}
     ordinal = ordinals.get(story)
     if ordinal is None:
         raise Refusal("Unknown story")
@@ -451,18 +453,18 @@ def git(*args, root=ROOT):
 
 
 def prepare_evidence(root, evidence):
-    allowed = root.resolve() / ".testruns/ISORIM-005"
+    allowed = root.resolve() / ".testruns/ISORIM-006"
     if not evidence.resolve().is_relative_to(allowed) or evidence.resolve() == allowed:
-        raise Refusal("Evidence must be below .testruns/ISORIM-005/<nonce>")
+        raise Refusal("Evidence must be below .testruns/ISORIM-006/<nonce>")
     if evidence.parent.resolve() != allowed:
         raise Refusal("Each evidence nonce must be a direct child of the epic directory")
     for parent in [root / ".testruns", allowed, evidence]:
         if parent.is_symlink() or parent.is_junction():
             raise Refusal("Evidence directories cannot redirect writes")
-    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-005/ignore-probe.json", root=root).decode()
-    if "\t.testruns/ISORIM-005/ignore-probe.json" not in rule or ":/.testruns/ISORIM-005/" not in rule:
+    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-006/ignore-probe.json", root=root).decode()
+    if "\t.testruns/ISORIM-006/ignore-probe.json" not in rule or ":/.testruns/ISORIM-006/" not in rule:
         raise Refusal("The exact epic evidence ignore rule is missing")
-    if git("ls-files", "-z", "--", ".testruns/ISORIM-005", root=root):
+    if git("ls-files", "-z", "--", ".testruns/ISORIM-006", root=root):
         raise Refusal("Evidence paths are tracked")
     if evidence.exists():
         raise Refusal("The evidence nonce already exists")
@@ -1435,7 +1437,7 @@ def main():
         head = git("rev-parse", "--verify", args.head + "^{commit}").decode().strip()
         if args.command == "t0":
             epic = git("rev-parse", "--verify", args.epic_ref + "^{commit}").decode().strip()
-            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-005-colony-wide-style^{commit}").decode().strip()
+            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-006-lighting-and-colour-readability^{commit}").decode().strip()
             if epic != expected_epic:
                 raise Refusal("The epic base differs from the commission")
         else:
@@ -1446,7 +1448,7 @@ def main():
             raise Refusal("T1 requires the exact commissioned --base " + BASELINE)
         if args.command != "ci":
             git("merge-base", "--is-ancestor", epic, head)
-        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-005-colony-wide-style").decode().strip():
+        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-006-lighting-and-colour-readability").decode().strip():
             raise Refusal("Authoritative T1 must run at the frozen integrated epic head")
         if args.command != "ci":
             # Independent asset work may advance main while this epic keeps its commissioned base.
@@ -1456,7 +1458,7 @@ def main():
         story = args.story
         if args.command in ("t1", "ci"):
             ordinal = max(case['story'] for case in manifest['cases'].values())
-            story = f"ISORIM-005.S{ordinal - 8:02d}" if ordinal > 8 else f"ISORIM-004.S{ordinal - 5:02d}" if ordinal > 5 else f"ISORIM-003.S{ordinal:02d}"
+            story = f"ISORIM-006.S{ordinal - 11:02d}" if ordinal > 11 else f"ISORIM-005.S{ordinal - 8:02d}" if ordinal > 8 else f"ISORIM-004.S{ordinal - 5:02d}" if ordinal > 5 else f"ISORIM-003.S{ordinal:02d}"
         cases = run_cases(args.command, changes, story, manifest, args.base)
         selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes) if changes else [],
                      "caseIds": cases, "hostControls": manifest["hostCases"], "ignoreProof": rule, "nonce": evidence.name}

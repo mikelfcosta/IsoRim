@@ -278,7 +278,7 @@ namespace IsoRim
             string Layout(string source) => System.Text.RegularExpressions.Regex.Replace(source.Substring(source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal),
                 source.IndexOf("} uMaterial;", StringComparison.Ordinal) - source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal)), @"//[^\r\n]*|\s+", "");
             Require(sources.All(source => Layout(source) == Layout(sources[0])), "Owned shader material layouts diverged");
-            string[] layoutFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness", "_SceneClay" };
+            string[] layoutFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness", "_SceneClay", "_ClayWarmth" };
             foreach (string field in layoutFields)
                 Require(sources.All(source => source.Contains("float " + field + "; // @default = 0.0")), "Missing zero-default style field: " + field);
             string[] styleFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness" };

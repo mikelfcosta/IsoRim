@@ -225,6 +225,12 @@ namespace IsoRim
             mark.mainTexture = m.mainTexture;
             mark.SetVector(mainTexStId, m.GetVector(mainTexStId));
             mark.SetColor(colorId, m.color);
+            mark.SetFloat("_ClayWarmth", m.GetFloat("_ClayWarmth"));
+        }
+
+        public static void SyncLighting(float warmth)
+        {
+            foreach (Material mark in marks.Values) mark.SetFloat("_ClayWarmth", warmth);
         }
 
         // The mark material for a material drawn now, or null if it needs none. Texture and colour
@@ -240,6 +246,7 @@ namespace IsoRim
             {
                 SyncMark(m, mark);
             }
+            mark.SetFloat("_ClayWarmth", m.GetFloat("_ClayWarmth"));
             return mark;
         }
 
@@ -365,7 +372,7 @@ namespace IsoRim
             }
             Shader.SetGlobalTexture(texId, neutral);
             Shader.SetGlobalVector(mapId, new Vector4(0f, 0f, 1f, 1f));
-            Shader.SetGlobalVector(skyId, new Vector4(1f, 1f, 1f, 1f));
+            Shader.SetGlobalVector(skyId, new Vector4(1f, 1f, 1f, 0f));
         }
 
         // ---- the copy from the game's overlay

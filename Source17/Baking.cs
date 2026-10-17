@@ -2386,6 +2386,10 @@ namespace IsoRim
         private static readonly IntVec3[] Sides = { IntVec3.South, IntVec3.North, IntVec3.West, IntVec3.East };
 
         private static Mesh blob;
+        private static Mesh clayBlob;
+        private static bool ClayShadows => IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0 && R3DMaterials.ClayWarmth > 1e-4f;
+        public static float ReachScale => ClayShadows ? 1.35f : 1f;
+        public static float AlphaScale => ClayShadows ? 0.85f : 1f;
 
         public static bool On
         {
@@ -2417,6 +2421,7 @@ namespace IsoRim
         // Filled at the given darkness, with a fringe fading out over reach cells.
         public static void Soft(SectionLayer layer, List<Vector2> points, float dark, float reach)
         {
+            reach *= ReachScale;
             int n = points.Count;
             if (n < 3)
             {
@@ -2435,7 +2440,7 @@ namespace IsoRim
             mid /= n;
 
             float y = Height;
-            Color32 inner = Dark(dark);
+            Color32 inner = Dark(dark * AlphaScale);
             int first = sm.verts.Count;
             for (int i = 0; i < n; i++)
             {
@@ -2570,10 +2575,10 @@ namespace IsoRim
             {
                 return;
             }
-            const float Reach = 0.30f;
+            float reach = 0.30f * ReachScale;
             IntVec3 c = t.Position;
             float y = Height;
-            Color32 inner = Dark(0.32f);
+            Color32 inner = Dark(0.32f * AlphaScale);
             Vector3 centre = new Vector3(c.x + 0.5f, y, c.z + 0.5f);
 
             bool south = Open(map, c, c + IntVec3.South);
@@ -2592,7 +2597,7 @@ namespace IsoRim
                 Vector3 along = new Vector3(outward.z, 0f, -outward.x);
                 Vector3 p0 = centre + outward * 0.5f - along * 0.5f;
                 Vector3 p1 = p0 + along;
-                MeshWriter.Quad(sm, p0, p0 + outward * Reach, p1 + outward * Reach, p1, inner, Clear, Clear, inner);
+                MeshWriter.Quad(sm, p0, p0 + outward * reach, p1 + outward * reach, p1, inner, Clear, Clear, inner);
             }
             for (int sx = -1; sx <= 1; sx += 2)
             {
@@ -2603,8 +2608,8 @@ namespace IsoRim
                         continue;
                     }
                     Vector3 k = centre + new Vector3(sx * 0.5f, 0f, sz * 0.5f);
-                    MeshWriter.Quad(sm, k, k + new Vector3(sx * Reach, 0f, 0f), k + new Vector3(sx * Reach * 0.7f, 0f, sz * Reach * 0.7f),
-                        k + new Vector3(0f, 0f, sz * Reach), inner, Clear, Clear, Clear);
+                    MeshWriter.Quad(sm, k, k + new Vector3(sx * reach, 0f, 0f), k + new Vector3(sx * reach * 0.7f, 0f, sz * reach * 0.7f),
+                        k + new Vector3(0f, 0f, sz * reach), inner, Clear, Clear, Clear);
                 }
             }
         }
@@ -2630,13 +2635,14 @@ namespace IsoRim
             {
                 return;
             }
-            if (blob == null)
+            Mesh selected = ClayShadows ? clayBlob : blob;
+            if (selected == null)
             {
                 const int N = 14;
                 List<Vector3> verts = new List<Vector3>();
                 List<Color32> colors = new List<Color32>();
                 List<int> tris = new List<int>();
-                Color32 inner = Dark(0.30f);
+                Color32 inner = Dark(0.30f * AlphaScale);
                 for (int i = 0; i < N; i++)
                 {
                     float a = 2f * Mathf.PI * i / N;
@@ -2663,16 +2669,18 @@ namespace IsoRim
                     tris.Add(b + 1);
                     tris.Add(b);
                 }
-                blob = new Mesh();
-                blob.name = "IsoRim_ShadowBlob";
-                blob.SetVertices(verts);
-                blob.SetColors(colors);
-                blob.SetTriangles(tris, 0);
-                blob.RecalculateBounds();
+                selected = new Mesh();
+                selected.name = "IsoRim_ShadowBlob";
+                selected.SetVertices(verts);
+                selected.SetColors(colors);
+                selected.SetTriangles(tris, 0);
+                selected.RecalculateBounds();
+                if (ClayShadows) clayBlob = selected;
+                else blob = selected;
             }
             Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(position.x, Height, position.z), Quaternion.AngleAxis(yaw, Vector3.up),
-                new Vector3(Mathf.Max(0.05f, halfWidth), 1f, Mathf.Max(0.05f, halfLength)));
-            Graphics.DrawMesh(blob, matrix, mat, 0);
+                new Vector3(Mathf.Max(0.05f, halfWidth) * ReachScale, 1f, Mathf.Max(0.05f, halfLength) * ReachScale));
+            Graphics.DrawMesh(selected, matrix, mat, 0);
         }
     }
 }

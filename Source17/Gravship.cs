@@ -747,6 +747,12 @@ namespace IsoRim
             m.SetFloat("_ClayWrap", shipRoofWrap);
             m.SetFloat("_ClayHighlight", shipRoofHighlight);
             m.SetFloat("_ClayRoughness", shipRoofRoughness);
+            m.SetFloat("_ClayWarmth", R3DMaterials.ClayWarmth);
+        }
+
+        public static void SyncLighting(float warmth)
+        {
+            if (material != null) material.SetFloat("_ClayWarmth", warmth);
         }
 
         private static void Load()
