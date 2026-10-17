@@ -15,6 +15,8 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _SwayHead;  // @default = 0.0 (consumed by PlantWindSway.vert, kept for layout)
     vec4 _IsoView;    // global, no default: w = Squash (read by IsoRimCard.vert.glsl)
     vec4 _IsoCard;    // global, no default: sin a, cos a (a = pitch - 90), sin yaw, cos yaw
+    vec4 _IsoSun;     // global, no default
+    vec4 _IsoClayCard;// global, no default
 } uMaterial;
 
 layout(set = 2, binding = 1) uniform sampler2D _MainTex;

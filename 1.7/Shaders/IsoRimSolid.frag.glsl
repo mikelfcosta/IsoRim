@@ -247,12 +247,23 @@ void main()
             else
                 shade = mix(WallShade(n, L), clayShade, 0.65);
         }
-        else
+        else if (mode < 3.5)
         {
             if (!clayActive)
                 shade = min(1.1, ModelShade(n, L) * 1.05);
             else
                 shade = min(1.06, clayShade * 1.02);
+        }
+        else
+        {
+            if (!clayActive)
+                shade = 1.0;
+            else
+            {
+                vec3 V = normalize(uMaterial._IsoView.xyz);
+                shade = mix(0.94, 1.03, clamp(L.y, 0.0, 1.0))
+                    + 0.35 * uMaterial._ClayHighlight * smoothstep(0.55, 0.98, max(0.0, dot(vec3(0.0, 1.0, 0.0), normalize(L + V))));
+            }
         }
     }
     color.rgb *= shade;

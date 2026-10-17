@@ -1344,7 +1344,9 @@ namespace IsoRim
             float squash = View3D.Squash;
             float yBottom = bottom / squash;
             float yTop = v0.y + top / squash;
-            float yLine = Mathf.Min(yTop, yBottom + LineHeight / squash);
+            float lineScale = IsoRimMod.Settings != null && IsoRimMod.Settings.outlines && IsoRimMod.Settings.outlineWidth > 0.001f ? Mathf.Clamp(IsoRimMod.Settings.outlineWidth, 0.25f, 1.50f) : 0f;
+            float yLine = Mathf.Min(yTop, yBottom + (LineHeight * lineScale) / squash);
+            float bottomShade = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0 ? 0.86f : BottomShade;
             float yLid = Mathf.Max(yBottom, yTop - 0.01f / squash);
 
             MeshWriter.Raise(sm, n, top);
@@ -1405,16 +1407,19 @@ namespace IsoRim
                 }
                 MeshWriter.Quad(side,
                     new Vector3(px, yBottom, pz), new Vector3(px, yTop, pz), new Vector3(qx, yTop, qz), new Vector3(qx, yBottom, qz),
-                    R3DMaterials.Shaded(c0, shade * BottomShade), R3DMaterials.Shaded(c0, shade),
-                    R3DMaterials.Shaded(c1, shade), R3DMaterials.Shaded(c1, shade * BottomShade));
+                    R3DMaterials.Shaded(c0, shade * bottomShade), R3DMaterials.Shaded(c0, shade),
+                    R3DMaterials.Shaded(c1, shade), R3DMaterials.Shaded(c1, shade * bottomShade));
 
-                float gx = nx * Gap;
-                float gz = nz * Gap;
-                MeshWriter.Quad(solid,
-                    new Vector3(px + gx, yBottom, pz + gz), new Vector3(px + gx, yLine, pz + gz),
-                    new Vector3(qx + gx, yLine, qz + gz), new Vector3(qx + gx, yBottom, qz + gz),
-                    R3DMaterials.Shaded(c0, LineShade), R3DMaterials.Shaded(c0, LineShade),
-                    R3DMaterials.Shaded(c1, LineShade), R3DMaterials.Shaded(c1, LineShade));
+                if (lineScale > 0f)
+                {
+                    float gx = nx * Gap;
+                    float gz = nz * Gap;
+                    MeshWriter.Quad(solid,
+                        new Vector3(px + gx, yBottom, pz + gz), new Vector3(px + gx, yLine, pz + gz),
+                        new Vector3(qx + gx, yLine, qz + gz), new Vector3(qx + gx, yBottom, qz + gz),
+                        R3DMaterials.Shaded(c0, LineShade), R3DMaterials.Shaded(c0, LineShade),
+                        R3DMaterials.Shaded(c1, LineShade), R3DMaterials.Shaded(c1, LineShade));
+                }
             }
 
             // A solid lid just under the sprite, so things standing behind are hidden by it

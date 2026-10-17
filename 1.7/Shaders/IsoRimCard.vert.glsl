@@ -18,6 +18,7 @@ layout(push_constant) uniform Push { mat4 modelMatrix; } push;
 layout(location = 0) out vec4 vColor;
 layout(location = 1) out vec2 vUv;
 layout(location = 2) flat out float vFallSeed; // per plant seed from uv z
+layout(location = 3) out float vCardHeight;
 
 layout(set = 0, binding = 0) uniform VertexUniforms
 {
@@ -33,6 +34,8 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _SwayHead;
     vec4 _IsoView;    // global: w = Squash
     vec4 _IsoCard;    // global: sin a, cos a (a = pitch - 90 degrees), sin yaw, cos yaw
+    vec4 _IsoSun;     // global, no default: xyz = direction toward sun
+    vec4 _IsoClayCard;// global, no default: x = mode, y = wrap, z = highlight, w = roughness
 } uMaterial;
 
 void main()
@@ -61,4 +64,5 @@ void main()
     vColor = inColor;
     vUv = inUv0.xy;
     vFallSeed = inUv0.z;
+    vCardHeight = clamp(d.z / max(0.25, max(d.z, abs(d.x) * 2.0)), 0.0, 1.0);
 }
