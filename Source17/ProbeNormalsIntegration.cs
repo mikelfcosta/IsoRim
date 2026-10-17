@@ -1929,16 +1929,13 @@ namespace IsoRim
                 Color32[] clayColors = claySidesMesh.colors32;
                 Check(classicColors.Length == clayColors.Length && classicColors.Length > 0, "SpriteSolids sides vertex count differs");
 
-                // Check edge and fill colors separately:
+                // Extract mask and find lit upward-facing edge run for contour comparison:
                 Extruder.Mask mask = Extruder.MaskOf(weaponThing.Graphic.MatSingleFor(weaponThing).mainTexture, Vector2.one, Vector2.zero);
                 Check(mask != null, "MaskOf returned null for weapon texture");
                 int edgeVertCount = mask.runs.Count * 4;
                 float cMin = classicColors.Take(edgeVertCount).Min(c => (float)c.r / 255f);
                 float cMax = classicColors.Take(edgeVertCount).Max(c => (float)c.r / 255f);
                 Check(cMax - cMin > 0.20f, "Classic edge vertices do not contain directional contrast");
-                float classicFillR = (float)classicColors[edgeVertCount].r / 255f;
-                float clayFillR = (float)clayColors[edgeVertCount].r / 255f;
-                // Edge: find an upward-facing run (dir == 1, where classic directional shade is 1.0f):
                 int upEdgeIdx = -1;
                 for (int i = 0; i < mask.runs.Count; i++)
                 {
@@ -1949,14 +1946,6 @@ namespace IsoRim
                     }
                 }
                 Check(upEdgeIdx >= 0, "No lit upward-facing edge run found in weapon solid");
-                float observedEdgeRatio = (float)clayColors[upEdgeIdx].r / classicColors[upEdgeIdx].r;
-                Check(Math.Abs(observedEdgeRatio - 0.92f) < 0.03f, "Clay contour edge shading does not pin 0.92f: observed " + observedEdgeRatio);
-
-                // Fill: check fill vertices (indices edgeVertCount .. end):
-                int fillIdx = edgeVertCount;
-                float observedFillRatio = (float)clayColors[fillIdx].r / classicColors[fillIdx].r;
-                Check(Math.Abs(observedFillRatio - (0.86f / 0.70f)) < 0.03f, "Clay interior fill shading does not pin 0.86f (vs classic 0.70f): observed " + observedFillRatio);
-
                 // Observe production submissions across modelStyle 0, 1, 0:
                 var commandsClassic = new List<MeshDrawCommand>();
                 using (MeshDrawSubmission.BeginCapture(commandsClassic))
@@ -1966,8 +1955,10 @@ namespace IsoRim
                     SpriteSolids.DrawUpright(weaponThing, new Vector3(10f, 1f, 10f), 0f, false, 1f);
                     SpriteSolids.DrawLying(weaponThing, new Vector3(10f, 0f, 10f), 0.1f, 1f);
                 }
-                Check(commandsClassic.Count(c => c.Material != null && c.Material.DebugName == "IsoRim_Solid" && c.Mesh.IndexCount == classicSidesMesh.triangles.Length) == 3,
-                    "Classic slab did not submit classic sides and unlit Solid");
+                var classicSideCmds = commandsClassic.Where(c => c.Material != null && c.Material.DebugName == "IsoRim_Solid").ToList();
+                Check(classicSideCmds.Count == 3, "Classic slab did not submit 3 side draws with unlit Solid");
+                Check(classicSideCmds.All(c => ReferenceEquals(c.Mesh, classicSidesMesh.EngineMesh)), "Classic side draw did not submit classicSidesMesh EngineMesh");
+                Check(!classicSideCmds.Any(c => ReferenceEquals(c.Mesh, claySidesMesh.EngineMesh)), "Classic side draw incorrectly submitted claySidesMesh EngineMesh");
 
                 var commandsClay = new List<MeshDrawCommand>();
                 using (MeshDrawSubmission.BeginCapture(commandsClay))
@@ -1977,8 +1968,19 @@ namespace IsoRim
                     SpriteSolids.DrawUpright(weaponThing, new Vector3(10f, 1f, 10f), 0f, false, 1f);
                     SpriteSolids.DrawLying(weaponThing, new Vector3(10f, 0f, 10f), 0.1f, 1f);
                 }
-                Check(commandsClay.Count(c => c.Material != null && c.Material.DebugName == "IsoRim_LitModel" && c.Mesh.IndexCount == claySidesMesh.triangles.Length) == 3,
-                    "Clay slab did not submit claySides and LitModel");
+                var claySideCmds = commandsClay.Where(c => c.Material != null && c.Material.DebugName == "IsoRim_LitModel").ToList();
+                Check(claySideCmds.Count == 3, "Clay slab did not submit 3 side draws with LitModel");
+                Check(claySideCmds.All(c => ReferenceEquals(c.Mesh, claySidesMesh.EngineMesh)), "Clay side draw did not submit claySidesMesh EngineMesh");
+                Check(!claySideCmds.Any(c => ReferenceEquals(c.Mesh, classicSidesMesh.EngineMesh)), "Clay side draw incorrectly submitted classicSidesMesh EngineMesh");
+
+                // Verify 0.92 edge and 0.86 fill on the submitted clay sides mesh:
+                Color32[] submittedClayColors = claySidesMesh.colors32;
+                Color32[] submittedClassicColors = classicSidesMesh.colors32;
+                float observedEdgeRatio = (float)submittedClayColors[upEdgeIdx].r / submittedClassicColors[upEdgeIdx].r;
+                Check(Math.Abs(observedEdgeRatio - 0.92f) < 0.03f, "Clay contour edge shading on submitted mesh does not pin 0.92f: observed " + observedEdgeRatio);
+                int fillIdx = edgeVertCount;
+                float observedFillRatio = (float)submittedClayColors[fillIdx].r / submittedClassicColors[fillIdx].r;
+                Check(Math.Abs(observedFillRatio - (0.86f / 0.70f)) < 0.03f, "Clay interior fill shading on submitted mesh does not pin 0.86f (vs classic 0.70f): observed " + observedFillRatio);
 
                 var commandsRestore = new List<MeshDrawCommand>();
                 using (MeshDrawSubmission.BeginCapture(commandsRestore))
@@ -1988,8 +1990,10 @@ namespace IsoRim
                     SpriteSolids.DrawUpright(weaponThing, new Vector3(10f, 1f, 10f), 0f, false, 1f);
                     SpriteSolids.DrawLying(weaponThing, new Vector3(10f, 0f, 10f), 0.1f, 1f);
                 }
-                Check(commandsRestore.Count(c => c.Material != null && c.Material.DebugName == "IsoRim_Solid" && c.Mesh.IndexCount == classicSidesMesh.triangles.Length) == 3,
-                    "Restored slab did not submit classic sides and unlit Solid");
+                var restoreSideCmds = commandsRestore.Where(c => c.Material != null && c.Material.DebugName == "IsoRim_Solid").ToList();
+                Check(restoreSideCmds.Count == 3, "Restored slab did not submit 3 side draws with unlit Solid");
+                Check(restoreSideCmds.All(c => ReferenceEquals(c.Mesh, classicSidesMesh.EngineMesh)), "Restored side draw did not submit classicSidesMesh EngineMesh");
+                Check(!restoreSideCmds.Any(c => ReferenceEquals(c.Mesh, claySidesMesh.EngineMesh)), "Restored side draw incorrectly submitted claySidesMesh EngineMesh");
 
                 // Compare two held rotations under fixed _IsoSun in clay mode:
                 var slabProofOwner = new GameObject("IsoRim slab rotation proof");
@@ -2011,7 +2015,9 @@ namespace IsoRim
                         IsoRimMod.Settings.modelStyle = 1;
                         SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 0f);
                     }
-                    byte[] rawAim0 = MovingNormalCases.RenderProofScene(slabTarget, slabCamera, aim0Commands, out _, out _);
+                    var aim0SideOnly = aim0Commands.Where(c => c.Material != null && c.Material.DebugName == "IsoRim_LitModel").ToList();
+                    Check(aim0SideOnly.Count > 0, "No side draw submitted at aim 0");
+                    byte[] rawAim0 = MovingNormalCases.RenderProofScene(slabTarget, slabCamera, aim0SideOnly, out _, out _);
 
                     var aim90Commands = new List<MeshDrawCommand>();
                     using (MeshDrawSubmission.BeginCapture(aim90Commands))
@@ -2019,9 +2025,35 @@ namespace IsoRim
                         IsoRimMod.Settings.modelStyle = 1;
                         SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 90f);
                     }
-                    byte[] rawAim90 = MovingNormalCases.RenderProofScene(slabTarget, slabCamera, aim90Commands, out _, out _);
+                    var aim90SideOnly = aim90Commands.Where(c => c.Material != null && c.Material.DebugName == "IsoRim_LitModel").ToList();
+                    Check(aim90SideOnly.Count > 0, "No side draw submitted at aim 90");
+                    byte[] rawAim90 = MovingNormalCases.RenderProofScene(slabTarget, slabCamera, aim90SideOnly, out _, out _);
 
-                    Check(!rawAim0.SequenceEqual(rawAim90), "Rotating a held slab under fixed _IsoSun in clay mode left side shading constant");
+                    int sidePixels0 = 0;
+                    float lumSum0 = 0f;
+                    for (int i = 0; i < rawAim0.Length; i += 4)
+                    {
+                        if (!(rawAim0[i] == 255 && rawAim0[i + 1] == 0 && rawAim0[i + 2] == 255))
+                        {
+                            sidePixels0++;
+                            lumSum0 += rawAim0[i] * 0.2126f + rawAim0[i + 1] * 0.7152f + rawAim0[i + 2] * 0.0722f;
+                        }
+                    }
+                    int sidePixels90 = 0;
+                    float lumSum90 = 0f;
+                    for (int i = 0; i < rawAim90.Length; i += 4)
+                    {
+                        if (!(rawAim90[i] == 255 && rawAim90[i + 1] == 0 && rawAim90[i + 2] == 255))
+                        {
+                            sidePixels90++;
+                            lumSum90 += rawAim90[i] * 0.2126f + rawAim90[i + 1] * 0.7152f + rawAim90[i + 2] * 0.0722f;
+                        }
+                    }
+                    Check(sidePixels0 >= 20 && sidePixels90 >= 20, $"Held slab side pixel coverage below floor (20): aim0={sidePixels0}, aim90={sidePixels90}");
+                    float avgLum0 = lumSum0 / sidePixels0 / 255f;
+                    float avgLum90 = lumSum90 / sidePixels90 / 255f;
+                    float delta = Math.Abs(avgLum0 - avgLum90);
+                    Check(delta > 0.03f, $"Held slab side shading delta ({delta:F3}) under fixed sun is not > 0.03: aim0={avgLum0:F3}, aim90={avgLum90:F3}");
                 }
                 finally
                 {
@@ -2153,6 +2185,10 @@ namespace IsoRim
                     Check(waterSmClay.colors.Any(c => c.a == 210), "Water submesh missing shallow shoreline alpha 210 in clay mode");
                     Check(waterSmClay.colors.Any(c => c.a > 210 && c.a < 245), "Water submesh missing intermediate feathered alpha strictly between 210 and 245 in clay mode");
                     Check(waterSmClay.colors.Any(c => c.a == 245), "Water submesh missing deep water alpha 245 in clay mode");
+                    // Check known ordinary shallow-shore vertex (d <= 1, non-corner CornerColour vertex) independent of RoundInnerCorners tip:
+                    int ordinaryShoreIdx = waterSmClay.verts.FindIndex(v => Math.Abs(v.x - shoreCenter.x) < 1e-3f && Math.Abs(v.z - (shoreCenter.z + 6)) < 1e-3f);
+                    Check(ordinaryShoreIdx >= 0, "Ordinary shallow shoreline vertex (d <= 1) missing in clay water mesh");
+                    Check(waterSmClay.colors[ordinaryShoreIdx].a == 210, $"Ordinary shallow shoreline vertex does not have alpha 210: observed {waterSmClay.colors[ordinaryShoreIdx].a}");
 
                     // Check RoundInnerCorners tip alpha 210 at the concave land corner:
                     IntVec3 landCorner = shoreCenter + new IntVec3(-5, 0, -5);
@@ -2162,6 +2198,7 @@ namespace IsoRim
                     int tipIdx = waterSmClay.verts.FindIndex(v => Math.Abs(v.x - (kx - reach)) < 1e-3f && Math.Abs(v.z - kz) < 1e-3f);
                     Check(tipIdx >= 0, "RoundInnerCorners tip vertex missing in clay water mesh");
                     Check(waterSmClay.colors[tipIdx].a == 210, "RoundInnerCorners tip vertex does not have alpha 210 in clay mode: observed " + waterSmClay.colors[tipIdx].a);
+                    Check(ordinaryShoreIdx != tipIdx, "Ordinary shoreline vertex coincided with RoundInnerCorners tip");
 
                     // Observe wave opacity and scrolling in clay mode:
                     waterLayerClay.DrawLayer();
