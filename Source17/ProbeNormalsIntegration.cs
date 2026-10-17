@@ -3187,14 +3187,19 @@ namespace IsoRim
             var shipRoof = typeof(ShipRoofs).GetProperty("Mat", BindingFlags.NonPublic | BindingFlags.Static);
             Material[] Materials() => new[] { R3DMaterials.LitModel, R3DMaterials.Lit(0, 1), R3DMaterials.Roof,
                 (Material)texRoof.Invoke(null, new object[] { 0, 0 }), (Material)shipRoof.GetValue(null), R3DMaterials.WaterOverlay, R3DMaterials.Ghost };
+            var cachedMarks = new Dictionary<Material, Material>();
             void AssertWarm(Material m, float value)
             {
                 Check(m != null && Math.Abs(m.GetFloat("_ClayWarmth") - value) < 1e-6f, "Material warmth differs: " + m?.name);
-                if (IsoGlow.Marked(m)) Check(Math.Abs(IsoGlow.MarkFor(m).GetFloat("_ClayWarmth") - value) < 1e-6f, "Mark warmth differs: " + m.name);
+                if (cachedMarks.TryGetValue(m, out Material cachedMark))
+                    Check(Math.Abs(cachedMark.GetFloat("_ClayWarmth") - value) < 1e-6f, "Cached mark warmth differs: " + m.name);
+                else if (IsoGlow.Marked(m))
+                    Check(Math.Abs(IsoGlow.MarkFor(m).GetFloat("_ClayWarmth") - value) < 1e-6f, "Lazy mark warmth differs: " + m.name);
             }
             try
             {
                 Material[] cached = Materials();
+                foreach (Material m in cached.Where(IsoGlow.Marked)) cachedMarks.Add(m, IsoGlow.MarkFor(m));
                 IsoRimMod.Settings = new IsoRimSettings { modelStyle = 1 };
                 warmth.SetValue(IsoRimMod.Settings, .55f);
                 View3D.Tick();
@@ -3246,7 +3251,7 @@ namespace IsoRim
         private static Color Sample(ProbeNormals.Request request, string name, Vector3 normal, Vector3 sun,
             float warmth = .55f, int mode = 1, float night = 0f, float highlight = 0f,
             Texture glow = null, Vector4 sky = default, int glowMode = 0, bool marked = false, Texture cells = null,
-            Vector3? position = null, float albedo = .5f)
+            Vector3? position = null, float albedo = .5f, bool boundCells = false)
         {
             var owner = new GameObject("IsoRim clay lighting proof");
             Camera camera = owner.AddComponent<Camera>();
@@ -3271,8 +3276,11 @@ namespace IsoRim
             mat.SetVector("_IsoSun", new Vector4(sun.x, sun.y, sun.z, night));
             mat.SetVector("_IsoView", new Vector4(normal.x, normal.y, normal.z, 1));
             mat.SetVector("_IsoSky", sky); mat.SetFloat("_GlowMode", glowMode);
-            mat.SetVector("_IsoCellMap", cells == null ? Vector4.zero : new Vector4(0, 0, 3, 3));
-            if (cells != null) mat.SetTexture("_IsoCellTex", cells);
+            if (!boundCells)
+            {
+                mat.SetVector("_IsoCellMap", cells == null ? Vector4.zero : new Vector4(0, 0, 3, 3));
+                if (cells != null) mat.SetTexture("_IsoCellTex", cells);
+            }
             if (glow != null) mat.SetTexture("_IsoGlowTex", glow);
             mat.SetVector("_IsoGlowMap", new Vector4(0, 0, 1f / 3f, 1f / 3f));
             if (marked) IsoGlow.Use(mat, IsoGlow.OwnCell);
@@ -3347,9 +3355,24 @@ namespace IsoRim
             Texture2D cells = null;
             try
             {
-                IsoRimMod.Settings = new IsoRimSettings { modelStyle = 1, clayWarmth = .55f, fogLid = false, texturedWalls = false, groundShadows = true };
+                IsoRimMod.Settings = new IsoRimSettings { modelStyle = 1, clayWarmth = .55f, wallHeight = 1.2f, fogLid = false, texturedWalls = false, groundShadows = true };
+                cells = new Texture2D(3, 3, TextureFormat.RGBA32, false, true);
+                cells.filterMode = FilterMode.Point; cells.wrapMode = TextureWrapMode.Clamp;
+                cells.SetPixels32(new Color32[9]); cells.Apply();
+                var coreTexture = typeof(Texture).GetProperty("CoreTexture", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                object Core(Texture texture) => coreTexture.GetValue(texture);
+                object Bound()
+                {
+                    Check(Waylith.Rendering.GlobalShaderState.TryGetTexture(Shader.PropertyToID("_IsoCellTex"), out var texture), "Global cell texture has no native binding");
+                    return texture;
+                }
+                // Shader.GetGlobalTexture is a null-returning compatibility stub in 1.7.4981.
+                // Observe the native global that the material binder consumes instead.
+                Shader.SetGlobalTexture("_IsoCellTex", cells);
+                Check(ReferenceEquals(Bound(), Core(cells)), "Cell texture poison did not reach the native binding");
                 Shader.SetGlobalVector("_IsoCellMap", Vector4.zero);
                 IsoCellMap.BeginFrame(Find.CurrentMap);
+                Check(ReferenceEquals(Bound(), Core(IsoCellMap.For(Find.CurrentMap).Texture)), "BeginFrame did not replace the poisoned global cell texture");
                 Vector4 map = Shader.GetGlobalVector("_IsoCellMap");
                 Check(map.z == Find.CurrentMap.Size.x && map.w == Find.CurrentMap.Size.z, "Clay mode did not bind the cell map without fog or textured walls");
                 MethodInfo signature = typeof(View3D).GetMethod("StateSignature", BindingFlags.NonPublic | BindingFlags.Static);
@@ -3357,8 +3380,6 @@ namespace IsoRim
                 IsoRimMod.Settings.clayWarmth = 0f;
                 Check(lit != (int)signature.Invoke(null, null), "State signature omits the clay lighting toggle");
                 IsoRimMod.Settings.clayWarmth = .55f;
-                cells = new Texture2D(3, 3, TextureFormat.RGBA32, false, true);
-                cells.filterMode = FilterMode.Point; cells.wrapMode = TextureWrapMode.Clamp;
                 foreach (int mode in new[] { 1, 2 })
                     foreach (IntVec3 dir in GenAdj.CardinalDirections)
                     {
@@ -3373,8 +3394,19 @@ namespace IsoRim
 
                 IntVec3 cell = new CellRect(2, 2, Find.CurrentMap.Size.x - 4, Find.CurrentMap.Size.z - 4)
                     .First(c => c.GetEdifice(Find.CurrentMap) == null && GenAdj.CardinalDirections.All(d => (c + d).GetEdifice(Find.CurrentMap) == null));
+                Vector3 boundPosition = new Vector3(cell.x - .06f, .15f, cell.z + .5f);
+                IsoCellMap.Rebuilt(Find.CurrentMap);
+                Shader.SetGlobalTexture("_IsoCellTex", cells);
+                IsoCellMap.BeginFrame(Find.CurrentMap);
+                Color boundOpen = Sample(request, "bound-crease-open", Vector3.up, Vector3.up, position: boundPosition, boundCells: true);
                 wall = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
                 GenSpawn.Spawn(wall, cell, Find.CurrentMap);
+                IsoCellMap.Rebuilt(Find.CurrentMap);
+                Shader.SetGlobalTexture("_IsoCellTex", cells);
+                IsoCellMap.BeginFrame(Find.CurrentMap);
+                Check(ReferenceEquals(Bound(), Core(IsoCellMap.For(Find.CurrentMap).Texture)), "Wall update did not bind the current map texture");
+                Color boundCorner = Sample(request, "bound-crease-wall", Vector3.up, Vector3.up, position: boundPosition, boundCells: true);
+                Check(boundCorner.r < boundOpen.r - .01f && boundCorner.r >= boundOpen.r * .85f, "Production-bound wall texture did not darken its neighbour");
                 var model = new Model { maxY = 1f, positions = new[] { new Vector3(-.5f, 0, -.5f), new Vector3(-.5f, 0, .5f), new Vector3(.5f, 1, .5f), new Vector3(.5f, 0, -.5f) } };
                 foreach (string kind in new[] { "model", "sprite", "block" })
                 {
@@ -3467,23 +3499,34 @@ namespace IsoRim
             {
                 IsoRimMod.Settings = new IsoRimSettings { modelStyle = 1, clayWarmth = .55f, sunMoves = true, lightingFix = true };
                 var relight = typeof(View3D).GetMethod("Relight", BindingFlags.NonPublic | BindingFlags.Static);
+                void PoisonSun() => Shader.SetGlobalVector("_IsoSun", new Vector4(0, 1, 0, .37f));
+                void RebuildTick()
+                {
+                    // Select the rebuild arm without a wall-clock wait or an earlier Relight.
+                    typeof(View3D).GetField("lastActive", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, false);
+                    typeof(View3D).GetField("appliedSig", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, int.MinValue);
+                    View3D.Tick();
+                }
                 foreach (float glow in new[] { 1f, .6f, 0f })
                 {
                     proofSunGlow = glow;
                     float expected = glow == 1f ? 0 : glow == .6f ? .5f : 1;
+                    PoisonSun(); RebuildTick();
+                    float afterTick = Shader.GetGlobalVector("_IsoSun").w;
+                    Check(Math.Abs(afterTick - expected) < 1e-5f, "View3D.Tick rebuild lost night weight: " + glow);
+                    PoisonSun();
                     relight.Invoke(null, null);
                     float afterRelight = Shader.GetGlobalVector("_IsoSun").w;
                     Check(Math.Abs(afterRelight - expected) < 1e-5f, "View3D.Relight lost night weight: " + glow);
-                    // Force the production rebuild arm of Tick without a wall-clock wait.
-                    typeof(View3D).GetField("lastActive", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, false);
-                    typeof(View3D).GetField("appliedSig", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, int.MinValue);
-                    View3D.Tick();
-                    float afterTick = Shader.GetGlobalVector("_IsoSun").w;
-                    Check(Math.Abs(afterTick - expected) < 1e-5f, "View3D.Tick rebuild lost night weight: " + glow);
                     transport.Add(new { glow, expected, afterRelight, afterTick });
                 }
-                IsoRimMod.Settings.sunMoves = false; View3D.Tick(); relight.Invoke(null, null);
+                IsoRimMod.Settings.sunMoves = false;
+                PoisonSun(); RebuildTick();
+                float fixedTick = Shader.GetGlobalVector("_IsoSun").w;
+                Check(fixedTick == 0f, "Fixed-sun Tick retained night weight");
+                PoisonSun(); relight.Invoke(null, null);
                 Check(Shader.GetGlobalVector("_IsoSun").w == 0f, "Fixed sun retained night weight");
+                PoisonSun();
                 R3DMaterials.SetLight(Vector3.up);
                 Check(Shader.GetGlobalVector("_IsoSun").w == 0f, "Isolation light overload retained night weight");
                 IsoGlow.BeginFrame(Find.CurrentMap);
@@ -3536,7 +3579,7 @@ namespace IsoRim
                 Color roofDark = Sample(request, "sky-only-dark", Vector3.forward, Vector3.up, mode: 3, glow: dark, sky: activeSky, glowMode: 2);
                 Color roofLamp = Sample(request, "sky-only-lamp", Vector3.forward, Vector3.up, mode: 3, glow: g2, sky: activeSky, glowMode: 2);
                 Check(roofDark == roofLamp, "Sky-only roof leaked indoor glow");
-                return new { transport, multiplier1, multiplier2, floor = new[] { floor.r / baseline.r, floor.g / baseline.g, floor.b / baseline.b }, roofContrasts, roofHighlights };
+                return new { transport, fixedTick, multiplier1, multiplier2, floor = new[] { floor.r / baseline.r, floor.g / baseline.g, floor.b / baseline.b }, roofContrasts, roofHighlights };
             }
             finally
             {
@@ -3548,6 +3591,103 @@ namespace IsoRim
         }
         private static readonly float[] roofContrasts = new float[2], roofHighlights = new float[2];
 
+        private static object PlantWarmth(ProbeNormals.Request request)
+        {
+            Vector4 previousView = Shader.GetGlobalVector("_IsoView"), previousCard = Shader.GetGlobalVector("_IsoCard"), previousSun = Shader.GetGlobalVector("_IsoSun");
+            var owner = new GameObject("IsoRim plant warmth proof");
+            Camera camera = owner.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.aspect = 1f; camera.cullingMask = 0;
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.magenta;
+            camera.orthographicSize = 1f;
+            Vector3 pivot = new Vector3(10, 0, 10);
+            camera.transform.position = pivot + new Vector3(0, .6f, -5); camera.transform.LookAt(pivot + new Vector3(0, .6f, 0));
+            RenderTexture target = RenderTexture.GetTemporary(128, 128, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            camera.targetTexture = target;
+            var tex = new Texture2D(32, 32, TextureFormat.RGBA32, false, true);
+            Color32[] pixels = Enumerable.Repeat(new Color32(160, 160, 160, 255), 32 * 32).ToArray();
+            tex.SetPixels32(pixels); tex.Apply();
+            var source = new Material(ShaderDatabase.CutoutPlant); source.mainTexture = tex;
+            Material card = UprightCards.For(source); card.renderQueue = 2000; card.SetFloat("_SwayHead", 0);
+            var layer = new SectionLayer_IsoRimWalls(new Section(new IntVec3(0, 0, 0), Find.CurrentMap));
+            LayerSubMesh flat = MeshWriter.Sub(layer, R3DMaterials.Solid);
+            MeshWriter.TexturedQuad(flat, pivot + new Vector3(-.4f, 0, 0), pivot + new Vector3(-.4f, 0, 1.2f),
+                pivot + new Vector3(.4f, 0, 1.2f), pivot + new Vector3(.4f, 0, 0), Vector2.zero, Vector2.up, Vector2.one, Vector2.right, Color.white);
+            Check(UprightCards.Move(layer, flat, source, pivot, 0), "Plant warmth fixture did not use UprightCards.Move");
+            CutTags.Finish(layer); NormalStreams.Finish(layer);
+            typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(layer, new object[] { MeshParts.All });
+            LayerSubMesh sub = layer.subMeshes.Single(s => s.material == card);
+            sub.mesh.SetUVs(1, sub.uvsChannelTwo);
+            sub.mesh.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 };
+            sub.mesh.bounds = new Bounds(pivot, new Vector3(10, 10, 10));
+            var backend = UnityStubs.Rendering.CameraTextureRenderer.Current;
+            FieldInfo serial = backend.GetType().GetField("_frameNumber", BindingFlags.NonPublic | BindingFlags.Instance);
+            Color Pixel(byte[] raw, int x, int y)
+            {
+                int i = (y * 128 + x) * 4;
+                return new Color(raw[i] / 255f, raw[i + 1] / 255f, raw[i + 2] / 255f, raw[i + 3] / 255f);
+            }
+            byte[] Render(string name, float warmth, float night)
+            {
+                R3DMaterials.SyncSceneStyle(1, .22f, .04f, .65f);
+                R3DMaterials.SyncLightingStyle(1, warmth);
+                R3DMaterials.SetLight(new Vector3(0, .8f, .6f), night);
+                R3DMaterials.SetView(Vector3.back, 1f); UprightCards.SetCamera(0, 0);
+                Check(Math.Abs(Shader.GetGlobalVector("_IsoClayCard").z - warmth) < 1e-6f, "Plant warmth did not use production synchronization");
+                int before = (int)serial.GetValue(backend);
+                Camera.CameraCallback draw = active =>
+                {
+                    if (active != camera) return;
+                    Check(card.SetPass(0), "Plant warmth shader did not bind"); Graphics.DrawMeshNow(sub.mesh, Matrix4x4.identity);
+                };
+                Texture2D image = null;
+                RenderTexture previous = RenderTexture.active;
+                try
+                {
+                    Camera.onPreRender += draw; camera.Render(); Camera.onPreRender -= draw;
+                    int completed = (int)serial.GetValue(backend);
+                    Check(completed == before + 1 && backend.TryReadPixels(target, out _), "Plant warmth has no completed GPU frame");
+                    Check(backend.TryReadPixels(target, out byte[] raw) && raw.Length == 128 * 128 * 4, "Plant warmth framebuffer is missing");
+                    string rawPath = name + ".rgba", pngPath = name + ".png";
+                    File.WriteAllBytes(Path.Combine(request.outputDirectory, rawPath), raw);
+                    RenderTexture.active = target;
+                    image = new Texture2D(128, 128, TextureFormat.RGBA32, false);
+                    image.ReadPixels(new Rect(0, 0, 128, 128), 0, 0); image.Apply();
+                    File.WriteAllBytes(Path.Combine(request.outputDirectory, pngPath), image.EncodeToPNG());
+                    Color c = Pixel(raw, 77, 64);
+                    lightingFrames.Add(new { name, rawPath, pngPath, gpuFrameBefore = before, gpuFrameCompleted = completed, rgb = new[] { c.r, c.g, c.b } });
+                    return raw;
+                }
+                finally { Camera.onPreRender -= draw; RenderTexture.active = previous; UnityEngine.Object.Destroy(image); }
+            }
+            try
+            {
+                byte[] opaque = Render("plant-opaque-control", 0, 0);
+                Check(Pixel(opaque, 51, 48).g > .2f, "Plant cutout control has no geometry behind its hole");
+                for (int y = 16; y < 32; y++) for (int x = 0; x < 14; x++) pixels[y * 32 + x].a = 0;
+                tex.SetPixels32(pixels); tex.Apply();
+                byte[] dayZero = Render("plant-zero-day", 0, 0), dayWarm = Render("plant-warm-day", .55f, 0);
+                byte[] nightZero = Render("plant-zero-night", 0, 1), nightWarm = Render("plant-warm-night", .55f, 1);
+                foreach (byte[] frame in new[] { dayZero, dayWarm, nightZero, nightWarm })
+                {
+                    Color root = Pixel(frame, 77, 98), tip = Pixel(frame, 77, 28), hole = Pixel(frame, 51, 48), solid = Pixel(frame, 77, 48);
+                    Check(tip.r + tip.g + tip.b > root.r + root.g + root.b + .05f, "Plant warmth lost hinge-to-tip grounding");
+                    Check(hole == Color.magenta && solid.g > .2f, "Plant warmth lost its cutout or opaque control");
+                }
+                Color a = Pixel(dayZero, 77, 64), b = Pixel(dayWarm, 77, 64), c = Pixel(nightZero, 77, 64), d = Pixel(nightWarm, 77, 64);
+                Check(b.r / b.b > a.r / a.b + .01f, "Production plant warmth did not change daylight pixels");
+                Check(c == d, "Plant warmth did not attenuate at night");
+                return new { dayZero = new[] { a.r, a.g, a.b }, dayWarm = new[] { b.r, b.g, b.b }, nightZero = new[] { c.r, c.g, c.b }, nightWarm = new[] { d.r, d.g, d.b } };
+            }
+            finally
+            {
+                Shader.SetGlobalVector("_IsoView", previousView); Shader.SetGlobalVector("_IsoCard", previousCard); Shader.SetGlobalVector("_IsoSun", previousSun);
+                R3DMaterials.SyncSceneStyle(0, 0, 0, 0);
+                foreach (LayerSubMesh sm in layer.subMeshes) UnityEngine.Object.Destroy(sm.mesh);
+                UnityEngine.Object.Destroy(card); UnityEngine.Object.Destroy(source); UnityEngine.Object.Destroy(tex);
+                UnityEngine.Object.Destroy(owner); RenderTexture.ReleaseTemporary(target);
+            }
+        }
+
         internal static string Run(string id, ProbeNormals.Request request)
         {
             switch (id)
@@ -3558,8 +3698,9 @@ namespace IsoRim
                     ChromaticLight(request);
                     object shadows = CreasesAndShadows(request);
                     object glow = DayNightAndGlow(request);
+                    object plants = PlantWarmth(request);
                     string path = Path.Combine(request.outputDirectory, id + ".json");
-                    File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, materialTransport = true, frames = lightingFrames, shadows, glow }));
+                    File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, materialTransport = true, frames = lightingFrames, shadows, glow, plants }));
                     return path;
                 default: throw new InvalidOperationException("Unknown lighting case: " + id);
             }
