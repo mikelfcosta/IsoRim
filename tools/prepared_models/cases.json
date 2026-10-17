@@ -33,7 +33,8 @@
     "ModelStyleCases.DiffuseAndHighlightModes": {"story": 6},
     "ModelStyleCases.ProtectedExceptions": {"story": 6},
     "ModelStyleCases.ControlledOutlines": {"story": 7},
-    "ModelStyleCases.GameplayComparisonAndPerf": {"story": 8}
+    "ModelStyleCases.GameplayComparisonAndPerf": {"story": 8},
+    "SceneStyleCases.WallsRocksAndRoofs": {"story": 9}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
@@ -41,7 +42,7 @@
     "static": ["StaticNormalCases.TrueSpaceTransform", "StaticNormalCases.MixedStreams", "StaticNormalCases.MaterialAndShaderContract", "StaticNormalCases.GpuAuthoredDirection", "StaticNormalCases.ProductionLighting", "StaticNormalCases.GeometricResponsibilities", "StaticNormalCases.OracleControls"],
     "moving": ["MovingNormalCases.DynamicTrueSpace", "MovingNormalCases.InstanceMatrices", "MovingNormalCases.MergedPartTransforms", "MovingNormalCases.TexturesMarksAndFallback", "MovingNormalCases.CacheAndBatchReuse", "MovingNormalCases.GpuAgreement", "MovingNormalCases.ProductionLighting"],
     "integrated": ["IntegratedNormalCases.AllPaths", "IntegratedNormalCases.ProductionLightingAllPaths", "IntegratedNormalCases.RegressionControls", "IntegratedNormalCases.ProvenanceAndCompleteness", "IntegratedNormalCases.FrozenInputsAndArtifact", "IntegratedNormalCases.HandoffContract"],
-    "style": ["ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines", "ModelStyleCases.GameplayComparisonAndPerf"]
+    "style": ["ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines", "ModelStyleCases.GameplayComparisonAndPerf", "SceneStyleCases.WallsRocksAndRoofs"]
   },
   "paths": {
     "Source17/IsoRimMod.cs": ["style"],
@@ -50,7 +51,7 @@
     "Source17/Models.cs": ["data", "intake", "static", "moving", "integrated", "style"],
     "Source17/People.cs": ["intake", "moving", "style"],
     "Source17/HairParts.cs": ["intake"],
-    "Source17/Gravship.cs": ["intake"],
+    "Source17/Gravship.cs": ["intake", "style"],
     "Source17/Dynamic.cs": ["intake", "moving", "style"],
     "Source17/WornGear.cs": ["intake", "moving"],
     "Source17/Mechs.cs": ["intake", "moving"],
@@ -68,7 +69,7 @@
     ".gitignore": ["all"],
     "Source17/Baking.cs": ["static", "moving", "integrated", "style"],
     "Source17/ShaderCut.cs": ["static", "moving", "integrated"],
-    "Source17/Layers.cs": ["static", "moving", "integrated"],
+    "Source17/Layers.cs": ["static", "moving", "integrated", "style"],
     "Source17/Glow.cs": ["static", "moving", "integrated"],
     "1.7/Shaders/IsoRim.vert.glsl": ["static", "moving", "integrated", "style"],
     "1.7/Shaders/IsoRimTex.vert.glsl": ["static", "moving", "integrated", "style"],

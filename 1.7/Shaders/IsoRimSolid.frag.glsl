@@ -52,6 +52,7 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _ClayWrap; // @default = 0.0
     float _ClayHighlight; // @default = 0.0
     float _ClayRoughness; // @default = 0.0
+    float _SceneClay; // @default = 0.0
 } uMaterial;
 
 layout(set = 2, binding = 1) uniform sampler2D _MainTex;
@@ -134,7 +135,9 @@ void main()
     if (dot(n, uMaterial._IsoView.xyz) < 0.0)
         n = -n;
     vec3 faceNormal = n;   // exact G keeps cutaway, glow-cell and depth ownership.
-    bool authored = uMaterial._NormalSpace > 0.5 && uMaterial._LightMode > 0.5 && uMaterial._LightMode < 1.5
+    bool authored = uMaterial._NormalSpace > 0.5
+        && ((uMaterial._LightMode > 0.5 && uMaterial._LightMode < 1.5)
+            || (uMaterial._LightMode > 2.5 && uMaterial._LightMode < 3.5 && uMaterial._SceneClay > 0.5))
         && dot(vNormal, vNormal) > 1e-12 && !any(isnan(vNormal)) && !any(isinf(vNormal));
     if (authored)
     {
@@ -189,8 +192,9 @@ void main()
     float shade = 1.0;
     if (mode > 0.5 && squash > 0.0)
     {
+        bool clayActive = (mode < 1.5 || uMaterial._SceneClay > 0.5) && uMaterial._ClayMode > 0.5;
 #if QUANTIZE
-        if (!authored && !(mode < 1.5 && uMaterial._ClayMode > 0.5)) n = BinNormal(n);
+        if (!authored && !clayActive) n = BinNormal(n);
 #endif
         if (authored && mode < 1.5)
         {
@@ -198,46 +202,64 @@ void main()
             else if (uMaterial._NormalLightingFault > 1.5) n = BinNormal(n);
         }
         vec3 L = uMaterial._IsoSun.xyz;
-        if (mode < 1.5)
+        float clayShade = 1.0;
+        if (clayActive)
         {
-            if (uMaterial._ClayMode < 0.5)
-                shade = ModelShade(n, L);
-            else
+            float w = clamp(uMaterial._ClayWrap, 0.0, 0.5);
+            float wrapped = clamp((dot(n, L) + w) / (1.0 + w), 0.0, 1.0);
+            float top = (max(0.2, L.y) + w) / (1.0 + w);
+            float t = clamp(wrapped / top, 0.0, 1.0);
+            t = mix(t, smoothstep(0.0, 1.0, t), 0.35);
+            float floorShade = (mode >= 1.5 && mode < 2.5)
+                ? mix(0.54, 0.58, clamp(w * 2.0, 0.0, 1.0))
+                : mix(0.50, 0.55, clamp(w * 2.0, 0.0, 1.0));
+            clayShade = mix(floorShade, 1.0, t);
+            if (uMaterial._ClayMode >= 1.5)
             {
-                float w = clamp(uMaterial._ClayWrap, 0.0, 0.5);
-                float wrapped = clamp((dot(n, L) + w) / (1.0 + w), 0.0, 1.0);
-                float top = (max(0.2, L.y) + w) / (1.0 + w);
-                float t = clamp(wrapped / top, 0.0, 1.0);
-                t = mix(t, smoothstep(0.0, 1.0, t), 0.35);
-                float floorShade = mix(0.50, 0.55, clamp(w * 2.0, 0.0, 1.0));
-                shade = mix(floorShade, 1.0, t);
-                if (uMaterial._ClayMode >= 1.5)
-                {
-                    vec3 V = normalize(uMaterial._IsoView.xyz);
-                    float mu_i = max(0.0, dot(n, L));
-                    float mu_r = max(0.0, dot(n, V));
-                    float r = clamp(uMaterial._ClayRoughness, 0.0, 1.0);
-                    float sigma2 = r * r;
-                    float A = 1.0 - 0.5 * sigma2 / (sigma2 + 0.33);
-                    float B = 0.45 * sigma2 / (sigma2 + 0.09);
-                    vec3 L_p = L - n * dot(n, L);
-                    vec3 V_p = V - n * dot(n, V);
-                    float len2 = dot(L_p, L_p) * dot(V_p, V_p);
-                    float cosPhi = len2 > 1e-8 ? max(0.0, dot(L_p, V_p) * inversesqrt(len2)) : 0.0;
-                    float sinAlphaTanBeta = sqrt(max(0.0, (1.0 - mu_i * mu_i) * (1.0 - mu_r * mu_r))) / max(max(mu_i, mu_r), 1e-4);
-                    float onFactor = clamp(A + B * cosPhi * sinAlphaTanBeta, 0.5, 1.35);
-                    shade = clamp(shade * mix(1.0, onFactor, 0.65), floorShade, 1.05);
-                }
+                vec3 V = normalize(uMaterial._IsoView.xyz);
+                float mu_i = max(0.0, dot(n, L));
+                float mu_r = max(0.0, dot(n, V));
+                float r = clamp(uMaterial._ClayRoughness, 0.0, 1.0);
+                float sigma2 = r * r;
+                float A = 1.0 - 0.5 * sigma2 / (sigma2 + 0.33);
+                float B = 0.45 * sigma2 / (sigma2 + 0.09);
+                vec3 L_p = L - n * dot(n, L);
+                vec3 V_p = V - n * dot(n, V);
+                float len2 = dot(L_p, L_p) * dot(V_p, V_p);
+                float cosPhi = len2 > 1e-8 ? max(0.0, dot(L_p, V_p) * inversesqrt(len2)) : 0.0;
+                float sinAlphaTanBeta = sqrt(max(0.0, (1.0 - mu_i * mu_i) * (1.0 - mu_r * mu_r))) / max(max(mu_i, mu_r), 1e-4);
+                float onFactor = clamp(A + B * cosPhi * sinAlphaTanBeta, 0.5, 1.35);
+                clayShade = clamp(clayShade * mix(1.0, onFactor, 0.65), floorShade, 1.05);
             }
         }
+
+        if (mode < 1.5)
+        {
+            if (!clayActive)
+                shade = ModelShade(n, L);
+            else
+                shade = clayShade;
+        }
         else if (mode < 2.5)
-            shade = WallShade(n, L);
+        {
+            if (!clayActive)
+                shade = WallShade(n, L);
+            else
+                shade = mix(WallShade(n, L), clayShade, 0.65);
+        }
         else
-            shade = min(1.1, ModelShade(n, L) * 1.05);
+        {
+            if (!clayActive)
+                shade = min(1.1, ModelShade(n, L) * 1.05);
+            else
+                shade = min(1.06, clayShade * 1.02);
+        }
     }
     color.rgb *= shade;
 
-    if (mode > 0.5 && mode < 1.5 && squash > 0.0 && uMaterial._ClayMode > 0.5 && uMaterial._ClayHighlight > 1e-5)
+    if (mode > 0.5 && mode < 3.5 && squash > 0.0
+        && ((mode < 1.5 || uMaterial._SceneClay > 0.5) && uMaterial._ClayMode > 0.5)
+        && uMaterial._ClayHighlight > 1e-5)
     {
         vec3 L = uMaterial._IsoSun.xyz;
         vec3 V = normalize(uMaterial._IsoView.xyz);
@@ -248,7 +270,8 @@ void main()
         float lobe = smoothstep(0.35, 0.95, ndoth) * 0.65 + pow(1.0 - ndotv, 2.5) * 0.35;
         float peak = max(color.r, max(color.g, color.b));
         float albedoWeight = clamp(peak * 1.5, 0.25, 1.0);
-        color.rgb += mix(color.rgb, vec3(1.0), 0.35) * (lobe * litGate * clamp(uMaterial._ClayHighlight, 0.0, 0.10) * albedoWeight);
+        float hlScale = (mode >= 1.5 && mode < 2.5) ? 0.65 : 1.0;
+        color.rgb += mix(color.rgb, vec3(1.0), 0.35) * (lobe * litGate * (hlScale * clamp(uMaterial._ClayHighlight, 0.0, 0.10)) * albedoWeight);
     }
 
     if (glowMode > 1.5)

@@ -881,6 +881,33 @@ namespace IsoRim
         public static readonly string[] StyleNames = { "Slate", "Terracotta", "Thatch", "Tin" };
 
         private static readonly Dictionary<int, Material> textureMats = new Dictionary<int, Material>();
+        private static int roofClayMode;
+        private static float roofClayWrap, roofClayHighlight, roofClayRoughness;
+
+        public static void SyncStyle(int mode, float wrap, float highlight, float roughness)
+        {
+            roofClayMode = mode; roofClayWrap = wrap; roofClayHighlight = highlight; roofClayRoughness = roughness;
+            foreach (var kvp in textureMats)
+            {
+                Material m = kvp.Value;
+                if (m == null) continue;
+                int style = kvp.Key;
+                Color c = Styles[style] * (mode > 0 ? 1.12f : 1.25f);
+                c.a = 1f;
+                m.color = c;
+                ApplyRoofStyle(m);
+            }
+        }
+
+        private static void ApplyRoofStyle(Material m)
+        {
+            if (m == null) return;
+            m.SetFloat("_SceneClay", roofClayMode > 0 ? 1f : 0f);
+            m.SetFloat("_ClayMode", roofClayMode);
+            m.SetFloat("_ClayWrap", roofClayWrap);
+            m.SetFloat("_ClayHighlight", roofClayHighlight);
+            m.SetFloat("_ClayRoughness", roofClayRoughness);
+        }
 
         // The textured material for a roof colour, or null if the texture is missing. Drawn just
         // after the plain roof underneath it, so it lies over it. The shader lights each slope
@@ -902,10 +929,11 @@ namespace IsoRim
             if (m != null)
             {
                 m.mainTexture = tex;
-                Color c = Styles[style] * 1.25f;
+                Color c = Styles[style] * (roofClayMode > 0 ? 1.12f : 1.25f);
                 c.a = 1f;
                 m.color = c;
                 IsoGlow.Use(m, IsoGlow.SkyOnly);
+                ApplyRoofStyle(m);
             }
             textureMats[key] = m;
             return m;
@@ -1084,11 +1112,15 @@ namespace IsoRim
                     MeshWriter.Quad(sm, new Vector3(a.x, edge, a.z), new Vector3(ao.x, eave, ao.z), new Vector3(bo.x, eave, bo.z), new Vector3(b.x, edge, b.z), under);
                     Color32 face = R3DMaterials.Shaded(roofCol, 0.46f);
                     MeshWriter.Quad(sm, new Vector3(ao.x, bottom, ao.z), new Vector3(ao.x, eave, ao.z), new Vector3(bo.x, eave, bo.z), new Vector3(bo.x, bottom, bo.z), face);
-                    Color32 line = R3DMaterials.Shaded(roofCol, 0.28f);
-                    float lift = 0.002f / squash;
-                    Vector3 inner = outward * -0.04f;
-                    MeshWriter.Quad(sm, new Vector3(ao.x, eave + lift, ao.z), new Vector3(ao.x + inner.x, eave + lift, ao.z + inner.z),
-                        new Vector3(bo.x + inner.x, eave + lift, bo.z + inner.z), new Vector3(bo.x, eave + lift, bo.z), line);
+                    float lineScale = WallBoxes.LineScale;
+                    if (lineScale > 0f)
+                    {
+                        Color32 line = R3DMaterials.Shaded(roofCol, 0.28f);
+                        float lift = 0.002f / squash;
+                        Vector3 inner = outward * (-0.04f * lineScale);
+                        MeshWriter.Quad(sm, new Vector3(ao.x, eave + lift, ao.z), new Vector3(ao.x + inner.x, eave + lift, ao.z + inner.z),
+                            new Vector3(bo.x + inner.x, eave + lift, bo.z + inner.z), new Vector3(bo.x, eave + lift, bo.z), line);
+                    }
                 }
             }
             CutTags.Apply(this, cellMark, markCell, ShaderCut.Roof);

@@ -197,6 +197,7 @@ namespace IsoRim
             {
                 IsoRimSettings st = IsoRimMod.Settings;
                 R3DMaterials.SyncModelStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
+                R3DMaterials.SyncSceneStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
                 ApplyCamera(main);
                 Grade.Draw(main);
             }

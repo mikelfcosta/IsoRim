@@ -126,7 +126,7 @@ namespace IsoRim
             Layers.Clear();
         }
 
-        private static Model Fixture(string fixtures, bool textured = false, bool authored = true)
+        internal static Model Fixture(string fixtures, bool textured = false, bool authored = true)
         {
             // Cells, Y up, ground y=0, pivot origin, imported Z reflection. The bake lifts it three cells.
             string path = Path.Combine(fixtures, "static-" + textured + "-" + authored + ".obj");
@@ -140,7 +140,7 @@ namespace IsoRim
             return model;
         }
 
-        private static SectionLayer Bake(Model model, Quaternion turn, Quaternion lay, Vector3 scale, Thing thing = null, float outline = 0)
+        internal static SectionLayer Bake(Model model, Quaternion turn, Quaternion lay, Vector3 scale, Thing thing = null, float outline = 0)
         {
             var section = new Section(new IntVec3(0, 0, 0), Find.CurrentMap);
             var layer = new SectionLayer_IsoRimBodies(section);
@@ -152,10 +152,10 @@ namespace IsoRim
             return layer;
         }
 
-        private static LayerSubMesh Face(SectionLayer layer, bool textured = false) => layer.subMeshes.Single(sub =>
+        internal static LayerSubMesh Face(SectionLayer layer, bool textured = false) => layer.subMeshes.Single(sub =>
             sub.verts.Count == 3 && sub.material.GetFloat("_LightMode") == 1 && (sub.material.mainTexture != null) == textured);
 
-        private static void Upload(SectionLayer layer)
+        internal static void Upload(SectionLayer layer)
         {
             CutTags.Finish(layer);
             NormalStreams.Finish(layer);
@@ -168,7 +168,7 @@ namespace IsoRim
             }
         }
 
-        private sealed class Pair
+        internal sealed class Pair
         {
             internal string Name;
             internal Vector3 Scale, N, G, Q, L;
@@ -278,9 +278,10 @@ namespace IsoRim
             string Layout(string source) => System.Text.RegularExpressions.Regex.Replace(source.Substring(source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal),
                 source.IndexOf("} uMaterial;", StringComparison.Ordinal) - source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal)), @"//[^\r\n]*|\s+", "");
             Require(sources.All(source => Layout(source) == Layout(sources[0])), "Owned shader material layouts diverged");
-            string[] styleFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness" };
-            foreach (string field in styleFields)
+            string[] layoutFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness", "_SceneClay" };
+            foreach (string field in layoutFields)
                 Require(sources.All(source => source.Contains("float " + field + "; // @default = 0.0")), "Missing zero-default style field: " + field);
+            string[] styleFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness" };
             var sync = typeof(R3DMaterials).GetMethod("SyncModelStyle", new[] { typeof(int), typeof(float), typeof(float), typeof(float) });
             Require(sync != null, "Missing explicit model-style API");
             Material glass = (Material)typeof(Glass).GetProperty("Mat", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
@@ -503,9 +504,9 @@ namespace IsoRim
             return rows;
         }
 
-        private static object Capture(string evidence, Pair pair, LayerSubMesh sub, bool textured, bool diagnostic,
+        internal static object Capture(string evidence, Pair pair, LayerSubMesh sub, bool textured, bool diagnostic,
             int transportFault, int lightingFault, int expectedIndex, string suffix = "", bool legacy = false, bool ownCell = false, bool cutaway = false,
-            int style = 0, float highlight = 0, float albedo = .6f, double referenceRgb = -1, int lightMode = 1, float sky = 1, string blend = "", bool alignedHighlight = false)
+            int style = 0, float highlight = 0, float albedo = .6f, double referenceRgb = -1, int lightMode = 1, float sky = 1, string blend = "", bool alignedHighlight = false, float sceneClay = 0f)
         {
             const int width = 1024, height = 256;
             string name = (diagnostic ? "direction" : "lighting") + "-" + pair.Name + (textured ? "-texture" : "-solid")
@@ -546,6 +547,7 @@ namespace IsoRim
             actual.SetVector("_IsoSun", new Vector4(light.x, light.y, light.z, 0));
             actual.SetVector("_IsoView", new Vector4(rasterG.x, rasterG.y, rasterG.z, View3D.Squash));
             actual.SetVector("_IsoSky", new Vector4(sky, sky, sky, 1)); actual.SetVector("_IsoCellMap", Vector4.zero);
+            actual.SetFloat("_SceneClay", sceneClay);
             Require(actual.GetFloat("_NormalView") == (diagnostic ? 1 : 0) && actual.GetFloat("_NormalTransportFault") == transportFault
                 && actual.GetFloat("_NormalLightingFault") == lightingFault && actual.GetFloat("_LightMode") == lightMode, "Requested shader state was not observed");
             Mesh reference = new Mesh { vertices = referencePositions, triangles = sub.mesh.triangles, colors32 = Enumerable.Repeat(new Color32(255, 255, 255, 255), 3).ToArray() };
@@ -679,8 +681,11 @@ namespace IsoRim
                     pngHash = Convert.ToHexString(SHA256.HashData(png))
                 };
                 File.WriteAllText(Path.Combine(evidence, name + ".json"), JsonSerializer.Serialize(row, Json));
-                Require(differences[expectedIndex] <= 2, name + " mismatched its expected framebuffer reference: " + string.Join(",", differences));
-                if (expectedIndex != 0) Require(differences[0] > 2, "Fault or legacy control silently passed the authored oracle");
+                if (expectedIndex >= 0)
+                {
+                    Require(differences[expectedIndex] <= 2, name + " mismatched its expected framebuffer reference: " + string.Join(",", differences));
+                    if (expectedIndex != 0) Require(differences[0] > 2, "Fault or legacy control silently passed the authored oracle");
+                }
                 return row;
             }
             finally

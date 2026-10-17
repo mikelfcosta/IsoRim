@@ -523,6 +523,8 @@ namespace IsoRim
     {
         private static readonly Dictionary<ThingDef, float> fillCache = new Dictionary<ThingDef, float>();
         private static readonly Dictionary<long, Material> materials = new Dictionary<long, Material>();
+        private static bool lastModelStyleClay;
+        internal static float LineScale => IsoRimMod.Settings == null ? 1f : (IsoRimMod.Settings.outlines && IsoRimMod.Settings.outlineWidth > 0.001f ? Mathf.Clamp(IsoRimMod.Settings.outlineWidth, 0.25f, 1.50f) : 0f);
 
         // Texture file names in Textures/IsoRim/Walls, in WallKind order ("Side" or "Top" is added).
         private static readonly string[] KindNames = { "Bricks", "Planks", "Metal", "Rock", "RockOre", "SmoothStone", "Sandbags" };
@@ -617,6 +619,12 @@ namespace IsoRim
         // moves; the cap keeps a steady brightness.
         private static Material MaterialFor(WallKind kind, bool top, int face, bool sloped, Color tint)
         {
+            bool currentClay = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0;
+            if (currentClay != lastModelStyleClay)
+            {
+                materials.Clear();
+                lastModelStyleClay = currentClay;
+            }
             if (!top)
             {
                 float lift = sloped ? 1f + SlopeLight * 1.4f : 1f;
@@ -624,7 +632,7 @@ namespace IsoRim
                 return R3DMaterials.LitTexture(sidePath, new Color(tint.r * lift, tint.g * lift, tint.b * lift, 1f),
                     R3DMaterials.BinOf(FaceOut[face].ToVector3()), 1);
             }
-            float shade = TopShade;
+            float shade = currentClay ? 1.04f : TopShade;
             Color32 c = tint;
             int level = Mathf.Clamp(Mathf.RoundToInt(shade * 100f), 0, 255);
             long key = ((long)(((int)kind * 2 + (top ? 1 : 0)) * 256 + level) << 32) | (uint)((c.r << 16) | (c.g << 8) | c.b);
@@ -634,7 +642,7 @@ namespace IsoRim
                 return m;
             }
             string path = "IsoRim/Walls/" + KindNames[(int)kind] + (top ? "Top" : "Side");
-            m = R3DTextures.MaterialFor(path, new Color(tint.r * shade, tint.g * shade, tint.b * shade, 1f));
+            m = R3DMaterials.LitTexture(path, new Color(tint.r * shade, tint.g * shade, tint.b * shade, 1f), 0, 1);
             materials[key] = m;
             return m;
         }
@@ -738,20 +746,25 @@ namespace IsoRim
 
                 // Dark outlines, in the game's art style: a rim on the cap along this edge, a
                 // line along the ground, and a line up each end of a run of wall.
-                Vector3 inner = outward * -OutlineWidth;
-                MeshWriter.Quad(solid, Raised(p0, rimY), Raised(p0 + inner, rimY), Raised(p1 + inner, rimY), Raised(p1, rimY), lineColor);
+                if (LineScale > 0f)
+                {
+                    float scaledOutline = OutlineWidth * LineScale;
+                    Vector3 inner = outward * -scaledOutline;
+                    MeshWriter.Quad(solid, Raised(p0, rimY), Raised(p0 + inner, rimY), Raised(p1 + inner, rimY), Raised(p1, rimY), lineColor);
 
-                Vector3 q0 = p0 + outward * Gap;
-                Vector3 q1 = q0 + right;
-                float lineTop = OutlineWidth * 0.7f / squash;
-                MeshWriter.Quad(solid, q0, Raised(q0, lineTop), Raised(q1, lineTop), q1, lineColor);
-                EndLines(solid, map, c, f, q0, right, topY, height, lineColor, layer, cond == 0 ? own : -1);
+                    Vector3 q0 = p0 + outward * Gap;
+                    Vector3 q1 = q0 + right;
+                    float lineTop = scaledOutline * 0.7f / squash;
+                    MeshWriter.Quad(solid, q0, Raised(q0, lineTop), Raised(q1, lineTop), q1, lineColor);
+                    EndLines(solid, map, c, f, q0, right, topY, height, lineColor, layer, cond == 0 ? own : -1);
+                }
                 CutTags.Apply(layer, faceMark, c, own | cond);
             }
 
             // Where a wall turns a corner inward, the rim needs a small square to stay unbroken.
-            if (room)
+            if (room && LineScale > 0f)
             {
+                float scaledOutline = OutlineWidth * LineScale;
                 for (int ax = -1; ax <= 1; ax += 2)
                 {
                     for (int az = -1; az <= 1; az += 2)
@@ -761,10 +774,10 @@ namespace IsoRim
                         {
                             continue;
                         }
-                        float cx = ax > 0 ? x1 - OutlineWidth : x0;
-                        float cz = az > 0 ? z1 - OutlineWidth : z0;
-                        MeshWriter.Quad(solid, new Vector3(cx, rimY, cz), new Vector3(cx, rimY, cz + OutlineWidth),
-                            new Vector3(cx + OutlineWidth, rimY, cz + OutlineWidth), new Vector3(cx + OutlineWidth, rimY, cz), lineColor);
+                        float cx = ax > 0 ? x1 - scaledOutline : x0;
+                        float cz = az > 0 ? z1 - scaledOutline : z0;
+                        MeshWriter.Quad(solid, new Vector3(cx, rimY, cz), new Vector3(cx, rimY, cz + scaledOutline),
+                            new Vector3(cx + scaledOutline, rimY, cz + scaledOutline), new Vector3(cx + scaledOutline, rimY, cz), lineColor);
                     }
                 }
             }
@@ -869,17 +882,19 @@ namespace IsoRim
                     continue;
                 }
 
-                // Dark outlines: along the rim and along the ground.
-                Vector3 lift = new Vector3(0f, 0.002f, 0f);
-                Vector3 inner = outward * -OutlineWidth;
-                MeshWriter.Quad(solid, ToWorld(rockTop[l] + lift, squash), ToWorld(rockTop[l] + inner + lift, squash),
-                    ToWorld(rockTop[r] + inner + lift, squash), ToWorld(rockTop[r] + lift, squash), lineColor);
+                if (LineScale > 0f)
+                {
+                    float scaledOutline = OutlineWidth * LineScale;
+                    Vector3 lift = new Vector3(0f, 0.002f, 0f);
+                    Vector3 inner = outward * -scaledOutline;
+                    MeshWriter.Quad(solid, ToWorld(rockTop[l] + lift, squash), ToWorld(rockTop[l] + inner + lift, squash),
+                        ToWorld(rockTop[r] + inner + lift, squash), ToWorld(rockTop[r] + lift, squash), lineColor);
 
-                Vector3 q0 = rockGround[l] - back;
-                Vector3 q1 = rockGround[r] - back;
-                Vector3 lineTop = new Vector3(0f, OutlineWidth * 0.7f, 0f);
-                MeshWriter.Quad(solid, ToWorld(q0, squash), ToWorld(q0 + lineTop, squash), ToWorld(q1 + lineTop, squash), ToWorld(q1, squash), lineColor);
-                CutTags.Apply(layer, faceMark, c, own | cond);
+                    Vector3 q0 = rockGround[l] - back;
+                    Vector3 q1 = rockGround[r] - back;
+                    Vector3 lineTop = new Vector3(0f, scaledOutline * 0.7f, 0f);
+                    MeshWriter.Quad(solid, ToWorld(q0, squash), ToWorld(q0 + lineTop, squash), ToWorld(q1 + lineTop, squash), ToWorld(q1, squash), lineColor);
+                }
             }
             CutTags.Apply(layer, whole, c, own);
             return true;
@@ -960,11 +975,14 @@ namespace IsoRim
                 Vector3 p1 = p0 + right;
                 MeshWriter.Quad(LitSide(layer, f, solid), p0, Raised(p0, topY), Raised(p1, topY), p1, R3DMaterials.Shaded(color, 1f));
 
-                Vector3 q0 = p0 + outward * Gap;
-                Vector3 q1 = q0 + right;
-                float lineTop = OutlineWidth * 0.7f / squash;
-                MeshWriter.Quad(solid, q0, Raised(q0, lineTop), Raised(q1, lineTop), q1, lineColor);
-                EndLines(solid, map, c, f, q0, right, topY, height, lineColor);
+                if (LineScale > 0f)
+                {
+                    Vector3 q0 = p0 + outward * Gap;
+                    Vector3 q1 = q0 + right;
+                    float lineTop = (OutlineWidth * LineScale) * 0.7f / squash;
+                    MeshWriter.Quad(solid, q0, Raised(q0, lineTop), Raised(q1, lineTop), q1, lineColor);
+                    EndLines(solid, map, c, f, q0, right, topY, height, lineColor);
+                }
             }
         }
 
@@ -1005,7 +1023,9 @@ namespace IsoRim
         // the direction and width (xy) and which face it lies on (z = 2 + f).
         private static void EndLine(LayerSubMesh sm, int f, Vector3 outer, Vector3 corner, Vector3 along, float topY, Color32 color, bool rightEnd)
         {
-            Vector3 inner = new Vector3(along.x * OutlineWidth, along.z * OutlineWidth, 2f + f);
+            if (LineScale <= 0f) return;
+            float scaledOutline = OutlineWidth * LineScale;
+            Vector3 inner = new Vector3(along.x * scaledOutline, along.z * scaledOutline, 2f + f);
             Vector3 a = rightEnd ? corner : outer;
             Vector3 d = rightEnd ? outer : corner;
             Vector3 ua = rightEnd ? inner : Vector3.zero;

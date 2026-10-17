@@ -173,30 +173,35 @@ namespace IsoRim
                         {
                             throw new InvalidOperationException("Duplicate normal case");
                         }
-                        if (id.StartsWith("ModelStyleCases.", StringComparison.Ordinal))
+                        if (id.StartsWith("SceneStyleCases.", StringComparison.Ordinal))
                         {
-                            evidencePaths = new[] { ModelStyleCases.Run(id, request) };
-                        }
-                        else if (id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { IntegratedNormalCases.Run(id, request) };
-                        }
-                        else if (id.StartsWith("MovingNormalCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { MovingNormalCases.Run(id, output, request.fixtureDirectory) };
-                        }
-                        else if (id.StartsWith("StaticNormalCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { StaticNormalCases.Run(id, output, request.fixtureDirectory) };
-                        }
-                        else if (id.StartsWith("AssetIntakeCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { AssetIntakeCases.Run(id, output) };
+                            evidencePaths = new[] { SceneStyleCases.Run(id, request) };
                         }
                         else
-                        {
-                            NormalDataCases.Run(id, request.fixtureDirectory);
-                        }
+                            if (id.StartsWith("ModelStyleCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { ModelStyleCases.Run(id, request) };
+                            }
+                            else if (id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { IntegratedNormalCases.Run(id, request) };
+                            }
+                            else if (id.StartsWith("MovingNormalCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { MovingNormalCases.Run(id, output, request.fixtureDirectory) };
+                            }
+                            else if (id.StartsWith("StaticNormalCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { StaticNormalCases.Run(id, output, request.fixtureDirectory) };
+                            }
+                            else if (id.StartsWith("AssetIntakeCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { AssetIntakeCases.Run(id, output) };
+                            }
+                            else
+                            {
+                                NormalDataCases.Run(id, request.fixtureDirectory);
+                            }
                         passed = true;
                     }
                     catch (Exception error)

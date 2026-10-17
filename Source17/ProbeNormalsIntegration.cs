@@ -1005,4 +1005,261 @@ namespace IsoRim
             }
         }
     }
+    internal static class SceneStyleCases
+    {
+        internal static readonly string[] Cases = { "SceneStyleCases.WallsRocksAndRoofs" };
+
+        private static void Check(bool condition, string message)
+        {
+            if (!condition) throw new InvalidOperationException(message);
+        }
+
+        private static object WallsRocksAndRoofs(ProbeNormals.Request request)
+        {
+            string root = Path.Combine(AppContext.BaseDirectory, "Mods", "IsoRim", "1.7", "Shaders");
+            string[] files = { "IsoRim.vert.glsl", "IsoRimTex.vert.glsl", "IsoRimSolid.frag.glsl" };
+            string[] sources = files.Select(file => File.ReadAllText(Path.Combine(root, file))).ToArray();
+            string Layout(string source) => System.Text.RegularExpressions.Regex.Replace(source.Substring(source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal),
+                source.IndexOf("} uMaterial;", StringComparison.Ordinal) - source.IndexOf("uniform MaterialUniforms", StringComparison.Ordinal)), @"//[^\r\n]*|\s+", "");
+            Check(sources.All(source => Layout(source) == Layout(sources[0])), "Shader material layouts diverged");
+            string[] requiredFields = { "_ClayMode", "_ClayWrap", "_ClayHighlight", "_ClayRoughness", "_SceneClay" };
+            foreach (string field in requiredFields)
+                Check(sources.All(source => source.Contains("float " + field + "; // @default = 0.0")), "Missing zero-default style field: " + field);
+
+            var syncScene = typeof(R3DMaterials).GetMethod("SyncSceneStyle", new[] { typeof(int), typeof(float), typeof(float), typeof(float) });
+            Check(syncScene != null, "Missing explicit scene-style API");
+            var syncModel = typeof(R3DMaterials).GetMethod("SyncModelStyle", new[] { typeof(int), typeof(float), typeof(float), typeof(float) });
+            Check(syncModel != null, "Missing explicit model-style API");
+
+            try
+            {
+                syncModel.Invoke(null, new object[] { 2, 0.22f, 0.04f, 0.65f });
+                Material wallSolid = R3DMaterials.Lit(0, 1);
+                Material wallTex = R3DMaterials.LitTexture("IsoRim/Walls/BricksSide", Color.white, 0, 1);
+                Material mark = IsoGlow.MarkFor(wallSolid);
+                Material roofMat = R3DMaterials.Roof;
+                Check(wallSolid.GetFloat("_SceneClay") == 0f && wallSolid.GetFloat("_ClayMode") == 0f, "SyncModelStyle mutated curve 1 wall solid");
+                Check(wallTex.GetFloat("_SceneClay") == 0f && wallTex.GetFloat("_ClayMode") == 0f, "SyncModelStyle mutated curve 1 wall texture");
+                Check(mark.GetFloat("_SceneClay") == 0f && mark.GetFloat("_NormalSpace") == 0f, "SyncModelStyle mutated light mark");
+                Check(roofMat.GetFloat("_SceneClay") == 0f && roofMat.GetFloat("_ClayMode") == 0f, "SyncModelStyle mutated roof");
+            }
+            finally
+            {
+                syncModel.Invoke(null, new object[] { 0, 0f, 0f, 0f });
+            }
+
+            try
+            {
+                syncScene.Invoke(null, new object[] { 1, 0.22f, 0.04f, 0.65f });
+                Material wallSolid = R3DMaterials.Lit(0, 1);
+                Material wallTex = R3DMaterials.LitTexture("IsoRim/Walls/BricksSide", Color.white, 0, 1);
+                Material newWallTex = R3DMaterials.LitTexture("IsoRim/Walls/PlanksTop", Color.white, 0, 1);
+                Material roofMat = R3DMaterials.Roof;
+                Check(wallSolid.GetFloat("_SceneClay") == 1f && wallSolid.GetFloat("_ClayMode") == 1f
+                    && Math.Abs(wallSolid.GetFloat("_ClayWrap") - 0.22f) < 1e-5f
+                    && Math.Abs(wallSolid.GetFloat("_ClayHighlight") - 0.04f) < 1e-5f
+                    && Math.Abs(wallSolid.GetFloat("_ClayRoughness") - 0.65f) < 1e-5f
+                    && wallSolid.GetFloat("_LightMode") == 2f,
+                    "SyncSceneStyle did not update cached wall solid");
+                Check(wallTex.GetFloat("_SceneClay") == 1f && wallTex.GetFloat("_ClayMode") == 1f
+                    && wallTex.GetFloat("_LightMode") == 2f,
+                    "SyncSceneStyle did not update cached wall texture");
+                Check(newWallTex.GetFloat("_SceneClay") == 1f && newWallTex.GetFloat("_ClayMode") == 1f
+                    && newWallTex.GetFloat("_LightMode") == 2f,
+                    "Newly created wall texture missed scene clay sync");
+                Check(roofMat.GetFloat("_SceneClay") == 1f && roofMat.GetFloat("_ClayMode") == 1f
+                    && roofMat.GetFloat("_LightMode") == 3f && roofMat.GetFloat("_GlowMode") == 2f,
+                    "SyncSceneStyle did not update R3DMaterials.Roof or lost SkyOnly");
+
+                MethodInfo texMatMethod = typeof(SectionLayer_IsoRimRoofs).GetMethod("TextureMaterial", BindingFlags.NonPublic | BindingFlags.Static);
+                Material texRoof = (Material)texMatMethod.Invoke(null, new object[] { 0, 0 });
+                Check(texRoof.GetFloat("_SceneClay") == 1f && texRoof.GetFloat("_ClayMode") == 1f
+                    && texRoof.GetFloat("_LightMode") == 3f && texRoof.GetFloat("_GlowMode") == 2f,
+                    "SectionLayer_IsoRimRoofs.TextureMaterial missed scene clay sync or lost SkyOnly");
+                Check(Math.Abs(texRoof.color.r - SectionLayer_IsoRimRoofs.Styles[0].r * 1.12f) < 0.01f,
+                    "SectionLayer_IsoRimRoofs.TextureMaterial did not scale tint to 1.12x in clay mode");
+
+                PropertyInfo shipMatProp = typeof(ShipRoofs).GetProperty("Mat", BindingFlags.NonPublic | BindingFlags.Static);
+                Material shipMat = (Material)shipMatProp.GetValue(null);
+                Check(shipMat.GetFloat("_SceneClay") == 1f && shipMat.GetFloat("_ClayMode") == 1f
+                    && shipMat.GetFloat("_LightMode") == 3f && shipMat.GetFloat("_GlowMode") == 2f
+                    && shipMat.GetFloat("_NormalSpace") == 1f,
+                    "ShipRoofs.Mat missed scene clay sync, BakedTrueSpace, or lost SkyOnly");
+            }
+            finally
+            {
+                syncScene.Invoke(null, new object[] { 0, 0f, 0f, 0f });
+            }
+
+            IsoRimSettings prevSettings = IsoRimMod.Settings;
+            try
+            {
+                var testSettings = new IsoRimSettings
+                {
+                    modelStyle = 2,
+                    clayWrap = 0.31f,
+                    clayHighlight = 0.08f,
+                    clayRoughness = 0.9f
+                };
+                IsoRimMod.Settings = testSettings;
+                View3D.Tick();
+                Material wallSolid = R3DMaterials.Lit(0, 1);
+                Material roofMat = R3DMaterials.Roof;
+                Check(wallSolid.GetFloat("_SceneClay") == 1f && wallSolid.GetFloat("_ClayMode") == 2f
+                    && Math.Abs(wallSolid.GetFloat("_ClayWrap") - 0.31f) < 1e-5f
+                    && Math.Abs(wallSolid.GetFloat("_ClayHighlight") - 0.08f) < 1e-5f
+                    && Math.Abs(wallSolid.GetFloat("_ClayRoughness") - 0.9f) < 1e-5f,
+                    "View3D.Tick() did not sync scene clay to wall");
+                Check(roofMat.GetFloat("_SceneClay") == 1f && roofMat.GetFloat("_ClayMode") == 2f,
+                    "View3D.Tick() did not sync scene clay to roof");
+            }
+            finally
+            {
+                IsoRimMod.Settings = prevSettings;
+                syncScene.Invoke(null, new object[] { 0, 0f, 0f, 0f });
+                syncModel.Invoke(null, new object[] { 0, 0f, 0f, 0f });
+            }
+
+            MethodInfo wallMatFor = typeof(WallBoxes).GetMethod("MaterialFor", BindingFlags.NonPublic | BindingFlags.Static);
+            Check(wallMatFor != null, "WallBoxes.MaterialFor method missing");
+            IsoRimMod.Settings.modelStyle = 0;
+            Material capClassic = (Material)wallMatFor.Invoke(null, new object[] { WallKind.Bricks, true, 0, false, Color.white });
+            Check(capClassic.GetFloat("_LightMode") == 2f && capClassic.GetFloat("_GlowMode") == 1f,
+                "Wall top cap did not route to LightMode=2 GlowMode=1");
+            Check(Math.Abs(capClassic.color.r - 1.12f) < 0.01f, "Classic wall top cap shade is not 1.12f");
+
+            IsoRimMod.Settings.modelStyle = 1;
+            Material capClay = (Material)wallMatFor.Invoke(null, new object[] { WallKind.Bricks, true, 0, false, Color.white });
+            Check(capClay.GetFloat("_LightMode") == 2f && capClay.GetFloat("_GlowMode") == 1f,
+                "Clay wall top cap did not route to LightMode=2 GlowMode=1");
+            Check(Math.Abs(capClay.color.r - 1.04f) < 0.01f, "Clay wall top cap shade is not 1.04f");
+            Check(capClay != capClassic || Math.Abs(capClay.color.r - capClassic.color.r) > 0.05f,
+                "WallBoxes.materials cache did not invalidate on modelStyle toggle");
+            IsoRimMod.Settings.modelStyle = 0;
+
+            typeof(ShipRoofs).GetMethod("Load", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
+            Model roofPiece = (Model)typeof(ShipRoofs).GetField("square", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            Check(roofPiece != null && roofPiece.authoredNormals != null && roofPiece.shadingNormals != null, "ShipRoofs model roof_square missing authored normals");
+            MethodInfo shipPut = typeof(ShipRoofs).GetMethod("Put", BindingFlags.NonPublic | BindingFlags.Static);
+            var section = new Section(new IntVec3(0, 0, 0), Find.CurrentMap);
+            var roofLayer = new SectionLayer_IsoRimRoofs(section);
+            Material shipMatRef = (Material)typeof(ShipRoofs).GetProperty("Mat", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            LayerSubMesh sm = MeshWriter.Sub(roofLayer, shipMatRef);
+            shipPut.Invoke(null, new object[] { sm, roofPiece, Vector2.zero, 0f, 1f, -1f, 0f, 0f });
+            Check(sm.normals.Count == sm.verts.Count, "ShipRoofs.Put normals count differs from vertices");
+            Check(sm.normals.Any(n => n.sqrMagnitude > 0.5f), "ShipRoofs.Put omitted non-zero normals");
+            Check(sm.normals.Any(n => Math.Abs(n.sqrMagnitude - 1f) < 0.01f), "Stamped normals not normalized");
+
+            IsoRimSettings settingsCopy = IsoRimMod.Settings;
+            float width100 = 0f, width75 = 0f;
+            try
+            {
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
+                Check(Math.Abs(WallBoxes.LineScale - 0.75f) < 1e-5f, "LineScale differs for outlineWidth=0.75");
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f };
+                Check(Math.Abs(WallBoxes.LineScale - 1.00f) < 1e-5f, "LineScale differs for outlineWidth=1.00");
+                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
+                Check(WallBoxes.LineScale == 0f, "LineScale not 0 when outlines=false");
+
+                Thing wallThing = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f, ruggedRock = false };
+                var layer100 = new SectionLayer_IsoRimWalls(section);
+                WallBoxes.PrintBlock(layer100, wallThing, 1f);
+                LayerSubMesh solid100 = layer100.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
+                Check(solid100 != null && solid100.verts.Count > 0, "Outline quads missing at outlineWidth=1.00");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f, ruggedRock = false };
+                var layer75 = new SectionLayer_IsoRimWalls(section);
+                WallBoxes.PrintBlock(layer75, wallThing, 1f);
+                LayerSubMesh solid75 = layer75.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
+                Check(solid75 != null && solid75.verts.Count == solid100.verts.Count, "Solid outline vertex count differs between 0.75 and 1.00");
+
+                width100 = (solid100.verts[1] - solid100.verts[0]).magnitude;
+                width75 = (solid75.verts[1] - solid75.verts[0]).magnitude;
+                Check(Math.Abs(width75 / width100 - 0.75f) < 0.02f, "Outline quad width did not scale to 0.75");
+
+                IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f, ruggedRock = false };
+                var layer0 = new SectionLayer_IsoRimWalls(section);
+                WallBoxes.PrintBlock(layer0, wallThing, 1f);
+                LayerSubMesh solid0 = layer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
+                Check(solid0 == null || solid0.verts.Count == 0, "Outline quads emitted when outlines=false");
+            }
+            finally
+            {
+                IsoRimMod.Settings = settingsCopy;
+            }
+
+            var pair = new StaticNormalCases.Pair
+            {
+                Name = "wall-roof-style",
+                Scale = new Vector3(1.3f, .9f, 1.1f),
+                Turn = 20,
+                N = new Vector3(.989247403381f, .140757555142f, .039710018574f),
+                G = new Vector3(.342020143326f, 0, .939692620786f),
+                Q = Vector3.forward,
+                L = new Vector3(0, .8f, .6f),
+                Shades = new[] { 1d, 1d, 1d }
+            };
+            SectionLayer bakeLayer = StaticNormalCases.Bake(StaticNormalCases.Fixture(request.fixtureDirectory, false, false),
+                Quaternion.AngleAxis(20, Vector3.up), Quaternion.identity, pair.Scale);
+            StaticNormalCases.Upload(bakeLayer);
+            LayerSubMesh face = StaticNormalCases.Face(bakeLayer, false);
+
+            var captures = new List<object>();
+            var wallNormQuant = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, true, 0, 0, -1,
+                "-wall-norm-quant", sceneClay: 0f, lightMode: 2);
+            var wallNormClay = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, true, 0, 0, -1,
+                "-wall-norm-clay", sceneClay: 1f, lightMode: 2, style: 1);
+            captures.Add(wallNormQuant);
+            captures.Add(wallNormClay);
+
+            var wallLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
+                "-wall-lit-classic", sceneClay: 0f, lightMode: 2, style: 0);
+            var wallLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
+                "-wall-lit-mode1", sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
+            var wallLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
+                "-wall-lit-mode2", sceneClay: 1f, lightMode: 2, style: 2, highlight: 0.04f);
+            captures.Add(wallLitClassic);
+            captures.Add(wallLitMode1);
+            captures.Add(wallLitMode2);
+
+            var roofLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
+                "-roof-lit-classic", sceneClay: 0f, lightMode: 3, style: 0);
+            var roofLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
+                "-roof-lit-mode1", sceneClay: 1f, lightMode: 3, style: 1, highlight: 0.04f);
+            var roofLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, -1,
+                "-roof-lit-mode2", sceneClay: 1f, lightMode: 3, style: 2, highlight: 0.04f);
+            captures.Add(roofLitClassic);
+            captures.Add(roofLitMode1);
+            captures.Add(roofLitMode2);
+
+            StaticNormalCases.ClearIntegrationMeshes();
+
+            return new
+            {
+                layoutVerified = true,
+                styleFields = requiredFields,
+                syncModelIsolated = true,
+                syncSceneVerified = true,
+                view3DSyncVerified = true,
+                wallTopCaps = new { classic = capClassic.color.r, clay = capClay.color.r, lightMode = 2, glowMode = 1 },
+                shipRoofs = new { normalStreamStamped = true, normalsCount = sm.normals.Count },
+                outlineScaling = new { lineScale75 = 0.75, width100, width75, ratio = width75 / width100, zeroOutlineVerified = true },
+                captures
+            };
+        }
+
+        internal static string Run(string id, ProbeNormals.Request request)
+        {
+            switch (id)
+            {
+                case "SceneStyleCases.WallsRocksAndRoofs":
+                    string path = Path.Combine(request.outputDirectory, id + ".json");
+                    File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, readings = WallsRocksAndRoofs(request) }));
+                    return path;
+                default: throw new InvalidOperationException("Unknown scene style case: " + id);
+            }
+        }
+    }
 }
