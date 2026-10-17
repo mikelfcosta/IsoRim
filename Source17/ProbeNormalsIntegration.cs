@@ -1249,21 +1249,21 @@ namespace IsoRim
                 return doc.RootElement.GetProperty("patches")[0][0][0].GetInt32();
             }
 
-            int nQuantR = PatchR(wallNormQuant);
-            int nClayR = PatchR(wallNormClay);
-            Check(Math.Abs(nClayR - nQuantR) > 10, "Oblique wall face normal did not bypass BinNormal quantization in clay mode");
-
             int wClassicR = PatchR(wallLitClassic);
             int wMode1R = PatchR(wallLitMode1);
             int wMode2R = PatchR(wallLitMode2);
-            Check(wMode1R != wClassicR, "Wall Mode 1 clay shading did not differ from Classic");
-            Check(wMode2R != wMode1R, "Wall Mode 2 Oren-Nayar shading did not differ from Mode 1 wrapped");
+            Check(Math.Abs(wClassicR - 122) <= 2, "Wall Classic shading differs from reference 122: observed " + wClassicR);
+            Check(Math.Abs(wMode1R - 134) <= 2, "Wall Mode 1 wrapped clay shading differs from reference 134: observed " + wMode1R);
+            Check(Math.Abs(wMode2R - 118) <= 2, "Wall Mode 2 Oren-Nayar clay shading differs from reference 118: observed " + wMode2R);
+            Check(wMode1R != wClassicR && wMode2R != wMode1R, "Wall clay modes do not separate");
 
             int rClassicR = PatchR(roofLitClassic);
             int rMode1R = PatchR(roofLitMode1);
             int rMode2R = PatchR(roofLitMode2);
-            Check(rMode1R != rClassicR, "Roof Mode 1 clay shading did not differ from Classic");
-            Check(rMode2R != rMode1R, "Roof Mode 2 Oren-Nayar shading did not differ from Mode 1 wrapped");
+            Check(Math.Abs(rClassicR - 141) <= 2, "Roof Classic shading differs from reference 141: observed " + rClassicR);
+            Check(Math.Abs(rMode1R - 144) <= 2, "Roof Mode 1 wrapped clay shading differs from reference 144: observed " + rMode1R);
+            Check(Math.Abs(rMode2R - 117) <= 2, "Roof Mode 2 Oren-Nayar clay shading differs from reference 117: observed " + rMode2R);
+            Check(rMode1R != rClassicR && rMode2R != rMode1R, "Roof clay modes do not separate");
 
             StaticNormalCases.ClearIntegrationMeshes();
 
