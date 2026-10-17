@@ -2211,6 +2211,9 @@ namespace IsoRim
                 Section waterSection = Find.CurrentMap.mapDrawer.SectionAt(Find.CurrentMap.Center + new IntVec3(15, 0, 15));
                 IntVec3 shoreCenter = waterSection.botLeft + new IntVec3(8, 0, 8);
                 var waterCells = new List<IntVec3>();
+                IntVec3 landCorner = shoreCenter + new IntVec3(-5, 0, -5);
+                TerrainDef landBefore = Find.CurrentMap.terrainGrid.TerrainAt(landCorner);
+                Find.CurrentMap.terrainGrid.SetTerrain(landCorner, TerrainDefOf.Soil);
                 for (int dz = -5; dz <= 5; dz++)
                 {
                     for (int dx = -5; dx <= 5; dx++)
@@ -2248,12 +2251,13 @@ namespace IsoRim
                     Check(waterSmClay.colors[ordinaryShoreIdx].a == 210, $"Ordinary shallow shoreline vertex does not have alpha 210: observed {waterSmClay.colors[ordinaryShoreIdx].a}");
 
                     // Check RoundInnerCorners tip alpha 210 at the concave land corner:
-                    IntVec3 landCorner = shoreCenter + new IntVec3(-5, 0, -5);
                     int kx = landCorner.x + 1;
                     int kz = landCorner.z + 1;
                     float reach = 0.34f + 0.12f * Hashing.Unit(kx, kz, 7);
                     int tipIdx = waterSmClay.verts.FindIndex(v => Math.Abs(v.x - (kx - reach)) < 1e-3f && Math.Abs(v.z - kz) < 1e-3f);
-                    Check(tipIdx >= 0, "RoundInnerCorners tip vertex missing in clay water mesh");
+                    Check(tipIdx >= 0, "RoundInnerCorners tip vertex missing in clay water mesh at " + landCorner
+                        + "; terrain=" + Find.CurrentMap.terrainGrid.TerrainAt(landCorner)?.defName
+                        + "; under=" + Find.CurrentMap.terrainGrid.UnderTerrainAt(landCorner)?.defName);
                     Check(waterSmClay.colors[tipIdx].a == 210, "RoundInnerCorners tip vertex does not have alpha 210 in clay mode: observed " + waterSmClay.colors[tipIdx].a);
                     Check(ordinaryShoreIdx != tipIdx, "Ordinary shoreline vertex coincided with RoundInnerCorners tip");
 
@@ -2290,6 +2294,7 @@ namespace IsoRim
                     {
                         Find.CurrentMap.terrainGrid.SetTerrain(c, TerrainDefOf.Soil);
                     }
+                    Find.CurrentMap.terrainGrid.SetTerrain(landCorner, landBefore);
                 }
 
                 if (weaponThing.Spawned) weaponThing.Destroy();
