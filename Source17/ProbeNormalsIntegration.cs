@@ -1152,6 +1152,7 @@ namespace IsoRim
 
             IsoRimSettings settingsCopy = IsoRimMod.Settings;
             float width100 = 0f, width75 = 0f;
+            Thing wallThing = null;
             try
             {
                 IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f };
@@ -1161,7 +1162,8 @@ namespace IsoRim
                 IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f };
                 Check(WallBoxes.LineScale == 0f, "LineScale not 0 when outlines=false");
 
-                Thing wallThing = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+                wallThing = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+                GenSpawn.Spawn(wallThing, Find.CurrentMap.Center + new IntVec3(5, 0, 5), Find.CurrentMap);
 
                 IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f, ruggedRock = false };
                 var layer100 = new SectionLayer_IsoRimWalls(section);
@@ -1188,6 +1190,7 @@ namespace IsoRim
             finally
             {
                 IsoRimMod.Settings = settingsCopy;
+                if (wallThing != null && wallThing.Spawned) wallThing.Destroy();
             }
 
             var pair = new StaticNormalCases.Pair
