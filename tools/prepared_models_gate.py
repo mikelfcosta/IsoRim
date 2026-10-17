@@ -23,20 +23,20 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "artifacts/prepared-models"
-EVIDENCE = ROOT / ".testruns/ISORIM-004"
+EVIDENCE = ROOT / ".testruns/ISORIM-005"
 SDK = Path("C:/Users/mikel/AppData/Local/Microsoft/dotnet/dotnet.exe")
 GAME = Path("C:/Program Files (x86)/Steam/steamapps/common/RimWorld")
 HARMONY = Path("C:/Program Files (x86)/Steam/steamapps/workshop/content/294100/2009463077/1.7/Assemblies/0Harmony.dll")
 FINGERPRINTS = {
-    "RimWorld.dll": "485913A05EED5301E812898E82C860E69CCA6E8FA1BD91CDEA70B7E67D92A1D6",
-    "Assembly-CSharp.dll": "EFF7D97949F919FB2B151EBFB906E9BE749B63410B7DBDA78EEEBB7972B245C3",
-    "UnityStubs.dll": "CD95A2D1A2E0E52745F1B4562FC0CBF66B526CD942015A75DA63D2CF8770D535",
-    "Waylith.dll": "15633912DA7C890E8798AAC86121DDBCF28B4138786D926921DAFA7CA908929F",
-    "Waylith.UnityCompat.dll": "E4362E5F45EC39533C721B4B4E04C996CF59DE8FCDA2547EB648C3D68FBB5710",
+    "RimWorld.dll": "8D8DD60B7C87FBCBDAE4BC644D812825C4988089BF71F3CBB496660EAED062A3",
+    "Assembly-CSharp.dll": "EB0826B85AF430D13962E5C097EF53D869CF6A031656FB6A3673168A761C9F23",
+    "UnityStubs.dll": "B9A47E34D975A6B41FDF2AF7A2EFFD8080A543D34D0153EE5D8614EFBB019270",
+    "Waylith.dll": "4B14BC007509CA1ED31924939EC6106EF05B32E9726905CD6E63FBA91952DF36",
+    "Waylith.UnityCompat.dll": "BB7DD087598FC0452FD3173E16307A20825EF736B7C0AC41C5261E4D58FCFC46",
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
 # Execution pin shared by frozen-input comparison and T1 selection.
-BASELINE = "18eb9b3625829417d175d5c9df02945bd9d08fd2"
+BASELINE = "e68a46ae3e547f8d099c1243dc4621456f071161"
 DEADLINE = None
 
 
@@ -87,14 +87,14 @@ def verify_artifact_files(paths):
 
 def verify_game(game):
     try:
-        if (game / "Version.txt").read_text().strip() != "1.7.4980 rev60":
-            raise Refusal("The game is not 1.7.4980 rev60")
+        if (game / "Version.txt").read_text().strip() != "1.7.4981 rev136":
+            raise Refusal("The game is not 1.7.4981 rev136")
         for name, expected in FINGERPRINTS.items():
             if digest(game / name) != expected:
                 raise Refusal(f"The game fingerprint changed: {name}")
         config = json.loads((game / "RimWorld.runtimeconfig.json").read_text())
         frameworks = config["runtimeOptions"]["includedFrameworks"]
-        if {"name": "Microsoft.NETCore.App", "version": "10.0.10-waylithclr.dev"} not in frameworks:
+        if {"name": "Microsoft.NETCore.App", "version": "10.0.13-waylithclr.dev"} not in frameworks:
             raise Refusal("The bundled CLR changed")
     except (OSError, KeyError, ValueError) as error:
         raise Refusal(f"Cannot verify the installed game: {error}") from error
@@ -154,6 +154,7 @@ def verify_registry(cases, manifest):
         "MovingNormalCases": "moving",
         "IntegratedNormalCases": "integrated",
         "ModelStyleCases": "style",
+        "SceneStyleCases": "style",
     }
     for case in registered:
         group = required_groups.get(case.split(".")[0])
@@ -201,7 +202,8 @@ def changed_paths(records):
 
 def select_cases(records, story, manifest):
     ordinals = {**{f"ISORIM-003.S{i:02d}": i for i in range(1, 6)},
-                **{f"ISORIM-004.S{i:02d}": i + 5 for i in range(1, 4)}}
+                **{f"ISORIM-004.S{i:02d}": i + 5 for i in range(1, 4)},
+                **{f"ISORIM-005.S{i:02d}": i + 8 for i in range(1, 4)}}
     ordinal = ordinals.get(story)
     if ordinal is None:
         raise Refusal("Unknown story")
@@ -264,9 +266,9 @@ def verify_proofs(paths, cases, request, modules, pid, started):
                 raise Refusal("The proof identity is stale")
             if proof.get("modules") != modules or proof.get("processId") != pid:
                 raise Refusal("The observed process or modules differ")
-            if proof.get("runtime") != "10.0.10-waylithclr.dev":
+            if proof.get("runtime") != "10.0.13-waylithclr.dev":
                 raise Refusal("The proof did not use the approved bundled CLR")
-            if proof.get("gameVersion") != "1.7.4980.60":
+            if proof.get("gameVersion") != "1.7.4981.136":
                 raise Refusal("The loaded game version differs from the approved identity")
             if Path(proof.get("engineLogRoot", "")).resolve() != path.parent.resolve():
                 raise Refusal("The engine log root is outside this run's evidence")
@@ -449,18 +451,18 @@ def git(*args, root=ROOT):
 
 
 def prepare_evidence(root, evidence):
-    allowed = root.resolve() / ".testruns/ISORIM-004"
+    allowed = root.resolve() / ".testruns/ISORIM-005"
     if not evidence.resolve().is_relative_to(allowed) or evidence.resolve() == allowed:
-        raise Refusal("Evidence must be below .testruns/ISORIM-004/<nonce>")
+        raise Refusal("Evidence must be below .testruns/ISORIM-005/<nonce>")
     if evidence.parent.resolve() != allowed:
         raise Refusal("Each evidence nonce must be a direct child of the epic directory")
     for parent in [root / ".testruns", allowed, evidence]:
         if parent.is_symlink() or parent.is_junction():
             raise Refusal("Evidence directories cannot redirect writes")
-    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-004/ignore-probe.json", root=root).decode()
-    if "\t.testruns/ISORIM-004/ignore-probe.json" not in rule or ":/.testruns/ISORIM-004/" not in rule:
+    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-005/ignore-probe.json", root=root).decode()
+    if "\t.testruns/ISORIM-005/ignore-probe.json" not in rule or ":/.testruns/ISORIM-005/" not in rule:
         raise Refusal("The exact epic evidence ignore rule is missing")
-    if git("ls-files", "-z", "--", ".testruns/ISORIM-004", root=root):
+    if git("ls-files", "-z", "--", ".testruns/ISORIM-005", root=root):
         raise Refusal("Evidence paths are tracked")
     if evidence.exists():
         raise Refusal("The evidence nonce already exists")
@@ -1242,7 +1244,7 @@ def main():
         head = git("rev-parse", "--verify", args.head + "^{commit}").decode().strip()
         if args.command == "t0":
             epic = git("rev-parse", "--verify", args.epic_ref + "^{commit}").decode().strip()
-            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-004-matte-clay-model-style^{commit}").decode().strip()
+            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-005-colony-wide-style^{commit}").decode().strip()
             if epic != expected_epic:
                 raise Refusal("The epic base differs from the commission")
         else:
@@ -1253,7 +1255,7 @@ def main():
             raise Refusal("T1 requires the exact commissioned --base " + BASELINE)
         if args.command != "ci":
             git("merge-base", "--is-ancestor", epic, head)
-        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-004-matte-clay-model-style").decode().strip():
+        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-005-colony-wide-style").decode().strip():
             raise Refusal("Authoritative T1 must run at the frozen integrated epic head")
         if args.command != "ci":
             # Independent asset work may advance main while this epic keeps its commissioned base.
@@ -1263,7 +1265,7 @@ def main():
         story = args.story
         if args.command in ("t1", "ci"):
             ordinal = max(case['story'] for case in manifest['cases'].values())
-            story = f"ISORIM-004.S{ordinal - 5:02d}" if ordinal > 5 else f"ISORIM-003.S{ordinal:02d}"
+            story = f"ISORIM-005.S{ordinal - 8:02d}" if ordinal > 8 else f"ISORIM-004.S{ordinal - 5:02d}" if ordinal > 5 else f"ISORIM-003.S{ordinal:02d}"
         cases = run_cases(args.command, changes, story, manifest, args.base)
         selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes) if changes else [],
                      "caseIds": cases, "hostControls": manifest["hostCases"], "ignoreProof": rule, "nonce": evidence.name}
@@ -1307,7 +1309,7 @@ def main():
         receipt = result_receipt(selection, args.command, proofs, host_results)
         targets = ("1.7", "1.5", "1.6") if args.command in ("t1", "ci") else ("1.7",)
         receipt["compileLegs"] = {target: {
-            "mode": "exact-installed-4980" if target == "1.7" and args.command != "ci" else "portable-compatibility-only",
+            "mode": "exact-installed-4981" if target == "1.7" and args.command != "ci" else "portable-compatibility-only",
             "referenceManifestSha256": digest(evidence / f"compiler-references-{target}.json"),
             "restoredAssetsSha256": digest(WORK / "build" / target / "obj/project.assets.json"),
             "productSha256": digest(WORK / "build" / target / "bin/IsoRim.dll"),

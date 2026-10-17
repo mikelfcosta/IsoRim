@@ -2441,7 +2441,8 @@ namespace IsoRim
         private static readonly Dictionary<string, Material> litByKey = new Dictionary<string, Material>();
         private static int clayMode;
         private static float clayWrap, clayHighlight, clayRoughness;
-
+        private static int sceneClayMode;
+        private static float sceneClayWrap, sceneClayHighlight, sceneClayRoughness;
         public static void SyncModelStyle(int mode, float wrap, float highlight, float roughness)
         {
             clayMode = mode; clayWrap = wrap; clayHighlight = highlight; clayRoughness = roughness;
@@ -2449,6 +2450,26 @@ namespace IsoRim
             foreach (var entry in litByKey)
                 if (entry.Key.Contains("|0|")) ApplyModelStyle(entry.Value);
             Glass.SyncStyle(mode, wrap, highlight, roughness);
+        }
+        public static void SyncSceneStyle(int mode, float wrap, float highlight, float roughness)
+        {
+            sceneClayMode = mode; sceneClayWrap = wrap; sceneClayHighlight = highlight; sceneClayRoughness = roughness;
+            for (int i = 3; i < 6; i++) ApplySceneStyle(litSolid[i]);
+            foreach (var entry in litByKey)
+                if (entry.Key.Contains("|1|")) ApplySceneStyle(entry.Value);
+            ApplySceneStyle(roof);
+            SectionLayer_IsoRimRoofs.SyncStyle(mode, wrap, highlight, roughness);
+            ShipRoofs.SyncStyle(mode, wrap, highlight, roughness);
+        }
+
+        private static void ApplySceneStyle(Material material)
+        {
+            if (material == null) return;
+            material.SetFloat("_SceneClay", sceneClayMode > 0 ? 1f : 0f);
+            material.SetFloat("_ClayMode", sceneClayMode);
+            material.SetFloat("_ClayWrap", sceneClayWrap);
+            material.SetFloat("_ClayHighlight", sceneClayHighlight);
+            material.SetFloat("_ClayRoughness", sceneClayRoughness);
         }
 
         private static void ApplyModelStyle(Material material)
@@ -2503,6 +2524,7 @@ namespace IsoRim
                 IsoGlow.Use(m, IsoGlow.OwnCell);
                 if (m != null) m.SetFloat("_NormalSpace", (float)normalSpace);
                 if (curve == 0) ApplyModelStyle(m);
+                else ApplySceneStyle(m);
                 litSolid[slot] = m;
             }
             return m;
@@ -2519,8 +2541,10 @@ namespace IsoRim
         public static Material LitTexture(string path, Color baseColor, int bin = 0, int curve = 0, ShadingNormalSpace normalSpace = ShadingNormalSpace.GeometricOnly)
         {
             curve = curve == 1 ? 1 : 0;
-            Color32 c = baseColor;
-            string key = path + "|" + c.r + "," + c.g + "," + c.b + "|" + curve + "|" + (int)normalSpace;
+            int cr = Mathf.RoundToInt(baseColor.r * 255f);
+            int cg = Mathf.RoundToInt(baseColor.g * 255f);
+            int cb = Mathf.RoundToInt(baseColor.b * 255f);
+            string key = path + "|" + cr + "," + cg + "," + cb + "|" + curve + "|" + (int)normalSpace;
             Material m;
             if (litByKey.TryGetValue(key, out m))
             {
@@ -2538,6 +2562,7 @@ namespace IsoRim
                 m.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f);
                 IsoGlow.Use(m, IsoGlow.OwnCell);
                 if (curve == 0) ApplyModelStyle(m);
+                else ApplySceneStyle(m);
             }
             litByKey[key] = m;
             return m;
@@ -2684,7 +2709,8 @@ namespace IsoRim
             {
                 if (roof == null && Solid != null)
                 {
-                    roof = Make(SolidDef, "IsoRim_Roof", 3600);
+                    roof = Make(SolidDef, "IsoRim_Roof", 3600, LightRoof);
+                    ApplySceneStyle(roof);
                     IsoGlow.Use(roof, IsoGlow.SkyOnly);   // sky colour only: lamps under a roof do not light its top
                 }
                 return roof;
