@@ -23,20 +23,20 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "artifacts/prepared-models"
-EVIDENCE = ROOT / ".testruns/ISORIM-004"
+EVIDENCE = ROOT / ".testruns/ISORIM-005"
 SDK = Path("C:/Users/mikel/AppData/Local/Microsoft/dotnet/dotnet.exe")
 GAME = Path("C:/Program Files (x86)/Steam/steamapps/common/RimWorld")
 HARMONY = Path("C:/Program Files (x86)/Steam/steamapps/workshop/content/294100/2009463077/1.7/Assemblies/0Harmony.dll")
 FINGERPRINTS = {
-    "RimWorld.dll": "485913A05EED5301E812898E82C860E69CCA6E8FA1BD91CDEA70B7E67D92A1D6",
-    "Assembly-CSharp.dll": "EFF7D97949F919FB2B151EBFB906E9BE749B63410B7DBDA78EEEBB7972B245C3",
-    "UnityStubs.dll": "CD95A2D1A2E0E52745F1B4562FC0CBF66B526CD942015A75DA63D2CF8770D535",
-    "Waylith.dll": "15633912DA7C890E8798AAC86121DDBCF28B4138786D926921DAFA7CA908929F",
-    "Waylith.UnityCompat.dll": "E4362E5F45EC39533C721B4B4E04C996CF59DE8FCDA2547EB648C3D68FBB5710",
+    "RimWorld.dll": "8D8DD60B7C87FBCBDAE4BC644D812825C4988089BF71F3CBB496660EAED062A3",
+    "Assembly-CSharp.dll": "EB0826B85AF430D13962E5C097EF53D869CF6A031656FB6A3673168A761C9F23",
+    "UnityStubs.dll": "B9A47E34D975A6B41FDF2AF7A2EFFD8080A543D34D0153EE5D8614EFBB019270",
+    "Waylith.dll": "4B14BC007509CA1ED31924939EC6106EF05B32E9726905CD6E63FBA91952DF36",
+    "Waylith.UnityCompat.dll": "BB7DD087598FC0452FD3173E16307A20825EF736B7C0AC41C5261E4D58FCFC46",
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
 # Execution pin shared by frozen-input comparison and T1 selection.
-BASELINE = "18eb9b3625829417d175d5c9df02945bd9d08fd2"
+BASELINE = "e68a46ae3e547f8d099c1243dc4621456f071161"
 DEADLINE = None
 
 
@@ -87,14 +87,14 @@ def verify_artifact_files(paths):
 
 def verify_game(game):
     try:
-        if (game / "Version.txt").read_text().strip() != "1.7.4980 rev60":
-            raise Refusal("The game is not 1.7.4980 rev60")
+        if (game / "Version.txt").read_text().strip() != "1.7.4981 rev136":
+            raise Refusal("The game is not 1.7.4981 rev136")
         for name, expected in FINGERPRINTS.items():
             if digest(game / name) != expected:
                 raise Refusal(f"The game fingerprint changed: {name}")
         config = json.loads((game / "RimWorld.runtimeconfig.json").read_text())
         frameworks = config["runtimeOptions"]["includedFrameworks"]
-        if {"name": "Microsoft.NETCore.App", "version": "10.0.10-waylithclr.dev"} not in frameworks:
+        if {"name": "Microsoft.NETCore.App", "version": "10.0.13-waylithclr.dev"} not in frameworks:
             raise Refusal("The bundled CLR changed")
     except (OSError, KeyError, ValueError) as error:
         raise Refusal(f"Cannot verify the installed game: {error}") from error
@@ -154,6 +154,7 @@ def verify_registry(cases, manifest):
         "MovingNormalCases": "moving",
         "IntegratedNormalCases": "integrated",
         "ModelStyleCases": "style",
+        "SceneStyleCases": "style",
     }
     for case in registered:
         group = required_groups.get(case.split(".")[0])
@@ -201,7 +202,8 @@ def changed_paths(records):
 
 def select_cases(records, story, manifest):
     ordinals = {**{f"ISORIM-003.S{i:02d}": i for i in range(1, 6)},
-                **{f"ISORIM-004.S{i:02d}": i + 5 for i in range(1, 4)}}
+                **{f"ISORIM-004.S{i:02d}": i + 5 for i in range(1, 4)},
+                **{f"ISORIM-005.S{i:02d}": i + 8 for i in range(1, 4)}}
     ordinal = ordinals.get(story)
     if ordinal is None:
         raise Refusal("Unknown story")
@@ -264,9 +266,9 @@ def verify_proofs(paths, cases, request, modules, pid, started):
                 raise Refusal("The proof identity is stale")
             if proof.get("modules") != modules or proof.get("processId") != pid:
                 raise Refusal("The observed process or modules differ")
-            if proof.get("runtime") != "10.0.10-waylithclr.dev":
+            if proof.get("runtime") != "10.0.13-waylithclr.dev":
                 raise Refusal("The proof did not use the approved bundled CLR")
-            if proof.get("gameVersion") != "1.7.4980.60":
+            if proof.get("gameVersion") != "1.7.4981.136":
                 raise Refusal("The loaded game version differs from the approved identity")
             if Path(proof.get("engineLogRoot", "")).resolve() != path.parent.resolve():
                 raise Refusal("The engine log root is outside this run's evidence")
@@ -449,18 +451,18 @@ def git(*args, root=ROOT):
 
 
 def prepare_evidence(root, evidence):
-    allowed = root.resolve() / ".testruns/ISORIM-004"
+    allowed = root.resolve() / ".testruns/ISORIM-005"
     if not evidence.resolve().is_relative_to(allowed) or evidence.resolve() == allowed:
-        raise Refusal("Evidence must be below .testruns/ISORIM-004/<nonce>")
+        raise Refusal("Evidence must be below .testruns/ISORIM-005/<nonce>")
     if evidence.parent.resolve() != allowed:
         raise Refusal("Each evidence nonce must be a direct child of the epic directory")
     for parent in [root / ".testruns", allowed, evidence]:
         if parent.is_symlink() or parent.is_junction():
             raise Refusal("Evidence directories cannot redirect writes")
-    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-004/ignore-probe.json", root=root).decode()
-    if "\t.testruns/ISORIM-004/ignore-probe.json" not in rule or ":/.testruns/ISORIM-004/" not in rule:
+    rule = git("check-ignore", "-v", "--", ".testruns/ISORIM-005/ignore-probe.json", root=root).decode()
+    if "\t.testruns/ISORIM-005/ignore-probe.json" not in rule or ":/.testruns/ISORIM-005/" not in rule:
         raise Refusal("The exact epic evidence ignore rule is missing")
-    if git("ls-files", "-z", "--", ".testruns/ISORIM-004", root=root):
+    if git("ls-files", "-z", "--", ".testruns/ISORIM-005", root=root):
         raise Refusal("Evidence paths are tracked")
     if evidence.exists():
         raise Refusal("The evidence nonce already exists")
@@ -594,7 +596,7 @@ def reset_work_directory(path):
     path.mkdir(parents=True)
 
 
-def stage_runtime(args, evidence, intake=False, comparison=False):
+def stage_runtime(args, evidence, intake=False, comparison=False, settings_ui=False):
     runtime = WORK / "runtime"
     staged = WORK / "staged-mod"
     # Copy approved game inputs and selected official data. Never follow the installed Mods junction.
@@ -645,8 +647,9 @@ def stage_runtime(args, evidence, intake=False, comparison=False):
     shutil.copy2(args.harmony, harmony_mod / "Assemblies/0Harmony.dll")
     save = evidence / "savedata"
     (save / "Config").mkdir(parents=True)
+    width, height = (1280, 800) if settings_ui else (960, 640)
     (save / "Config/Prefs.xml").write_text(
-        "<PrefsData><devMode>True</devMode><screenWidth>960</screenWidth><screenHeight>640</screenHeight>"
+        f"<PrefsData><devMode>True</devMode><screenWidth>{width}</screenWidth><screenHeight>{height}</screenHeight>"
         "<fullscreen>False</fullscreen><runInBackground>True</runInBackground></PrefsData>")
     (save / "Config/ModsConfig.xml").write_text(
         "<ModsConfigData><version>1.7.4980 rev60</version><activeMods>"
@@ -904,6 +907,8 @@ def verify_static_pixels(evidence, cases, request, pid, started):
                              "reportSha256": digest(path), "differences": differences})
     if GAMEPLAY_CASE in cases:
         verify_gameplay_pixels(evidence, started, captures)
+    if COLONY_CASE in cases:
+        verify_colony_pixels(evidence, started, captures)
     if captures:
         (evidence / "framebuffer-receipt.json").write_text(json.dumps({
             "nonce": request["nonce"], "head": request["head"], "assemblyHash": request["assemblyHash"],
@@ -1005,9 +1010,197 @@ def verify_gameplay_timings(rows):
             raise Refusal("The comparison timing statistics do not match the observations")
 
 
+COLONY_CASE = "SceneStyleCases.ColonySceneComparisonAndPerf"
+COLONY_SAMPLES = {
+    "TerrainAndFloor", "WallAndRock", "BuiltRoof", "PlantCard",
+    "SpriteSlabs", "Water", "Armchair", "Colonist", "Muffalo",
+    "StandingLamp", "GrowthVat"
+}
+COLONY_PRESETS = ("Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines")
+
+
+def colony_readings(evidence, started):
+    path = evidence / (COLONY_CASE + ".json")
+    report = json.loads(path.read_text())
+    if path.stat().st_mtime < started or report.get("caseId") != COLONY_CASE or report.get("passed") is not True:
+        raise Refusal("The colony comparison report is stale or invalid")
+    return report["readings"]
+
+
+def verify_colony_timings(rows):
+    if len(rows) != 4 or {row["preset"] for row in rows} != set(COLONY_PRESETS):
+        raise Refusal("The colony comparison timing modes are incomplete or duplicated")
+    for row in rows:
+        values = row["samplesMs"]
+        if len(values) != 60 or any(not math.isfinite(value) or value <= 0 for value in values) or row["commands"] <= 0:
+            raise Refusal("The colony comparison lacks 60 positive warm render timings or commands")
+        if row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 60:
+            raise Refusal("The colony comparison warm renders did not complete 60 GPU frames")
+        ordered = sorted(values)
+        expected = ((ordered[29] + ordered[30]) / 2, sum(values) / 60, ordered[56])
+        if any(not math.isfinite(row[key]) or abs(row[key] - value) > 1e-6
+               for key, value in zip(("medianMs", "meanMs", "p95Ms"), expected)):
+            raise Refusal("The colony comparison timing statistics do not match the observations")
+
+
+def verify_colony_pixels(evidence, started, captures):
+    readings = colony_readings(evidence, started)
+    rows = readings["frames"]
+    required = {(preset, pitch, yaw) for preset in COLONY_PRESETS for pitch, yaw in ((35.3, 45), (55, 0))}
+    if len(rows) != 8 or {(row["preset"], round(row["pitch"], 1), row["yaw"]) for row in rows} != required:
+        raise Refusal("The colony comparison preset/camera matrix is incomplete")
+    if not readings.get("samples") or readings["backend"] != "RimWorldWaylith.Rendering.CameraTextureBaker":
+        raise Refusal("The colony comparison lacks samples or approved GPU backend")
+    serials = {row["gpuFrame"] for row in captures}
+    images = {}
+    sample_maps = {}
+    for row in rows:
+        if (row["width"], row["height"], row["orthographicSize"]) != (512, 512, 11) or row["gpuFrameCompleted"] != row["gpuFrameBefore"] + 1 or row["gpuFrameCompleted"] in serials:
+            raise Refusal("The colony comparison lacks a unique completed frame at normal zoom")
+        serials.add(row["gpuFrameCompleted"])
+        for kind in ("raw", "png"):
+            path = evidence / row[kind + "Path"]
+            if path.resolve().parent != evidence.resolve() or path.is_symlink() or path.stat().st_mtime < started or digest(path) != row[kind + "Hash"]:
+                raise Refusal("A colony capture is missing, stale or redirected")
+        raw, png = [(evidence / row[kind + "Path"]).read_bytes() for kind in ("raw", "png")]
+        if len(raw) != 512 * 512 * 4 or png[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", png[16:24]) != (512, 512):
+            raise Refusal("A colony capture has invalid dimensions")
+        samples = row["samples"]
+        if len(samples) != len(COLONY_SAMPLES) or {sample["name"] for sample in samples} != COLONY_SAMPLES:
+            raise Refusal("The colony comparison omits required sample regions")
+        for sample in samples:
+            if sample.get("commands", 0) <= 0:
+                raise Refusal("A colony sample has no submitted commands")
+            x0, y0, x1, y1 = sample["bounds"]
+            if not (2 <= x0 < x1 <= 509 and 2 <= y0 < y1 <= 509):
+                raise Refusal("A colony sample is clipped")
+            if any(other is not sample and x0 <= other["bounds"][2] and other["bounds"][0] <= x1
+                   and y0 <= other["bounds"][3] and other["bounds"][1] <= y1 for other in samples):
+                raise Refusal("Colony sample regions overlap")
+            count = sum(raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 3] != bytes((255, 0, 255))
+                        for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if count < 5 or count != sample["pixels"]:
+                raise Refusal("A colony sample is blank, occluded or its pixel observation differs: " + sample["name"])
+        images[(row["preset"], round(row["pitch"], 1))] = (raw, row["pngHash"])
+        sample_maps[(row["preset"], round(row["pitch"], 1))] = {sample["name"]: sample for sample in samples}
+        captures.append({"caseId": COLONY_CASE, "name": row["name"], "gpuFrame": row["gpuFrameCompleted"],
+                         "rawSha256": row["rawHash"], "pngSha256": row["pngHash"], "reportSha256": digest(evidence / (COLONY_CASE + ".json"))})
+    for pitch in (35.3, 55):
+        first_w, _ = images["MatteWrapped", pitch]
+        second_o, _ = images["MatteOrenNayar", pitch]
+        second_no, _ = images["MatteNoOutlines", pitch]
+        first_c, _ = images["Classic", pitch]
+
+        # (a) Classic vs MatteWrapped: all six scene surface classes + 3D models have >= 10 changed pixels
+        samples_w = sample_maps["MatteWrapped", pitch]
+        for name, sample in samples_w.items():
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_c[(y * 512 + x) * 4 + c] - first_w[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed < 10:
+                raise Refusal(f"Classic vs MatteWrapped failed to differ across {name}: {changed} pixels")
+
+        # (b) MatteWrapped vs MatteOrenNayar: silhouettes match, 3D rough-diffuse samples differ, 2D/cards/water not required to differ
+        if any((first_w[i:i+3] == bytes((255, 0, 255))) != (second_o[i:i+3] == bytes((255, 0, 255))) for i in range(0, len(first_w), 4)):
+            raise Refusal("Wrapped/Oren-Nayar changed colony geometry silhouette instead of shading")
+        rough_diffuse = ("WallAndRock", "BuiltRoof", "Armchair", "Colonist", "Muffalo", "StandingLamp", "GrowthVat")
+        for name in rough_diffuse:
+            sample = samples_w[name]
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_w[(y * 512 + x) * 4 + c] - second_o[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed < 10:
+                raise Refusal(f"Wrapped vs Oren-Nayar failed to differ on 3D rough-diffuse sample {name}: {changed} pixels")
+
+        # (c) MatteWrapped vs MatteNoOutlines: outlined samples differ, un-outlined (TerrainAndFloor, PlantCard, Water) match
+        outlined = ("WallAndRock", "BuiltRoof", "SpriteSlabs", "Armchair", "Colonist", "Muffalo", "StandingLamp", "GrowthVat")
+        for name in outlined:
+            sample = samples_w[name]
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_w[(y * 512 + x) * 4 + c] - second_no[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed < 10:
+                raise Refusal(f"Wrapped vs NoOutlines failed to differ on outlined sample {name}: {changed} pixels")
+        unoutlined = ("TerrainAndFloor", "PlantCard", "Water")
+        for name in unoutlined:
+            sample = samples_w[name]
+            x0, y0, x1, y1 = sample["bounds"]
+            changed = sum(any(abs(first_w[(y * 512 + x) * 4 + c] - second_no[(y * 512 + x) * 4 + c]) > 2 for c in range(3))
+                          for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
+            if changed != 0:
+                raise Refusal(f"Wrapped vs NoOutlines unexpectedly differed on un-outlined sample {name}: {changed} pixels")
+
+SETTINGS_UI_CASE = "ModelStyleCases.ControlledOutlines"
+
+
+def verify_settings_ui(evidence, started):
+    path = evidence / (SETTINGS_UI_CASE + ".json")
+    report = json.loads(path.read_text())
+    if path.stat().st_mtime < started or report.get("caseId") != SETTINGS_UI_CASE or report.get("passed") is not True:
+        raise Refusal("The settings UI report is stale or invalid")
+    ui = report["readings"]["uiProxy"]
+    modes = ui["modes"]
+    if len(modes) != 6 or {(row["mode"], row["outlines"]) for row in modes} != {(mode, enabled) for mode in range(3) for enabled in (True, False)}:
+        raise Refusal("The outline slider mode/state matrix is incomplete")
+    if not ui.get("settingsReloaded") or any("Outline width" not in row["labels"] or row.get("input") != [.75, .25, 1.5]
+                                            or row.get("value") != 1.25 or not row.get("settingsReloaded") for row in modes):
+        raise Refusal("The outline slider visibility, value, range or persistence changed")
+    layout = ui.get("realWindow", [])
+    if len(layout) != 12 or {(row["mode"], row["outlines"], row["position"]) for row in layout} != {
+            (mode, enabled, position) for mode in range(3) for enabled in (True, False) for position in ("top", "bottom")}:
+        raise Refusal("The real settings window mode/state/scroll matrix is incomplete")
+    for row in layout:
+        path = evidence / row["pngPath"]
+        if path.resolve().parent != evidence.resolve() or path.is_symlink() or path.stat().st_mtime < started or digest(path) != row["pngHash"]:
+            raise Refusal("A real settings window screenshot is stale or invalid")
+        if path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+            raise Refusal("A real settings window screenshot is not a PNG")
+        if row["position"] != "bottom":
+            continue
+        if not row.get("label") or not row.get("slider") or len(row.get("clips", [])) < 4:
+            raise Refusal("The real settings window did not draw Outline width")
+        for rect in (row["label"], row["slider"]):
+            if len(rect) != 4 or not all(math.isfinite(value) for value in rect) or min(rect[2:]) <= 0:
+                raise Refusal("The real Outline width widget has invalid bounds")
+            for clip in row["clips"]:
+                if (len(clip) != 4 or not all(math.isfinite(value) for value in clip) or min(clip[2:]) <= 0
+                        or rect[0] < clip[0] - .1 or rect[1] < clip[1] - .1
+                        or rect[0] + rect[2] > clip[0] + clip[2] + .1 or rect[1] + rect[3] > clip[1] + clip[3] + .1):
+                    raise Refusal("Outline width is clipped in the real settings window")
+    frames = ui["frames"]
+    names = {f"ui-{mode}-{'on' if enabled else 'off'}-{phase}" for mode in range(3) for enabled in (True, False) for phase in ("before", "after")}
+    if len(frames) != 12 or {frame["name"] for frame in frames} != names:
+        raise Refusal("The UI outline effect captures are incomplete")
+    observed = {}; serials = set()
+    for frame in frames:
+        serial = frame["gpuFrameCompleted"]
+        if frame["commands"] <= 0 or serial != frame["gpuFrameBefore"] + 1 or serial in serials:
+            raise Refusal("A UI outline effect frame did not complete")
+        serials.add(serial)
+        for kind in ("raw", "png"):
+            source = evidence / frame[kind + "Path"]
+            if source.resolve().parent != evidence.resolve() or source.is_symlink() or source.stat().st_mtime < started or digest(source) != frame[kind + "Hash"]:
+                raise Refusal("A UI outline capture is stale or invalid")
+        raw = (evidence / frame["rawPath"]).read_bytes()
+        if len(raw) != 512 * 512 * 4:
+            raise Refusal("A UI outline framebuffer has invalid dimensions")
+        pixels = sum(raw[i:i+3] != bytes((255, 0, 255)) for i in range(0, len(raw), 4))
+        if pixels <= 1000 or pixels != frame["pixels"]:
+            raise Refusal("A UI outline coverage observation differs from its framebuffer")
+        observed[frame["name"]] = pixels
+    for row in modes:
+        before, after = observed[row["beforeFrame"]], observed[row["afterFrame"]]
+        if (before, after) != (row["beforePixels"], row["afterPixels"]) or (after <= before if row["outlines"] else after != before):
+            raise Refusal("The outline slider did not preserve its enabled/disabled rendered effect")
+
+
 def verify_integrated(evidence, cases, request, pid, started, captures):
+    if SETTINGS_UI_CASE in cases:
+        verify_settings_ui(evidence, started)
     if GAMEPLAY_CASE in cases:
         verify_gameplay_timings(gameplay_readings(evidence, started)["timings"])
+    if COLONY_CASE in cases:
+        verify_colony_timings(colony_readings(evidence, started)["timings"])
     integrated = {case for case in cases if case.startswith("IntegratedNormalCases.")}
     if not integrated:
         return
@@ -1114,8 +1307,8 @@ def runtime_cases(args, evidence, protected, cases, head):
                    "if (Get-Process -Name 'RimWorld*' -ErrorAction SilentlyContinue) { exit 2 }"],
                   evidence, "game-exclusion", protected)
         intake = any(case.startswith("AssetIntakeCases.") for case in cases)
-        comparison = "ModelStyleCases.GameplayComparisonAndPerf" in cases
-        runtime, save, product = stage_runtime(args, evidence, intake=intake, comparison=comparison)
+        comparison = "ModelStyleCases.GameplayComparisonAndPerf" in cases or "SceneStyleCases.ColonySceneComparisonAndPerf" in cases
+        runtime, save, product = stage_runtime(args, evidence, intake=intake, comparison=comparison, settings_ui=SETTINGS_UI_CASE in cases)
         validator_results = validate_staged_intake(evidence, protected) if intake else None
         modules = {name: digest(runtime / name) for name in [*FINGERPRINTS, "System.Private.CoreLib.dll", "coreclr.dll"]}
         modules["0Harmony.dll"] = HARMONY_HASH
@@ -1242,7 +1435,7 @@ def main():
         head = git("rev-parse", "--verify", args.head + "^{commit}").decode().strip()
         if args.command == "t0":
             epic = git("rev-parse", "--verify", args.epic_ref + "^{commit}").decode().strip()
-            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-004-matte-clay-model-style^{commit}").decode().strip()
+            expected_epic = git("rev-parse", "--verify", "feat/ISORIM-005-colony-wide-style^{commit}").decode().strip()
             if epic != expected_epic:
                 raise Refusal("The epic base differs from the commission")
         else:
@@ -1253,7 +1446,7 @@ def main():
             raise Refusal("T1 requires the exact commissioned --base " + BASELINE)
         if args.command != "ci":
             git("merge-base", "--is-ancestor", epic, head)
-        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-004-matte-clay-model-style").decode().strip():
+        if args.command == "t1" and head != git("rev-parse", "feat/ISORIM-005-colony-wide-style").decode().strip():
             raise Refusal("Authoritative T1 must run at the frozen integrated epic head")
         if args.command != "ci":
             # Independent asset work may advance main while this epic keeps its commissioned base.
@@ -1263,7 +1456,7 @@ def main():
         story = args.story
         if args.command in ("t1", "ci"):
             ordinal = max(case['story'] for case in manifest['cases'].values())
-            story = f"ISORIM-004.S{ordinal - 5:02d}" if ordinal > 5 else f"ISORIM-003.S{ordinal:02d}"
+            story = f"ISORIM-005.S{ordinal - 8:02d}" if ordinal > 8 else f"ISORIM-004.S{ordinal - 5:02d}" if ordinal > 5 else f"ISORIM-003.S{ordinal:02d}"
         cases = run_cases(args.command, changes, story, manifest, args.base)
         selection = {"head": head, "epic": epic, "story": story, "paths": changed_paths(changes) if changes else [],
                      "caseIds": cases, "hostControls": manifest["hostCases"], "ignoreProof": rule, "nonce": evidence.name}
@@ -1307,7 +1500,7 @@ def main():
         receipt = result_receipt(selection, args.command, proofs, host_results)
         targets = ("1.7", "1.5", "1.6") if args.command in ("t1", "ci") else ("1.7",)
         receipt["compileLegs"] = {target: {
-            "mode": "exact-installed-4980" if target == "1.7" and args.command != "ci" else "portable-compatibility-only",
+            "mode": "exact-installed-4981" if target == "1.7" and args.command != "ci" else "portable-compatibility-only",
             "referenceManifestSha256": digest(evidence / f"compiler-references-{target}.json"),
             "restoredAssetsSha256": digest(WORK / "build" / target / "obj/project.assets.json"),
             "productSha256": digest(WORK / "build" / target / "bin/IsoRim.dll"),

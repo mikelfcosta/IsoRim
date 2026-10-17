@@ -258,11 +258,13 @@ namespace IsoRim
 
             // One column at a time: a listing opens a drawing group, and two open at once would
             // nest, putting everything in the second outside the first and drawing nothing.
-            Listing_Standard l = new Listing_Standard();
+            // The scroll view owns overflow. Auto-columns would hide rows outside each group
+            // and make CurHeight under-report the content needed for scrolling.
+            Listing_Standard l = new Listing_Standard { maxOneColumn = scrollObjects };
             l.Begin(left);
             Tab(l, null, st);
             l.End();
-            Listing_Standard r = new Listing_Standard();
+            Listing_Standard r = new Listing_Standard { maxOneColumn = scrollObjects };
             r.Begin(right);
             Tab(null, r, st);
             r.End();
@@ -686,8 +688,7 @@ namespace IsoRim
                 }
                 Check(r, "Textures on models", ref st.texturedModels);
                 Check(r, "Dark outlines on models", ref st.outlines);
-                if (st.outlines)
-                    st.outlineWidth = Slider(r, "Outline width", st.outlineWidth, 0.25f, 1.50f, st.outlineWidth.ToString("0.00"));
+                st.outlineWidth = Slider(r, "Outline width", st.outlineWidth, 0.25f, 1.50f, st.outlineWidth.ToString("0.00"));
             }
         }
 

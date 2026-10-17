@@ -267,6 +267,25 @@ class GateHostTests(unittest.TestCase):
                    "gpuFrameBefore": 100 + i * 61, "gpuFrameCompleted": 160 + i * 61,
                    "medianMs": 30.5, "meanMs": 30.5, "p95Ms": 57}
                   for i, mode in enumerate(("Classic", "MatteWrapped", "MatteOrenNayar"))]
+        colony_timing = [{"preset": mode, "commands": 42, "samplesMs": list(range(1, 61)),
+                          "gpuFrameBefore": 100 + i * 61, "gpuFrameCompleted": 160 + i * 61,
+                          "medianMs": 30.5, "meanMs": 30.5, "p95Ms": 57}
+                         for i, mode in enumerate(("Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines"))]
+        def verify_c_timings(rows):
+            with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
+                root = Path(tmp)
+                (root / "SceneStyleCases.ColonySceneComparisonAndPerf.json").write_text(json.dumps({
+                    "caseId": "SceneStyleCases.ColonySceneComparisonAndPerf", "passed": True, "readings": {"timings": rows}}))
+                gate.verify_integrated(root, ["SceneStyleCases.ColonySceneComparisonAndPerf"], {}, 1, 0, [])
+        verify_c_timings(colony_timing)
+        for bad in (colony_timing[:3], colony_timing + [colony_timing[0]], [dict(colony_timing[0], commands=0), *colony_timing[1:]],
+                    [dict(colony_timing[0], samplesMs=[1] * 59), *colony_timing[1:]],
+                    [dict(colony_timing[0], samplesMs=[float("nan")] * 60), *colony_timing[1:]],
+                    [dict(colony_timing[0], gpuFrameCompleted=159), *colony_timing[1:]],
+                    [dict(colony_timing[0], meanMs=1), *colony_timing[1:]],
+                    [dict(colony_timing[0], p95Ms=60), *colony_timing[1:]]):
+            with self.assertRaises(gate.Refusal):
+                verify_c_timings(bad)
         def verify_timings(rows):
             with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
                 root = Path(tmp)
@@ -282,6 +301,73 @@ class GateHostTests(unittest.TestCase):
                     [dict(timing[0], p95Ms=60), *timing[1:]]):
             with self.assertRaises(gate.Refusal):
                 verify_timings(bad)
+
+        # The UI protocol covers every shading mode with outlines enabled and disabled.
+        with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
+            root = Path(tmp); modes = []; frames = []
+            labels = ("Classic faceted", "Matte clay (wrapped)", "Matte clay (Oren-Nayar)")
+            for mode in range(3):
+                for enabled in (True, False):
+                    stem = f"ui-{mode}-{'on' if enabled else 'off'}"
+                    for phase in ("before", "after"):
+                        side = 66 if enabled and phase == "after" else 64
+                        raw = bytearray(bytes((255, 0, 255, 255)) * 512 * 512)
+                        for y in range(100, 100 + side):
+                            for x in range(100, 100 + side):
+                                raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 4] = bytes((50, 80, 100, 255))
+                        def chunk(kind, data):
+                            return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+                        png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 512, 512, 8, 6, 0, 0, 0))
+                        png += chunk(b"IDAT", zlib.compress(b"".join(b"\x00" + raw[y*2048:(y+1)*2048] for y in range(512)))) + chunk(b"IEND", b"")
+                        name = stem + "-" + phase
+                        (root / (name + ".rgba")).write_bytes(raw); (root / (name + ".png")).write_bytes(png)
+                        frames.append({"name": name, "pixels": side * side, "commands": 1,
+                                       "gpuFrameBefore": len(frames), "gpuFrameCompleted": len(frames) + 1,
+                                       "rawPath": name + ".rgba", "rawHash": gate.digest(root / (name + ".rgba")),
+                                       "pngPath": name + ".png", "pngHash": gate.digest(root / (name + ".png"))})
+                    modes.append({"mode": mode, "outlines": enabled, "labels": ["Outline width", "Model shading: " + labels[mode]],
+                                  "input": [.75, .25, 1.5], "value": 1.25, "settingsReloaded": True,
+                                  "beforePixels": 4096, "afterPixels": 4356 if enabled else 4096,
+                                  "beforeFrame": stem + "-before", "afterFrame": stem + "-after"})
+            layout = [{"mode": mode, "outlines": enabled, "position": position,
+                       "label": [100, 100, 100, 22], "slider": [100, 122, 100, 22],
+                       "clips": [[0, 0, 512, 512]] * 4,
+                       "pngPath": frames[0]["pngPath"], "pngHash": frames[0]["pngHash"]}
+                      for mode in range(3) for enabled in (True, False) for position in ("top", "bottom")]
+            ui = {"modes": modes, "frames": frames, "settingsReloaded": True, "realWindow": layout}
+            def verify_ui(value):
+                (root / "ModelStyleCases.ControlledOutlines.json").write_text(json.dumps({
+                    "caseId": "ModelStyleCases.ControlledOutlines", "passed": True, "readings": {"uiProxy": value}}))
+                gate.verify_integrated(root, ["ModelStyleCases.ControlledOutlines"], {}, 1, 0, [])
+            verify_ui(ui)
+            bad = deepcopy(ui); bad.pop("realWindow")
+            with self.assertRaisesRegex(gate.Refusal, "real settings window"):
+                verify_ui(bad)
+            for index in range(1, 12, 2):
+                for key, value in (("label", [600, 100, 100, 22]), ("slider", [100, 600, 100, 22]),
+                                   ("slider", None), ("clips", [[0, 0, 512, 512]] * 3)):
+                    bad = deepcopy(ui); bad["realWindow"][index][key] = value
+                    with self.assertRaises(gate.Refusal):
+                        verify_ui(bad)
+            bad = deepcopy(ui); bad["modes"].pop()
+            with self.assertRaises(gate.Refusal):
+                verify_ui(bad)
+            for index in range(6):
+                bad = deepcopy(ui); bad["modes"][index]["labels"].remove("Outline width")
+                with self.assertRaises(gate.Refusal):
+                    verify_ui(bad)
+            for key, value in (("input", [.75, 0, 2]), ("value", .75), ("settingsReloaded", False)):
+                bad = deepcopy(ui); bad["modes"][0][key] = value
+                with self.assertRaises(gate.Refusal):
+                    verify_ui(bad)
+            # Valid hashes and coverage cannot impersonate an enabled slider with no effect.
+            bad = deepcopy(ui); target = bad["frames"][1]; source = bad["frames"][0]
+            for kind in ("raw", "png"):
+                (root / target[kind + "Path"]).write_bytes((root / source[kind + "Path"]).read_bytes())
+                target[kind + "Hash"] = gate.digest(root / target[kind + "Path"])
+            target["pixels"] = 4096; bad["modes"][0]["afterPixels"] = 4096
+            with self.assertRaisesRegex(gate.Refusal, "rendered effect"):
+                verify_ui(bad)
 
         # Synthetic protocol controls bind all eight real-capture paths. These bytes
         # exercise refusal behavior only; the acceptance witness runs in the game.
@@ -352,6 +438,61 @@ class GateHostTests(unittest.TestCase):
             with self.assertRaisesRegex(gate.Refusal, "blank"):
                 verify(bad)
 
+        # Colony scene protocol controls:
+        with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
+            c_root = Path(tmp)
+            colony_sample_names = (
+                "TerrainAndFloor", "WallAndRock", "BuiltRoof", "PlantCard",
+                "SpriteSlabs", "Water", "Armchair", "Colonist", "Muffalo",
+                "StandingLamp", "GrowthVat"
+            )
+            c_samples = [{"name": name, "commands": 1, "bounds": [10 + index * 12, 20, 13 + index * 12, 23], "pixels": 16}
+                         for index, name in enumerate(colony_sample_names)]
+            c_frames = []
+            for mode, preset in enumerate(("Classic", "MatteWrapped", "MatteOrenNayar", "MatteNoOutlines")):
+                for pitch, yaw in ((35.3, 45), (55, 0)):
+                    raw = bytearray(bytes((255, 0, 255, 255)) * 512 * 512)
+                    for sample in c_samples:
+                        x0, y0, x1, y1 = sample["bounds"]
+                        m = mode
+                        if preset == "MatteNoOutlines" and sample["name"] in ("TerrainAndFloor", "PlantCard", "Water"):
+                            m = 1
+                        elif preset == "MatteOrenNayar" and sample["name"] in ("TerrainAndFloor", "PlantCard", "Water"):
+                            m = 1
+                        for y in range(y0, y1 + 1):
+                            for x in range(x0, x1 + 1):
+                                raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 4] = bytes((50 + m * 30, 80, 100, 255))
+                    def chunk(kind, data):
+                        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+                    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 512, 512, 8, 6, 0, 0, 0))
+                    png += chunk(b"IDAT", zlib.compress(b"".join(b"\x00" + raw[y*2048:(y+1)*2048] for y in range(512)))) + chunk(b"IEND", b"")
+                    name = "colony-" + preset + "-" + ("isometric" if yaw == 45 else "straight")
+                    (c_root / (name + ".rgba")).write_bytes(raw); (c_root / (name + ".png")).write_bytes(png)
+                    c_frames.append({"name": name, "preset": preset, "pitch": pitch, "yaw": yaw, "orthographicSize": 11,
+                                     "width": 512, "height": 512, "samples": deepcopy(c_samples), "commands": 11,
+                                     "gpuFrameBefore": len(c_frames), "gpuFrameCompleted": len(c_frames) + 1,
+                                     "rawPath": name + ".rgba", "pngPath": name + ".png",
+                                     "rawHash": gate.digest(c_root / (name + ".rgba")), "pngHash": gate.digest(c_root / (name + ".png"))})
+            c_readings = {"frames": c_frames, "samples": list(colony_sample_names), "backend": "RimWorldWaylith.Rendering.CameraTextureBaker"}
+            (c_root / "runtime-inputs.json").write_text("{}")
+            c_report = c_root / "SceneStyleCases.ColonySceneComparisonAndPerf.json"
+            def c_verify(value):
+                c_report.write_text(json.dumps({"caseId": "SceneStyleCases.ColonySceneComparisonAndPerf", "passed": True, "readings": value}))
+                return gate.verify_static_pixels(c_root, ["SceneStyleCases.ColonySceneComparisonAndPerf"],
+                                                 {"nonce": "host", "head": "host", "assemblyHash": "host"}, 1, 0)
+            self.assertEqual(len(c_verify(c_readings)), 8)
+            for missing in range(11):
+                bad = deepcopy(c_readings); del bad["frames"][0]["samples"][missing]
+                with self.assertRaises(gate.Refusal):
+                    c_verify(bad)
+            for key, value in (("commands", 0), ("pixels", 0), ("bounds", [0, 20, 13, 23])):
+                bad = deepcopy(c_readings); bad["frames"][0]["samples"][0][key] = value
+                with self.assertRaises(gate.Refusal):
+                    c_verify(bad)
+            bad = deepcopy(c_readings)
+            bad["frames"][0]["samples"][1]["bounds"] = bad["frames"][0]["samples"][0]["bounds"]
+            with self.assertRaisesRegex(gate.Refusal, "overlap"):
+                c_verify(bad)
         # Host protocol control only. Actual acceptance also verifies every raw GPU source.
         paths = ("static-solid", "static-texture", "single-solid", "single-texture", "instanced-solid", "instanced-texture", "merged-solid-part0", "merged-solid-part1")
         tuples = []
@@ -426,8 +567,8 @@ class GateHostTests(unittest.TestCase):
         previous_deadline = gate.DEADLINE
         try:
             gate.DEADLINE = None
-            argv = ["prepared_models_gate.py", "t0", "--story", "ISORIM-004.S03",
-                    "--epic-ref", "feat/ISORIM-004-matte-clay-model-style", "--dotnet", str(gate.SDK.resolve())]
+            argv = ["prepared_models_gate.py", "t0", "--story", "ISORIM-005.S03",
+                    "--epic-ref", "feat/ISORIM-005-colony-wide-style", "--dotnet", str(gate.SDK.resolve())]
             with mock.patch("sys.argv", argv), mock.patch("time.monotonic", side_effect=(10, 311, 311)), \
                     mock.patch("sys.stderr", new_callable=io.StringIO) as error, \
                     mock.patch("subprocess.run", side_effect=AssertionError("Expired main launched external work")) as launch:
@@ -438,17 +579,17 @@ class GateHostTests(unittest.TestCase):
             gate.DEADLINE = previous_deadline
 
         manifest = gate.case_manifest()
-        baseline = "18eb9b3625829417d175d5c9df02945bd9d08fd2"
+        baseline = "e68a46ae3e547f8d099c1243dc4621456f071161"
         self.assertEqual(gate.BASELINE, baseline)
         # A frozen integrated head can equal its epic ref. Whole selection uses base..head.
-        self.assertEqual(gate.run_cases("t1", b"", "ISORIM-004.S03", manifest, baseline), sorted(manifest["cases"]))
-        for base in (None, "", "HEAD", "5b5ef184", "722ac4270b18a235f902ff0e238d25ec8c696469"):
+        self.assertEqual(gate.run_cases("t1", b"", "ISORIM-005.S03", manifest, baseline), sorted(manifest["cases"]))
+        for base in (None, "", "HEAD", "5b5ef184", "09db224c4270b18a235f902ff0e238d25ec8c964", "722ac4270b18a235f902ff0e238d25ec8c696469"):
             with self.assertRaises(gate.Refusal):
-                gate.run_cases("t1", b"", "ISORIM-004.S03", manifest, base)
+                gate.run_cases("t1", b"", "ISORIM-005.S03", manifest, base)
         with self.assertRaises(gate.Refusal):
-            gate.run_cases("t1", b"M\0unknown.cs\0", "ISORIM-004.S03", manifest, baseline)
+            gate.run_cases("t1", b"M\0unknown.cs\0", "ISORIM-005.S03", manifest, baseline)
         with self.assertRaises(gate.Refusal):
-            gate.run_cases("t0", b"", "ISORIM-004.S03", manifest, None)
+            gate.run_cases("t0", b"", "ISORIM-005.S03", manifest, None)
         help_result = subprocess.run([sys.executable, "tools/prepared_models_gate.py", "--help"],
                                      cwd=ROOT, capture_output=True, text=True, check=False)
         self.assertEqual(help_result.returncode, 0)
@@ -619,6 +760,20 @@ class GateHostTests(unittest.TestCase):
             missing = subprocess.run(command, capture_output=True, text=True, timeout=30)
             self.assertEqual(missing.returncode, 1)
             self.assertIn("material library missing", missing.stderr)
+            import validate_mod
+            # Control: absent optional override folder is accepted, while missing required folder or texture fails closed.
+            with tempfile.TemporaryDirectory() as test_root_dir:
+                t_root = Path(test_root_dir)
+                (t_root / "Source17").mkdir(parents=True)
+                (t_root / "Textures").mkdir(parents=True)
+                (t_root / "Source17/Test.cs").write_text('string p = "IsoRim/Clay/Ground/";')
+                self.assertEqual(validate_mod.validate_source_textures(t_root), [])
+                (t_root / "Source17/Test.cs").write_text('string p = "IsoRim/MissingFolder/";')
+                errs = validate_mod.validate_source_textures(t_root)
+                self.assertTrue(any("references missing texture folder: IsoRim/MissingFolder/" in e for e in errs))
+                (t_root / "Source17/Test.cs").write_text('string p = "IsoRim/MissingTexture";')
+                errs = validate_mod.validate_source_textures(t_root)
+                self.assertTrue(any("references missing texture: IsoRim/MissingTexture" in e for e in errs))
 
         import prepared_models_gate as gate
 
@@ -885,17 +1040,17 @@ class GateHostTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
             root = Path(tmp)
             subprocess.run(["git", "init", "--quiet", str(root)], check=True)
-            evidence = root / ".testruns/ISORIM-004/nonce"
+            evidence = root / ".testruns/ISORIM-005/nonce"
             with self.assertRaises(gate.Refusal):
                 gate.prepare_evidence(root, evidence)
             self.assertFalse(evidence.exists())
-            (root / ".gitignore").write_text("/.testruns/ISORIM-004/\n")
+            (root / ".gitignore").write_text("/.testruns/ISORIM-005/\n")
             gate.prepare_evidence(root, evidence)
             self.assertTrue(evidence.is_dir())
             for path in (root / "artifacts/report.json", root.parent / "escape"):
                 with self.assertRaises(gate.Refusal):
                     gate.prepare_evidence(root, path)
-            tracked = root / ".testruns/ISORIM-004/tracked"
+            tracked = root / ".testruns/ISORIM-005/tracked"
             tracked.write_text("tracked")
             subprocess.run(["git", "-C", str(root), "add", "-f", str(tracked)], check=True)
             with self.assertRaises(gate.Refusal):
@@ -939,24 +1094,44 @@ class GateHostTests(unittest.TestCase):
             "ModelStyleCases.ProtectedExceptions",
             "ModelStyleCases.ControlledOutlines",
             "ModelStyleCases.GameplayComparisonAndPerf",
+            "SceneStyleCases.WallsRocksAndRoofs",
+            "SceneStyleCases.TerrainCardsSlabsAndWater",
+            "SceneStyleCases.ColonySceneComparisonAndPerf",
         }
-        for path in ("Source17/IsoRimMod.cs", "Source17/View3D.cs", "Source17/Baking.cs", "Source17/Dynamic.cs", "Source17/People.cs", "Source17/Models.cs", "Source17/Glass.cs", "1.7/Shaders/IsoRimSolid.frag.glsl", "1.7/Shaders/IsoRim.vert.glsl", "1.7/Shaders/IsoRimTex.vert.glsl", "Source17/ProbeNormalsStatic.cs", "Source17/ProbeNormalsMoving.cs", "Source17/ProbeNormalsIntegration.cs"):
-            self.assertTrue({"ModelStyleCases.ControlledOutlines", "ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.GameplayComparisonAndPerf"} <= set(gate.select_cases(("M\0" + path + "\0").encode(), "ISORIM-004.S03", manifest)))
-        selected = gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-004.S03", manifest)
+        style_paths = (
+            "Source17/IsoRimMod.cs", "Source17/View3D.cs", "Source17/Baking.cs", "Source17/Dynamic.cs",
+            "Source17/People.cs", "Source17/Models.cs", "Source17/Glass.cs", "1.7/Shaders/IsoRimSolid.frag.glsl",
+            "1.7/Shaders/IsoRim.vert.glsl", "1.7/Shaders/IsoRimTex.vert.glsl", "Source17/ProbeNormalsStatic.cs",
+            "Source17/ProbeNormalsMoving.cs", "Source17/ProbeNormalsIntegration.cs", "Source17/Layers.cs",
+            "Source17/Gravship.cs", "Source17/SpriteSolids.cs", "1.7/Shaders/IsoRimCard.vert.glsl",
+            "1.7/Shaders/IsoRimCardPlant.frag.glsl", "1.7/Shaders/IsoRimCardSnow.frag.glsl"
+        )
+        expected_style_cases = {
+            "ModelStyleCases.ControlledOutlines", "ModelStyleCases.DiffuseAndHighlightModes",
+            "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.GameplayComparisonAndPerf",
+            "SceneStyleCases.WallsRocksAndRoofs", "SceneStyleCases.TerrainCardsSlabsAndWater",
+            "SceneStyleCases.ColonySceneComparisonAndPerf",
+        }
+        for path in style_paths:
+            self.assertTrue(expected_style_cases <= set(gate.select_cases(("M\0" + path + "\0").encode(), "ISORIM-005.S03", manifest)))
+        selected = gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-005.S03", manifest)
         self.assertEqual(set(selected), data)
         self.assertEqual(set(manifest["cases"]), data)  # Independent literal complete-case oracle at this S03 head.
-        for story in ("ISORIM-004.S03",):
+        for prior_story in ("ISORIM-005.S01", "ISORIM-005.S02"):
+            with self.assertRaises(gate.Refusal):
+                gate.select_cases(b"M\0Source17/Models.cs\0", prior_story, manifest)
+        for story in ("ISORIM-005.S03",):
             self.assertEqual(set(gate.run_cases("t0", b"M\0Source17/Models.cs\0", story, manifest, None)), data)
         for missing in sorted(data):
-            group = {"NormalDataCases": "data", "AssetIntakeCases": "intake", "StaticNormalCases": "static", "MovingNormalCases": "moving", "IntegratedNormalCases": "integrated", "ModelStyleCases": "style"}[missing.split(".")[0]]
+            group = {"NormalDataCases": "data", "AssetIntakeCases": "intake", "StaticNormalCases": "static", "MovingNormalCases": "moving", "IntegratedNormalCases": "integrated", "ModelStyleCases": "style", "SceneStyleCases": "style"}[missing.split(".")[0]]
             shortened = deepcopy(manifest)
             del shortened["cases"][missing]
             shortened["groups"][group].remove(missing)
             with self.subTest(removed_required_case=missing):
                 with self.assertRaises(gate.Refusal):
-                    gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-004.S03", shortened)
+                    gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-005.S03", shortened)
                 with self.assertRaises(gate.Refusal):
-                    gate.select_cases(b"M\0tools/prepared_models/cases.json\0", "ISORIM-004.S03", shortened)
+                    gate.select_cases(b"M\0tools/prepared_models/cases.json\0", "ISORIM-005.S03", shortened)
             for relocate in (False, True):
                 ungrouped = deepcopy(manifest)
                 ungrouped["groups"][group].remove(missing)
@@ -964,13 +1139,13 @@ class GateHostTests(unittest.TestCase):
                     ungrouped["groups"]["data" if group == "integrated" else "integrated"].append(missing)
                 with self.subTest(required_group_case=missing, relocated=relocate):
                     with self.assertRaises(gate.Refusal):
-                        gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-004.S03", ungrouped)
+                        gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-005.S03", ungrouped)
         gate.verify_registry(selected, manifest)
         with self.assertRaises(gate.Refusal):
             gate.verify_registry(["NormalDataCases.Missing"], manifest)
         for stream in (b"", b"M\0Source17/Models.cs", b"Q\0Source17/Models.cs\0", b"R100\0Source17/Models.cs\0"):
             with self.assertRaises(gate.Refusal):
-                gate.select_cases(stream, "ISORIM-004.S03", manifest)
+                gate.select_cases(stream, "ISORIM-005.S03", manifest)
         for story in ("S01", "ISORIM-003.S00", "ISORIM-003.S99"):
             with self.assertRaises(gate.Refusal):
                 gate.select_cases(b"M\0Source17/Models.cs\0", story, manifest)
@@ -986,20 +1161,20 @@ class GateHostTests(unittest.TestCase):
         for changes in (b"M\0README.txt\0", b"D\0unknown.cs\0",
                         b"R100\0Source17/Models.cs\0unknown.cs\0"):
             with self.assertRaises(gate.Refusal):
-                gate.select_cases(changes, "ISORIM-004.S03", manifest)
-        self.assertEqual(set(gate.select_cases(b"D\0Source17/Models.cs\0", "ISORIM-004.S03", manifest)), data)
-        self.assertEqual(set(gate.select_cases(b"R100\0Source17/Models.cs\0Source17/Models.cs\0", "ISORIM-004.S03", manifest)), data)
+                gate.select_cases(changes, "ISORIM-005.S03", manifest)
+        self.assertEqual(set(gate.select_cases(b"D\0Source17/Models.cs\0", "ISORIM-005.S03", manifest)), data)
+        self.assertEqual(set(gate.select_cases(b"R100\0Source17/Models.cs\0Source17/Models.cs\0", "ISORIM-005.S03", manifest)), data)
         manifest["groups"]["static"] = ["StaticNormalCases.Example"]
         manifest["cases"]["StaticNormalCases.Example"] = {"story": 1}
         with self.assertRaises(gate.Refusal):
-            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-004.S03", manifest)
+            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-005.S03", manifest)
         manifest = gate.case_manifest()
         del manifest["cases"][next(iter(data))]
         with self.assertRaises(gate.Refusal):
-            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-004.S03", manifest)
+            gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-005.S03", manifest)
         request = {"nonce": "fresh", "head": "head", "assemblyHash": "product"}
         proof = dict(request, caseId="case", passed=True, modules={"module": "hash"},
-                     runtime="10.0.10-waylithclr.dev", gameVersion="1.7.4980.60", processId=42, evidencePaths=[])
+                     runtime="10.0.13-waylithclr.dev", gameVersion="1.7.4981.136", processId=42, evidencePaths=[])
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
             path = Path(tmp) / "proof.json"
             proof["engineLogRoot"] = tmp
@@ -1032,11 +1207,11 @@ class GateHostTests(unittest.TestCase):
             (game / "Version.txt").write_text("1.7.4979 rev1")
             with self.assertRaises(gate.Refusal):
                 gate.verify_game(game)
-            (game / "Version.txt").write_text("1.7.4980 rev60")
+            (game / "Version.txt").write_text("1.7.4981 rev136")
             for name in gate.FINGERPRINTS:
                 (game / name).write_bytes(b"changed game fingerprint")
             (game / "RimWorld.runtimeconfig.json").write_text(json.dumps({"runtimeOptions": {"includedFrameworks": [
-                {"name": "Microsoft.NETCore.App", "version": "10.0.10-waylithclr.dev"}]}}))
+                {"name": "Microsoft.NETCore.App", "version": "10.0.13-waylithclr.dev"}]}}))
             with self.assertRaises(gate.Refusal):
                 gate.verify_game(game)
             assets = {"libraries": {"Krafs.Rimworld.Ref/1.7.4979-alpha": {}, "Lib.Harmony/3.0.0-rc.3": {}}}

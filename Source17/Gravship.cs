@@ -538,35 +538,38 @@ namespace IsoRim
                 Vector3 b1 = textured ? p1 - out3 * Gap : p1;
                 MeshWriter.Quad(LitSide(layer, 0, solid), b0, Raised(b0, topY), Raised(b1, topY), b1, R3DMaterials.Shaded(tint, 0.9f));
 
-                // The rim on the cap, mitred against the face that carries on at each end.
-                Vector2 ia = InnerCorner(a, o, joinA);
-                Vector2 ib = InnerCorner(b, o, joinB);
-                MeshWriter.Quad(solid, new Vector3(a.x, rimY, a.y), new Vector3(ia.x, rimY, ia.y), new Vector3(ib.x, rimY, ib.y), new Vector3(b.x, rimY, b.y), lineColor);
-
-                // The line along the ground.
-                Vector3 q0 = p0 + out3 * Gap;
-                Vector3 q1 = p1 + out3 * Gap;
-                float lineTop = y0 + OutlineWidth * 0.7f / squash;
-                MeshWriter.Quad(solid, q0, Raised(q0, lineTop), Raised(q1, lineTop), q1, lineColor);
-
-                // Corner lines.
-                if (lineA && joinA != Vector2.zero)
+                if (LineScale > 0f)
                 {
-                    CornerLine(solid, a, o, joinA, dir, true, y0, topY, lineColor);
-                    if (!prev.open && e.foreignStart)
+                    // The rim on the cap, mitred against the face that carries on at each end.
+                    Vector2 ia = InnerCorner(a, o, joinA);
+                    Vector2 ib = InnerCorner(b, o, joinB);
+                    MeshWriter.Quad(solid, new Vector3(a.x, rimY, a.y), new Vector3(ia.x, rimY, ia.y), new Vector3(ib.x, rimY, ib.y), new Vector3(b.x, rimY, b.y), lineColor);
+
+                    // The line along the ground.
+                    Vector3 q0 = p0 + out3 * Gap;
+                    Vector3 q1 = p1 + out3 * Gap;
+                    float lineTop = y0 + (OutlineWidth * LineScale) * 0.7f / squash;
+                    MeshWriter.Quad(solid, q0, Raised(q0, lineTop), Raised(q1, lineTop), q1, lineColor);
+
+                    // Corner lines.
+                    if (lineA && joinA != Vector2.zero)
                     {
-                        // The other face arrives at a; its half of the line, into that face.
-                        Vector2 dIn = new Vector2(-joinA.y, joinA.x);
-                        CornerLine(solid, a, joinA, o, -dIn, false, y0, topY, lineColor);
+                        CornerLine(solid, a, o, joinA, dir, true, y0, topY, lineColor);
+                        if (!prev.open && e.foreignStart)
+                        {
+                            // The other face arrives at a; its half of the line, into that face.
+                            Vector2 dIn = new Vector2(-joinA.y, joinA.x);
+                            CornerLine(solid, a, joinA, o, -dIn, false, y0, topY, lineColor);
+                        }
                     }
-                }
-                if (lineB && joinB != Vector2.zero)
-                {
-                    CornerLine(solid, b, o, joinB, -dir, false, y0, topY, lineColor);
-                    if (!next.open && e.foreignEnd)
+                    if (lineB && joinB != Vector2.zero)
                     {
-                        Vector2 dOut = new Vector2(-joinB.y, joinB.x);
-                        CornerLine(solid, b, joinB, o, dOut, true, y0, topY, lineColor);
+                        CornerLine(solid, b, o, joinB, -dir, false, y0, topY, lineColor);
+                        if (!next.open && e.foreignEnd)
+                        {
+                            Vector2 dOut = new Vector2(-joinB.y, joinB.x);
+                            CornerLine(solid, b, joinB, o, dOut, true, y0, topY, lineColor);
+                        }
                     }
                 }
             }
@@ -576,6 +579,7 @@ namespace IsoRim
         // A small square of rim on a cap at an inside corner p (inward = toward the cap from p, diagonal).
         public static void RimSquare(SectionLayer layer, Vector2 p, Vector2 inward, float baseHeight, float height, Color tint)
         {
+            if (LineScale <= 0f) return;
             Material solidMat = R3DMaterials.Solid;
             LayerSubMesh solid = solidMat != null ? MeshWriter.Sub(layer, solidMat) : null;
             if (solid == null || solid.verts.Count + 4 > MeshWriter.MaxVerts)
@@ -583,8 +587,9 @@ namespace IsoRim
                 return;
             }
             float rimY = (baseHeight + height) / View3D.Squash + 0.002f / View3D.Squash;
-            float sx = Mathf.Sign(inward.x) * OutlineWidth;
-            float sz = Mathf.Sign(inward.y) * OutlineWidth;
+            float scaledOutline = OutlineWidth * LineScale;
+            float sx = Mathf.Sign(inward.x) * scaledOutline;
+            float sz = Mathf.Sign(inward.y) * scaledOutline;
             Color32 lineColor = R3DMaterials.Shaded(tint, LineShade);
             MeshWriter.Quad(solid, new Vector3(p.x, rimY, p.y), new Vector3(p.x, rimY, p.y + sz), new Vector3(p.x + sx, rimY, p.y + sz),
                 new Vector3(p.x + sx, rimY, p.y), lineColor);
@@ -595,10 +600,12 @@ namespace IsoRim
         // the face round the corner (other). startEnd: the corner is the face's left end seen from outside.
         private static void CornerLine(LayerSubMesh sm, Vector2 p, Vector2 n, Vector2 other, Vector2 along, bool startEnd, float y0, float topY, Color32 color)
         {
+            if (LineScale <= 0f) return;
+            float scaledOutline = OutlineWidth * LineScale;
             float code = 10f + 8f * Compass(n) + Compass(other);
             Vector2 face = p + n * Gap;
             Vector2 outer = face - along * Gap;
-            Vector3 inner = new Vector3(along.x * OutlineWidth, along.y * OutlineWidth, code);
+            Vector3 inner = new Vector3(along.x * scaledOutline, along.y * scaledOutline, code);
             Vector3 c3 = new Vector3(face.x, y0, face.y);
             Vector3 o3 = new Vector3(outer.x, y0, outer.y);
             Vector3 a = startEnd ? o3 : c3;
@@ -643,7 +650,7 @@ namespace IsoRim
         // corner p (outward join): a mitre; a square end when there is none or it runs on in line.
         private static Vector2 InnerCorner(Vector2 p, Vector2 o, Vector2 join)
         {
-            float w = OutlineWidth;
+            float w = OutlineWidth * LineScale;
             float det = o.x * join.y - o.y * join.x;
             if (join == Vector2.zero || Mathf.Abs(det) < 1e-4f)
             {
@@ -713,10 +720,33 @@ namespace IsoRim
                 if (material == null && R3DMaterials.Solid != null)
                 {
                     material = R3DMaterials.Make(R3DMaterials.SolidDef, "IsoRim_ShipRoof", 3600, R3DMaterials.LightRoof);
+                    material.SetFloat("_NormalSpace", (float)ShadingNormalSpace.BakedTrueSpace);
                     IsoGlow.Use(material, IsoGlow.SkyOnly);
+                    ApplyStyle(material);
                 }
                 return material;
             }
+        }
+        private static int shipRoofMode;
+        private static float shipRoofWrap, shipRoofHighlight, shipRoofRoughness;
+
+        public static void SyncStyle(int mode, float wrap, float highlight, float roughness)
+        {
+            shipRoofMode = mode; shipRoofWrap = wrap; shipRoofHighlight = highlight; shipRoofRoughness = roughness;
+            if (material != null)
+            {
+                ApplyStyle(material);
+            }
+        }
+
+        private static void ApplyStyle(Material m)
+        {
+            if (m == null) return;
+            m.SetFloat("_SceneClay", shipRoofMode > 0 ? 1f : 0f);
+            m.SetFloat("_ClayMode", shipRoofMode);
+            m.SetFloat("_ClayWrap", shipRoofWrap);
+            m.SetFloat("_ClayHighlight", shipRoofHighlight);
+            m.SetFloat("_ClayRoughness", shipRoofRoughness);
         }
 
         private static void Load()
@@ -992,12 +1022,29 @@ namespace IsoRim
             float squash = View3D.Squash;
             Vector3[] pos = m.positions;
             int start = sm.verts.Count;
-            for (int i = 0; i < pos.Length; i++)
+            for (int i = 0; i < pos.Length; i += 3)
             {
-                Vector3 v = pos[i];
-                sm.verts.Add(new Vector3(c.x + m00 * v.x + m01 * v.z, (baseY + v.y) / squash, c.y + m10 * v.x + m11 * v.z));
-                sm.colors.Add(R3DMaterials.Shaded(m.colors[i], 1f));
-                sm.uvs.Add(Vector3.zero);
+                bool authored = m.authoredNormals != null && m.shadingNormals != null
+                    && m.authoredNormals.Length >= i + 3 && m.shadingNormals.Length >= i + 3
+                    && m.authoredNormals[i] && m.authoredNormals[i + 1] && m.authoredNormals[i + 2]
+                    && NormalStreams.Usable(m.shadingNormals[i]) && NormalStreams.Usable(m.shadingNormals[i + 1]) && NormalStreams.Usable(m.shadingNormals[i + 2]);
+                for (int k = i; k < i + 3 && k < pos.Length; k++)
+                {
+                    Vector3 v = pos[k];
+                    sm.verts.Add(new Vector3(c.x + m00 * v.x + m01 * v.z, (baseY + v.y) / squash, c.y + m10 * v.x + m11 * v.z));
+                    sm.colors.Add(R3DMaterials.Shaded(m.colors[k], 1f));
+                    sm.uvs.Add(Vector3.zero);
+                    if (authored)
+                    {
+                        Vector3 n = m.shadingNormals[k];
+                        Vector3 rn = new Vector3(m00 * n.x + m01 * n.z, n.y, m10 * n.x + m11 * n.z).normalized;
+                        NormalStreams.Stamp(sm, rn);
+                    }
+                    else
+                    {
+                        NormalStreams.Stamp(sm, Vector3.zero);
+                    }
+                }
             }
             for (int i = 0; i < pos.Length; i++)
             {

@@ -197,6 +197,7 @@ namespace IsoRim
             {
                 IsoRimSettings st = IsoRimMod.Settings;
                 R3DMaterials.SyncModelStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
+                R3DMaterials.SyncSceneStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
                 ApplyCamera(main);
                 Grade.Draw(main);
             }
@@ -445,6 +446,7 @@ namespace IsoRim
                 h = h * 31 + Mathf.RoundToInt(st.cutHeight * 100f);
                 h = h * 31 + (st.treeShadows ? 1 : 0);
                 h = h * 31 + Mathf.RoundToInt(st.treeShadowLength * 100f);
+                h = h * 31 + (st.modelStyle > 0 ? 1 : 0);
                 return h == 0 ? 1 : h;
             }
         }

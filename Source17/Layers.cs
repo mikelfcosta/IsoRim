@@ -33,6 +33,15 @@ namespace IsoRim
             new Color(0.178f, 0.266f, 0.288f),
             new Color(0.162f, 0.246f, 0.272f),
         };
+        private static readonly Color[] ClayBands =
+        {
+            new Color(0.310f, 0.420f, 0.415f),
+            new Color(0.275f, 0.375f, 0.380f),
+            new Color(0.242f, 0.335f, 0.345f),
+            new Color(0.215f, 0.305f, 0.320f),
+            new Color(0.195f, 0.280f, 0.300f),
+            new Color(0.175f, 0.255f, 0.280f),
+        };
 
         private static readonly IntVec3[] Side = { IntVec3.South, IntVec3.East, IntVec3.North, IntVec3.West };
 
@@ -140,14 +149,16 @@ namespace IsoRim
                 // still water: a slow drift with a gentle side-to-side sway
                 Vector2 shift = new Vector2(t * 0.012f + 0.035f * Mathf.Sin(t * 0.45f), t * 0.008f + 0.025f * Mathf.Sin(t * 0.31f + 1.3f));
                 ripples.mainTextureOffset = shift;
-                ripples.color = new Color(glow, glow, glow, 1f);
+                float op = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0 ? 0.68f : 1f;
+                ripples.color = new Color(glow, glow, glow, op);
                 Graphics.DrawMesh(waveMesh, Matrix4x4.identity, ripples, 0);
             }
             if (flow != null && flowMesh != null && flowVerts.Count > 0)
             {
                 // running water: streaks carried downstream
                 flow.mainTextureOffset = new Vector2(0.02f * Mathf.Sin(t * 0.7f), -t * 0.22f);
-                flow.color = new Color(glow, glow, glow, 1f);
+                float op = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0 ? 0.68f : 1f;
+                flow.color = new Color(glow, glow, glow, op);
                 Graphics.DrawMesh(flowMesh, Matrix4x4.identity, flow, 0);
             }
         }
@@ -285,13 +296,16 @@ namespace IsoRim
         // The water's colour at a cell corner: from how far the four cells round it are from the
         // shore and how deep they are, so neighbouring cells always agree and the colour flows on
         // smoothly from one to the next.
-        private Color CornerColour(int cx, int cz)
+        private Color CornerColour(int cx, int cz, out byte alpha)
         {
             float d = (DistAt(cx - 1, cz - 1) + DistAt(cx, cz - 1) + DistAt(cx - 1, cz) + DistAt(cx, cz)) * 0.25f;
             float dp = (DeepAt(cx - 1, cz - 1) + DeepAt(cx, cz - 1) + DeepAt(cx - 1, cz) + DeepAt(cx, cz)) * 0.25f;
-            float index = Mathf.Clamp(d * 0.85f + dp, 0f, Bands.Length - 1.001f);
+            bool clay = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0;
+            Color[] bands = clay ? ClayBands : Bands;
+            float index = Mathf.Clamp(d * 0.85f + dp, 0f, bands.Length - 1.001f);
             int i = Mathf.FloorToInt(index);
-            return Color.Lerp(Bands[i], Bands[i + 1], index - i);
+            alpha = clay ? (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(210f, 245f, Mathf.Clamp01((d - 1f) / 2.5f))), 210, 245) : (byte)255;
+            return Color.Lerp(bands[i], bands[i + 1], index - i);
         }
 
         private void Build()
@@ -322,12 +336,13 @@ namespace IsoRim
                 {
                     continue;
                 }
-                Color sw = CornerColour(c.x, c.z);
-                Color nw = CornerColour(c.x, c.z + 1);
-                Color ne = CornerColour(c.x + 1, c.z + 1);
-                Color se = CornerColour(c.x + 1, c.z);
+                byte a_sw, a_nw, a_ne, a_se;
+                Color sw = CornerColour(c.x, c.z, out a_sw);
+                Color nw = CornerColour(c.x, c.z + 1, out a_nw);
+                Color ne = CornerColour(c.x + 1, c.z + 1, out a_ne);
+                Color se = CornerColour(c.x + 1, c.z, out a_se);
                 MeshWriter.Quad(sm, new Vector3(c.x, y, c.z), new Vector3(c.x, y, c.z + 1), new Vector3(c.x + 1, y, c.z + 1), new Vector3(c.x + 1, y, c.z),
-                    Opaque(sw), Opaque(nw), Opaque(ne), Opaque(se));
+                    Opaque(sw, a_sw), Opaque(nw, a_nw), Opaque(ne, a_ne), Opaque(se, a_se));
 
                 // the moving layer over it
                 TerrainDef t = map.terrainGrid.TerrainAt(c);
@@ -370,9 +385,11 @@ namespace IsoRim
             tris.Add(start + 3);
         }
 
-        private static Color32 Opaque(Color c)
+        private static Color32 Opaque(Color c, byte alpha = 255)
         {
-            return R3DMaterials.Shaded(c, 1f);
+            Color32 shaded = R3DMaterials.Shaded(c, 1f);
+            shaded.a = alpha;
+            return shaded;
         }
 
         // Where water wraps round a corner of land (water on both sides and across the diagonal),
@@ -393,16 +410,20 @@ namespace IsoRim
                     int kx = c.x + (sx > 0 ? 1 : 0);
                     int kz = c.z + (sz > 0 ? 1 : 0);
                     float reach = 0.34f + 0.12f * Hashing.Unit(kx, kz, 7);
-                    Color ck = CornerColour(kx, kz);
-                    Color ca = Color.Lerp(ck, CornerColour(kx - sx, kz), reach);
-                    Color cb = Color.Lerp(ck, CornerColour(kx, kz - sz), reach);
+                    byte a_k, a_a, a_b;
+                    Color ck = CornerColour(kx, kz, out a_k);
+                    Color ca = Color.Lerp(ck, CornerColour(kx - sx, kz, out a_a), reach);
+                    Color cb = Color.Lerp(ck, CornerColour(kx, kz - sz, out a_b), reach);
+                    bool clay = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0;
+                    byte tipAlpha = clay ? (byte)210 : (byte)255;
+                    byte rootAlpha = clay ? a_k : (byte)255;
                     int start = sm.verts.Count;
                     sm.verts.Add(new Vector3(kx, y, kz));
                     sm.verts.Add(new Vector3(kx - sx * reach, y, kz));
                     sm.verts.Add(new Vector3(kx, y, kz - sz * reach));
-                    sm.colors.Add(Opaque(ck));
-                    sm.colors.Add(Opaque(ca));
-                    sm.colors.Add(Opaque(cb));
+                    sm.colors.Add(Opaque(ck, rootAlpha));
+                    sm.colors.Add(Opaque(ca, tipAlpha));
+                    sm.colors.Add(Opaque(cb, tipAlpha));
                     for (int i = 0; i < 3; i++)
                     {
                         sm.uvs.Add(Vector3.zero);
@@ -881,6 +902,33 @@ namespace IsoRim
         public static readonly string[] StyleNames = { "Slate", "Terracotta", "Thatch", "Tin" };
 
         private static readonly Dictionary<int, Material> textureMats = new Dictionary<int, Material>();
+        private static int roofClayMode;
+        private static float roofClayWrap, roofClayHighlight, roofClayRoughness;
+
+        public static void SyncStyle(int mode, float wrap, float highlight, float roughness)
+        {
+            roofClayMode = mode; roofClayWrap = wrap; roofClayHighlight = highlight; roofClayRoughness = roughness;
+            foreach (var kvp in textureMats)
+            {
+                Material m = kvp.Value;
+                if (m == null) continue;
+                int style = kvp.Key;
+                Color c = Styles[style] * (mode > 0 ? 1.12f : 1.25f);
+                c.a = 1f;
+                m.color = c;
+                ApplyRoofStyle(m);
+            }
+        }
+
+        private static void ApplyRoofStyle(Material m)
+        {
+            if (m == null) return;
+            m.SetFloat("_SceneClay", roofClayMode > 0 ? 1f : 0f);
+            m.SetFloat("_ClayMode", roofClayMode);
+            m.SetFloat("_ClayWrap", roofClayWrap);
+            m.SetFloat("_ClayHighlight", roofClayHighlight);
+            m.SetFloat("_ClayRoughness", roofClayRoughness);
+        }
 
         // The textured material for a roof colour, or null if the texture is missing. Drawn just
         // after the plain roof underneath it, so it lies over it. The shader lights each slope
@@ -902,10 +950,11 @@ namespace IsoRim
             if (m != null)
             {
                 m.mainTexture = tex;
-                Color c = Styles[style] * 1.25f;
+                Color c = Styles[style] * (roofClayMode > 0 ? 1.12f : 1.25f);
                 c.a = 1f;
                 m.color = c;
                 IsoGlow.Use(m, IsoGlow.SkyOnly);
+                ApplyRoofStyle(m);
             }
             textureMats[key] = m;
             return m;
@@ -1084,11 +1133,15 @@ namespace IsoRim
                     MeshWriter.Quad(sm, new Vector3(a.x, edge, a.z), new Vector3(ao.x, eave, ao.z), new Vector3(bo.x, eave, bo.z), new Vector3(b.x, edge, b.z), under);
                     Color32 face = R3DMaterials.Shaded(roofCol, 0.46f);
                     MeshWriter.Quad(sm, new Vector3(ao.x, bottom, ao.z), new Vector3(ao.x, eave, ao.z), new Vector3(bo.x, eave, bo.z), new Vector3(bo.x, bottom, bo.z), face);
-                    Color32 line = R3DMaterials.Shaded(roofCol, 0.28f);
-                    float lift = 0.002f / squash;
-                    Vector3 inner = outward * -0.04f;
-                    MeshWriter.Quad(sm, new Vector3(ao.x, eave + lift, ao.z), new Vector3(ao.x + inner.x, eave + lift, ao.z + inner.z),
-                        new Vector3(bo.x + inner.x, eave + lift, bo.z + inner.z), new Vector3(bo.x, eave + lift, bo.z), line);
+                    float lineScale = WallBoxes.LineScale;
+                    if (lineScale > 0f)
+                    {
+                        Color32 line = R3DMaterials.Shaded(roofCol, 0.28f);
+                        float lift = 0.002f / squash;
+                        Vector3 inner = outward * (-0.04f * lineScale);
+                        MeshWriter.Quad(sm, new Vector3(ao.x, eave + lift, ao.z), new Vector3(ao.x + inner.x, eave + lift, ao.z + inner.z),
+                            new Vector3(bo.x + inner.x, eave + lift, bo.z + inner.z), new Vector3(bo.x, eave + lift, bo.z), line);
+                    }
                 }
             }
             CutTags.Apply(this, cellMark, markCell, ShaderCut.Roof);

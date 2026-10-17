@@ -96,7 +96,6 @@ namespace IsoRim
             {
                 return;
             }
-            started = true;
             try
             {
                 Request request = JsonSerializer.Deserialize<Request>(File.ReadAllText(path));
@@ -124,6 +123,11 @@ namespace IsoRim
                 {
                     throw new InvalidOperationException("The engine log is not isolated: " + engineLogRoot);
                 }
+                if (!ModelStyleCases.SettingsLayoutTick(request))
+                {
+                    return;
+                }
+                started = true;
                 Dictionary<string, string> modules = new Dictionary<string, string>();
                 string runtimeRoot = Path.GetDirectoryName(typeof(object).Assembly.Location);
                 foreach (string name in new[] { "RimWorld.dll", "Assembly-CSharp.dll", "UnityStubs.dll", "Waylith.dll", "Waylith.UnityCompat.dll", "System.Private.CoreLib.dll", "coreclr.dll" })
@@ -173,30 +177,35 @@ namespace IsoRim
                         {
                             throw new InvalidOperationException("Duplicate normal case");
                         }
-                        if (id.StartsWith("ModelStyleCases.", StringComparison.Ordinal))
+                        if (id.StartsWith("SceneStyleCases.", StringComparison.Ordinal))
                         {
-                            evidencePaths = new[] { ModelStyleCases.Run(id, request) };
-                        }
-                        else if (id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { IntegratedNormalCases.Run(id, request) };
-                        }
-                        else if (id.StartsWith("MovingNormalCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { MovingNormalCases.Run(id, output, request.fixtureDirectory) };
-                        }
-                        else if (id.StartsWith("StaticNormalCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { StaticNormalCases.Run(id, output, request.fixtureDirectory) };
-                        }
-                        else if (id.StartsWith("AssetIntakeCases.", StringComparison.Ordinal))
-                        {
-                            evidencePaths = new[] { AssetIntakeCases.Run(id, output) };
+                            evidencePaths = new[] { SceneStyleCases.Run(id, request) };
                         }
                         else
-                        {
-                            NormalDataCases.Run(id, request.fixtureDirectory);
-                        }
+                            if (id.StartsWith("ModelStyleCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { ModelStyleCases.Run(id, request) };
+                            }
+                            else if (id.StartsWith("IntegratedNormalCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { IntegratedNormalCases.Run(id, request) };
+                            }
+                            else if (id.StartsWith("MovingNormalCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { MovingNormalCases.Run(id, output, request.fixtureDirectory) };
+                            }
+                            else if (id.StartsWith("StaticNormalCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { StaticNormalCases.Run(id, output, request.fixtureDirectory) };
+                            }
+                            else if (id.StartsWith("AssetIntakeCases.", StringComparison.Ordinal))
+                            {
+                                evidencePaths = new[] { AssetIntakeCases.Run(id, output) };
+                            }
+                            else
+                            {
+                                NormalDataCases.Run(id, request.fixtureDirectory);
+                            }
                         passed = true;
                     }
                     catch (Exception error)
@@ -225,6 +234,7 @@ namespace IsoRim
             }
             catch (Exception error)
             {
+                started = true;
                 Log.Error("[IsoRim normal proof] " + error);
             }
             Application.Quit();

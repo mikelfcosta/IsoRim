@@ -4,8 +4,10 @@
 // members after _SwayHead that IsoRimCard.vert.glsl reads (the material layout is read from this
 // stage). Compare with the game's file after a game update.
 
+layout(location = 0) in vec4 vColor;
 layout(location = 1) in vec2 vUv;
 layout(location = 2) flat in float vFallSeed;
+layout(location = 3) in float vCardHeight;
 
 layout(location = 0) out vec4 outColor;
 
@@ -16,6 +18,8 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _SwayHead;  // @default = 0.0 (consumed by PlantWindSway.vert, kept here so the layout matches)
     vec4 _IsoView;    // global, no default: w = Squash (read by IsoRimCard.vert.glsl)
     vec4 _IsoCard;    // global, no default: sin a, cos a (a = pitch - 90), sin yaw, cos yaw
+    vec4 _IsoSun;     // global, no default: xyz = direction toward sun
+    vec4 _IsoClayCard;// global, no default: x = mode, y = wrap, z = highlight, w = roughness
     vec4 _FallColorSource;
     vec4 _FallTransitionRange;
     float _FallBehaviorEnabled;
@@ -63,48 +67,62 @@ void main()
     if (texVal.a < 0.35)
         discard;
 
-    if (uMaterial._FallBehaviorEnabled == 0.0)
+    vec3 rgb = texVal.rgb;
+    if (uMaterial._FallBehaviorEnabled != 0.0)
     {
-        outColor = texVal;
-        return;
+        vec3 hsv = rgb2hsv(texVal.rgb);
+
+        bool globalControls = uMaterial._FallGlobalControls != 0.0;
+        vec3 srchsv;
+        vec3 dsthsv;
+        if (globalControls)
+        {
+            srchsv = rgb2hsv(uMaterial._FallSrc.rgb);
+            dsthsv = rgb2hsv(uMaterial._FallDst.rgb);
+        }
+        else
+        {
+            srchsv = rgb2hsv(uMaterial._FallColorSource.rgb);
+            dsthsv = rgb2hsv(texture(_FallColorDestination, vec2(randcentered(vFallSeed * 3.0 + 5.0), 0.5)).rgb);
+        }
+
+        float hdiff = abs(srchsv.r - hsv.r);
+        float distance = min(hdiff, 1.0 - hdiff);
+
+        vec3 delta = dsthsv - srchsv;
+        delta.r = delta.r - round(delta.r); // shortest way round the hue wheel
+
+        vec2 range = globalControls ? uMaterial._FallRange.xy : uMaterial._FallTransitionRange.xy;
+
+        const float randomFactorRange = 2.0;
+        float startIntensity = mix(-randomFactorRange, 0.0, rand(vFallSeed * 2.0 + 1.0));
+        float endIntensity = mix(1.0, 1.0 + randomFactorRange, rand(vFallSeed * 4.0 - 3.0));
+
+        float chromaKeyIntensity = 1.0 - smoothstep(range.x, range.y, distance);
+        float targetFallIntensity = clamp(mix(startIntensity, endIntensity, uMaterial._FallIntensity), 0.0, 1.0);
+
+        float lerpTarget = clamp(chromaKeyIntensity * targetFallIntensity, 0.0, 1.0);
+
+        vec3 resulthsv = hsv + delta * lerpTarget;
+        resulthsv.r = fract(resulthsv.r + 1.0);
+        resulthsv.gb = clamp(resulthsv.gb, 0.0, 1.0);
+
+        rgb = hsv2rgb(resulthsv);
     }
 
-    vec3 hsv = rgb2hsv(texVal.rgb);
-
-    bool globalControls = uMaterial._FallGlobalControls != 0.0;
-    vec3 srchsv;
-    vec3 dsthsv;
-    if (globalControls)
+    if (uMaterial._IsoClayCard.x > 0.5)
     {
-        srchsv = rgb2hsv(uMaterial._FallSrc.rgb);
-        dsthsv = rgb2hsv(uMaterial._FallDst.rgb);
-    }
-    else
-    {
-        srchsv = rgb2hsv(uMaterial._FallColorSource.rgb);
-        dsthsv = rgb2hsv(texture(_FallColorDestination, vec2(randcentered(vFallSeed * 3.0 + 5.0), 0.5)).rgb);
+        vec3 cardN = normalize(vec3(0.0, mix(0.35, 0.92, vCardHeight), 0.38));
+        float w = uMaterial._IsoClayCard.y;
+        float wrapped = clamp((dot(cardN, uMaterial._IsoSun.xyz) + w) / (1.0 + w), 0.0, 1.0);
+        float clayDiffuse = mix(0.88, 1.04, wrapped);
+        float grounding = mix(0.86, 1.02, vCardHeight);
+        rgb *= clayDiffuse * grounding;
+        rgb *= vColor.rgb;
+        float lum = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+        vec3 warmMidtone = vec3(lum * 1.06, lum * 0.98, lum * 0.88);
+        rgb = mix(rgb, warmMidtone, 0.12);
     }
 
-    float hdiff = abs(srchsv.r - hsv.r);
-    float distance = min(hdiff, 1.0 - hdiff);
-
-    vec3 delta = dsthsv - srchsv;
-    delta.r = delta.r - round(delta.r); // shortest way round the hue wheel
-
-    vec2 range = globalControls ? uMaterial._FallRange.xy : uMaterial._FallTransitionRange.xy;
-
-    const float randomFactorRange = 2.0;
-    float startIntensity = mix(-randomFactorRange, 0.0, rand(vFallSeed * 2.0 + 1.0));
-    float endIntensity = mix(1.0, 1.0 + randomFactorRange, rand(vFallSeed * 4.0 - 3.0));
-
-    float chromaKeyIntensity = 1.0 - smoothstep(range.x, range.y, distance);
-    float targetFallIntensity = clamp(mix(startIntensity, endIntensity, uMaterial._FallIntensity), 0.0, 1.0);
-
-    float lerpTarget = clamp(chromaKeyIntensity * targetFallIntensity, 0.0, 1.0);
-
-    vec3 resulthsv = hsv + delta * lerpTarget;
-    resulthsv.r = fract(resulthsv.r + 1.0);
-    resulthsv.gb = clamp(resulthsv.gb, 0.0, 1.0);
-
-    outColor = vec4(hsv2rgb(resulthsv), texVal.a);
+    outColor = vec4(rgb, texVal.a);
 }
