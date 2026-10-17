@@ -2609,6 +2609,8 @@ namespace IsoRim
             var images = new Dictionary<string, byte[]>();
             var sampleMaps = new Dictionary<string, List<ModelStyleCases.ComparisonSample>>();
             var roofSubmissions = new List<object>();
+            var poisonedRoofSubmissions = new List<object>();
+            var roofIntruders = new List<Thing>();
             var layers = new List<SectionLayer>();
             var restore = new List<Action>();
             Camera.CameraCallback submit = null;
@@ -2653,6 +2655,12 @@ namespace IsoRim
             var roofSections = roofCells.Select(c => Find.CurrentMap.mapDrawer.SectionAt(c)).Distinct().ToArray();
             var roofBefore = roofSections.SelectMany(section => section.CellRect.ExpandedBy(SectionLayer_IsoRimRoofs.Reach))
                 .Where(c => c.InBounds(Find.CurrentMap)).Distinct().ToDictionary(c => c, c => Find.CurrentMap.roofGrid.RoofAt(c));
+            int roofX = roofCells.Min(c => c.x), roofZ = roofCells.Min(c => c.z);
+            var roofRegion = new CellRect(roofX - 1, roofZ - 1, 6, 6);
+            var roofEdificesBefore = roofRegion.Select(c => c.GetEdifice(Find.CurrentMap)).Where(t => t != null).Distinct()
+                .Select(t => new { thing = t, position = t.Position, rotation = t.Rotation }).ToArray();
+            IntVec3[] poisonCells = { new IntVec3(roofX, 0, roofZ - 1), new IntVec3(roofX + 1, 0, roofZ - 1),
+                new IntVec3(roofX - 1, 0, roofZ + 1), new IntVec3(roofX + 4, 0, roofZ + 2), new IntVec3(roofX + 4, 0, roofZ + 3) };
 
             ModelEntry armEntry, lampEntry, vatEntry;
             ModelLibrary.TryGet(armchair.def, out armEntry);
@@ -2663,6 +2671,12 @@ namespace IsoRim
             {
                 IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, squash = .003f, texturedModels = true, workAnimations = false, showRoofs = true };
                 View3D.Active = true;
+                foreach (var old in roofEdificesBefore) old.thing.DeSpawn();
+                foreach (IntVec3 c in poisonCells)
+                {
+                    Thing intruder = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+                    roofIntruders.Add(intruder); GenSpawn.Spawn(intruder, c, Find.CurrentMap);
+                }
                 foreach (IntVec3 cell in roofBefore.Keys) Find.CurrentMap.roofGrid.SetRoof(cell, null);
                 Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
 
@@ -2755,6 +2769,29 @@ namespace IsoRim
                     using (MeshDrawSubmission.BeginCapture(sRoof.Commands))
                     {
                         foreach (IntVec3 cell in roofCells) Find.CurrentMap.roofGrid.SetRoof(cell, RoofDefOf.RoofConstructed);
+                        if (preset == 0)
+                        {
+                            var poisonedVertices = new List<int>(); var poisonedIndices = new List<int>();
+                            foreach (Section section in roofSections)
+                            {
+                                var poisonedLayer = new SectionLayer_IsoRimRoofs(section); layers.Add(poisonedLayer);
+                                poisonedLayer.Regenerate();
+                                int vertices = poisonedLayer.subMeshes.Sum(sub => sub.verts.Count), indices = poisonedLayer.subMeshes.Sum(sub => sub.tris.Count);
+                                poisonedVertices.Add(vertices); poisonedIndices.Add(indices);
+                                poisonedRoofSubmissions.Add(new { section = new[] { section.botLeft.x, section.botLeft.z }, vertices, indices });
+                            }
+                            // Five supporting wall cells reproduce the first S01 run exactly.
+                            Check(poisonedVertices.SequenceEqual(new[] { 168, 348 }) && poisonedIndices.SequenceEqual(new[] { 216, 432 }),
+                                "Roof-support poison did not reproduce the 516-vertex failure: " + JsonSerializer.Serialize(poisonedRoofSubmissions));
+                            File.WriteAllText(Path.Combine(request.outputDirectory, "colony-roof-isolation.json"), JsonSerializer.Serialize(new
+                            {
+                                originalEdifices = roofEdificesBefore.Select(t => new { t.thing.def.defName, x = t.position.x, z = t.position.z }),
+                                poisonCells = poisonCells.Select(c => new[] { c.x, c.z }),
+                                poisonedRoofSubmissions
+                            }));
+                            // RoofAt alone does not isolate a roof: adjacent walls carry its edge.
+                            foreach (Thing obstruction in roofRegion.Select(c => c.GetEdifice(Find.CurrentMap)).Where(t => t != null).Distinct()) obstruction.DeSpawn();
+                        }
                         int roofVertices = 0;
                         foreach (Section section in roofSections)
                         {
@@ -3107,6 +3144,7 @@ namespace IsoRim
                     frames,
                     timings,
                     roofSubmissions,
+                    poisonedRoofSubmissions,
                     samples = sampleNames,
                     backend = backend.GetType().FullName,
                     timingMethod = "Stopwatch.GetTimestamp around Camera.Render; completed native GPU fence"
@@ -3127,7 +3165,11 @@ namespace IsoRim
                 IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0f, 0f, 0f); R3DMaterials.SyncSceneStyle(0, 0f, 0f, 0f);
                 RenderTexture.active = active; RenderTexture.ReleaseTemporary(target); UnityEngine.Object.Destroy(owner);
                 View3D.Active = prevView;
+                foreach (Thing intruder in roofIntruders) { if (intruder.Spawned) intruder.DeSpawn(); intruder.Destroy(); }
+                foreach (var old in roofEdificesBefore) GenSpawn.Spawn(old.thing, old.position, Find.CurrentMap, old.rotation);
+                Check(roofEdificesBefore.All(old => old.thing.Spawned && old.thing.Position == old.position && old.thing.Rotation == old.rotation), "Comparison did not restore roof-region edifices");
                 foreach (var cell in roofBefore) Find.CurrentMap.roofGrid.SetRoof(cell.Key, cell.Value);
+                Check(roofBefore.All(cell => Find.CurrentMap.roofGrid.RoofAt(cell.Key) == cell.Value), "Comparison did not restore roof-region roofs");
                 UnityEngine.Object.Destroy(plantSource);
             }
         }
@@ -3693,15 +3735,61 @@ namespace IsoRim
             switch (id)
             {
                 case "LightingReadabilityCases.ClayDaylightAndGlow":
-                    lightingFrames.Clear();
-                    MaterialTransport(request);
-                    ChromaticLight(request);
-                    object shadows = CreasesAndShadows(request);
-                    object glow = DayNightAndGlow(request);
-                    object plants = PlantWarmth(request);
-                    string path = Path.Combine(request.outputDirectory, id + ".json");
-                    File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, materialTransport = true, frames = lightingFrames, shadows, glow, plants }));
-                    return path;
+                {
+                    Map map = Find.CurrentMap;
+                    IntVec3[] cells = new CellRect(0, 0, map.Size.x, map.Size.z).ToArray();
+                    var roofs = cells.Select(c => map.roofGrid.RoofAt(c)).ToArray();
+                    var edifices = cells.Select(c => c.GetEdifice(map)).ToArray();
+                    IsoRimSettings settings = IsoRimMod.Settings;
+                    string[] controls = { "lastActive", "appliedSig", "pendingSig", "pendingSince", "Stamp", "litFacing", "wasTurning", "yawNow", "yawSet" };
+                    var fields = controls.Select(name => typeof(View3D).GetField(name, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)).ToArray();
+                    object[] values = fields.Select(f => f.GetValue(null)).ToArray();
+                    string[] vectors = { "_IsoSun", "_IsoView", "_IsoCard", "_IsoClayCard", "_IsoSky", "_IsoGlowMap", "_IsoCellMap", "_IsoLevel" };
+                    Vector4[] globals = vectors.Select(Shader.GetGlobalVector).ToArray();
+                    Vector3 light = R3DMaterials.SunDir;
+                    var textures = new Dictionary<int, Waylith.Rendering.Texture>();
+                    foreach (string name in new[] { "_IsoGlowTex", "_IsoCellTex" })
+                    {
+                        int key = Shader.PropertyToID(name);
+                        Waylith.Rendering.GlobalShaderState.TryGetTexture(key, out var texture); textures[key] = texture;
+                    }
+                    FieldInfo neutral = typeof(IsoGlow).GetField("neutralBound", BindingFlags.NonPublic | BindingFlags.Static);
+                    object neutralBound = neutral.GetValue(null);
+                    try
+                    {
+                        lightingFrames.Clear();
+                        MaterialTransport(request);
+                        ChromaticLight(request);
+                        object shadows = CreasesAndShadows(request);
+                        object glow = DayNightAndGlow(request);
+                        object plants = PlantWarmth(request);
+                        Check(roofs.SequenceEqual(cells.Select(c => map.roofGrid.RoofAt(c))), "Lighting witness changed map roofs");
+                        Check(edifices.SequenceEqual(cells.Select(c => c.GetEdifice(map))), "Lighting witness left an edifice in the map");
+                        string path = Path.Combine(request.outputDirectory, id + ".json");
+                        File.WriteAllText(path, JsonSerializer.Serialize(new
+                        {
+                            caseId = id,
+                            passed = true,
+                            materialTransport = true,
+                            frames = lightingFrames,
+                            shadows,
+                            glow,
+                            plants,
+                            isolation = new { cells = cells.Length, roofsUnchanged = true, edificesUnchanged = true }
+                        }));
+                        return path;
+                    }
+                    finally
+                    {
+                        IsoRimMod.Settings = settings;
+                        IsoCellMap.Rebuilt(map); IsoCellMap.BeginFrame(map);
+                        for (int i = 0; i < fields.Length; i++) fields[i].SetValue(null, values[i]);
+                        R3DMaterials.SetLight(light, globals[0].w);
+                        for (int i = 0; i < vectors.Length; i++) Shader.SetGlobalVector(vectors[i], globals[i]);
+                        foreach (var binding in textures) Waylith.Rendering.GlobalShaderState.SetTexture(binding.Key, binding.Value);
+                        neutral.SetValue(null, neutralBound);
+                    }
+                }
                 default: throw new InvalidOperationException("Unknown lighting case: " + id);
             }
         }
