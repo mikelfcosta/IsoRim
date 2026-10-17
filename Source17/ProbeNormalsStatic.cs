@@ -506,7 +506,7 @@ namespace IsoRim
 
         internal static object Capture(string evidence, Pair pair, LayerSubMesh sub, bool textured, bool diagnostic,
             int transportFault, int lightingFault, int expectedIndex, string suffix = "", bool legacy = false, bool ownCell = false, bool cutaway = false,
-            int style = 0, float highlight = 0, float albedo = .6f, double referenceRgb = -1, int lightMode = 1, float sky = 1, string blend = "", bool alignedHighlight = false, float sceneClay = 0f)
+            int style = 0, float highlight = 0, float albedo = .6f, double referenceRgb = -1, int lightMode = 1, float sky = 1, string blend = "", bool alignedHighlight = false, float sceneClay = 0f, int glowMode = 0)
         {
             const int width = 1024, height = 256;
             string name = (diagnostic ? "direction" : "lighting") + "-" + pair.Name + (textured ? "-texture" : "-solid")
@@ -541,7 +541,7 @@ namespace IsoRim
             actual.SetFloat("_ClayHighlight", highlight); actual.SetFloat("_ClayRoughness", style == 0 ? 0 : .65f);
             if (style > 0) actual.color = new Color(actual.color.r * albedo / .6f, actual.color.g * albedo / .6f, actual.color.b * albedo / .6f, actual.color.a);
             actual.SetFloat("_NormalSpace", legacy ? 0 : 1);
-            actual.SetFloat("_LightMode", lightMode); actual.SetFloat("_GlowMode", 0); actual.SetFloat("_MarkPass", 0);
+            actual.SetFloat("_LightMode", lightMode); actual.SetFloat("_GlowMode", glowMode); actual.SetFloat("_MarkPass", 0);
             actual.SetFloat("_NormalView", diagnostic ? 1 : 0);
             actual.SetFloat("_NormalTransportFault", transportFault); actual.SetFloat("_NormalLightingFault", lightingFault);
             actual.SetVector("_IsoSun", new Vector4(light.x, light.y, light.z, 0));
@@ -549,7 +549,7 @@ namespace IsoRim
             actual.SetVector("_IsoSky", new Vector4(sky, sky, sky, 1)); actual.SetVector("_IsoCellMap", Vector4.zero);
             actual.SetFloat("_SceneClay", sceneClay);
             Require(actual.GetFloat("_NormalView") == (diagnostic ? 1 : 0) && actual.GetFloat("_NormalTransportFault") == transportFault
-                && actual.GetFloat("_NormalLightingFault") == lightingFault && actual.GetFloat("_LightMode") == lightMode, "Requested shader state was not observed");
+                && actual.GetFloat("_NormalLightingFault") == lightingFault && actual.GetFloat("_LightMode") == lightMode && actual.GetFloat("_GlowMode") == glowMode, "Requested shader state was not observed");
             Mesh reference = new Mesh { vertices = referencePositions, triangles = sub.mesh.triangles, colors32 = Enumerable.Repeat(new Color32(255, 255, 255, 255), 3).ToArray() };
             reference.RecalculateBounds();
             double[] referenceShades = ownCell ? new[] { pair.Shades[0] * 64 / 255, pair.Shades[0] * 192 / 255, pair.Shades[0] } : pair.Shades;

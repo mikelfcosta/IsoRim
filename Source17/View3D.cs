@@ -446,6 +446,7 @@ namespace IsoRim
                 h = h * 31 + Mathf.RoundToInt(st.cutHeight * 100f);
                 h = h * 31 + (st.treeShadows ? 1 : 0);
                 h = h * 31 + Mathf.RoundToInt(st.treeShadowLength * 100f);
+                h = h * 31 + (st.modelStyle > 0 ? 1 : 0);
                 return h == 0 ? 1 : h;
             }
         }

@@ -1309,7 +1309,7 @@ def main():
         receipt = result_receipt(selection, args.command, proofs, host_results)
         targets = ("1.7", "1.5", "1.6") if args.command in ("t1", "ci") else ("1.7",)
         receipt["compileLegs"] = {target: {
-            "mode": "exact-installed-4980" if target == "1.7" and args.command != "ci" else "portable-compatibility-only",
+            "mode": "exact-installed-4981" if target == "1.7" and args.command != "ci" else "portable-compatibility-only",
             "referenceManifestSha256": digest(evidence / f"compiler-references-{target}.json"),
             "restoredAssetsSha256": digest(WORK / "build" / target / "obj/project.assets.json"),
             "productSha256": digest(WORK / "build" / target / "bin/IsoRim.dll"),

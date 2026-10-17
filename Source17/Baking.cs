@@ -895,6 +895,7 @@ namespace IsoRim
                     Vector3 lineTop = new Vector3(0f, scaledOutline * 0.7f, 0f);
                     MeshWriter.Quad(solid, ToWorld(q0, squash), ToWorld(q0 + lineTop, squash), ToWorld(q1 + lineTop, squash), ToWorld(q1, squash), lineColor);
                 }
+                CutTags.Apply(layer, faceMark, c, own | cond);
             }
             CutTags.Apply(layer, whole, c, own);
             return true;
