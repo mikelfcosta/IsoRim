@@ -131,7 +131,7 @@ namespace IsoRim
 
         private static object Provenance(ProbeNormals.Request request)
         {
-            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).Concat(ModelStyleCases.Cases).OrderBy(id => id).ToArray();
+            string[] expected = Prerequisites.Concat(Integrated.Select(id => "IntegratedNormalCases." + id)).Concat(ModelStyleCases.Cases).Concat(SceneStyleCases.Cases).OrderBy(id => id).ToArray();
             Require(request.caseIds.Length == expected.Length && request.caseIds.OrderBy(id => id).SequenceEqual(expected), "The integrated request omits or duplicates a required case");
             var proofs = Directory.GetFiles(request.outputDirectory, "NormalProof-*.json").Select(path => JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(path))).ToArray();
             var rows = new List<object>();
@@ -140,8 +140,8 @@ namespace IsoRim
                 JsonElement proof = proofs.Single(row => row.GetProperty("caseId").GetString() == id);
                 Require(proof.GetProperty("passed").GetBoolean() && proof.GetProperty("head").GetString() == request.head
                     && proof.GetProperty("nonce").GetString() == request.nonce && proof.GetProperty("assemblyHash").GetString() == request.assemblyHash
-                    && proof.GetProperty("processId").GetInt32() == Environment.ProcessId && proof.GetProperty("runtime").GetString() == "10.0.10-waylithclr.dev"
-                    && proof.GetProperty("gameVersion").GetString() == "1.7.4980.60", "An integrated prerequisite has stale provenance: " + id);
+                    && proof.GetProperty("processId").GetInt32() == Environment.ProcessId && proof.GetProperty("runtime").GetString() == "10.0.13-waylithclr.dev"
+                    && proof.GetProperty("gameVersion").GetString() == "1.7.4981.136", "An integrated prerequisite has stale provenance: " + id);
                 rows.Add(new { caseId = id, assemblyHash = request.assemblyHash, processId = Environment.ProcessId });
             }
             string compiler = Path.Combine(request.outputDirectory, "compiler-references-1.7.json");
