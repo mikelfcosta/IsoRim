@@ -1208,7 +1208,7 @@ namespace IsoRim
                 G = new Vector3(.342020143326f, 0, .939692620786f),
                 Q = Vector3.forward,
                 L = new Vector3(0, .8f, .6f),
-                Shades = new[] { 1d, 1d, 1d }
+                Shades = new[] { 1d, 0.75d, 0.5d }
             };
             SectionLayer bakeLayer = StaticNormalCases.Bake(StaticNormalCases.Fixture(request.fixtureDirectory, false, false),
                 Quaternion.AngleAxis(20, Vector3.up), Quaternion.identity, pair.Scale);
@@ -1242,6 +1242,28 @@ namespace IsoRim
             captures.Add(roofLitClassic);
             captures.Add(roofLitMode1);
             captures.Add(roofLitMode2);
+
+            int PatchR(object row)
+            {
+                using var doc = JsonDocument.Parse(JsonSerializer.Serialize(row));
+                return doc.RootElement.GetProperty("patches")[0][0][0].GetInt32();
+            }
+
+            int nQuantR = PatchR(wallNormQuant);
+            int nClayR = PatchR(wallNormClay);
+            Check(Math.Abs(nClayR - nQuantR) > 10, "Oblique wall face normal did not bypass BinNormal quantization in clay mode");
+
+            int wClassicR = PatchR(wallLitClassic);
+            int wMode1R = PatchR(wallLitMode1);
+            int wMode2R = PatchR(wallLitMode2);
+            Check(wMode1R != wClassicR, "Wall Mode 1 clay shading did not differ from Classic");
+            Check(wMode2R != wMode1R, "Wall Mode 2 Oren-Nayar shading did not differ from Mode 1 wrapped");
+
+            int rClassicR = PatchR(roofLitClassic);
+            int rMode1R = PatchR(roofLitMode1);
+            int rMode2R = PatchR(roofLitMode2);
+            Check(rMode1R != rClassicR, "Roof Mode 1 clay shading did not differ from Classic");
+            Check(rMode2R != rMode1R, "Roof Mode 2 Oren-Nayar shading did not differ from Mode 1 wrapped");
 
             StaticNormalCases.ClearIntegrationMeshes();
 
