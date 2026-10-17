@@ -1068,9 +1068,14 @@ def verify_colony_pixels(evidence, started, captures):
         if len(samples) != len(COLONY_SAMPLES) or {sample["name"] for sample in samples} != COLONY_SAMPLES:
             raise Refusal("The colony comparison omits required sample regions")
         for sample in samples:
+            if sample.get("commands", 0) <= 0:
+                raise Refusal("A colony sample has no submitted commands")
             x0, y0, x1, y1 = sample["bounds"]
             if not (2 <= x0 < x1 <= 509 and 2 <= y0 < y1 <= 509):
                 raise Refusal("A colony sample is clipped")
+            if any(other is not sample and x0 <= other["bounds"][2] and other["bounds"][0] <= x1
+                   and y0 <= other["bounds"][3] and other["bounds"][1] <= y1 for other in samples):
+                raise Refusal("Colony sample regions overlap")
             count = sum(raw[(y * 512 + x) * 4:(y * 512 + x) * 4 + 3] != bytes((255, 0, 255))
                         for y in range(y0, y1 + 1) for x in range(x0, x1 + 1))
             if count < 5 or count != sample["pixels"]:

@@ -2408,20 +2408,31 @@ namespace IsoRim
                 colonist.apparel.Wear((Apparel)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Apparel_BasicShirt"), ThingDefOf.Cloth));
             Pawn muffalo = PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("Muffalo"));
             Thing revolver = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Gun_Revolver"));
-            Thing wallThing = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+            Thing wallThing = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.BlocksGranite);
+            Thing plankWall = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.WoodLog);
+            Thing cornerWall = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.BlocksGranite);
             Thing rockThing = ThingMaker.MakeThing(ThingDefOf.MineableSteel);
-            Vector3 atWall = center + new Vector3(-2f, 0f, -5f);
+            Vector3 atWall = center + new Vector3(1f, 0f, 7f);
             IntVec3 wallCell = new IntVec3((int)atWall.x, 0, (int)atWall.z);
             GenSpawn.Spawn(wallThing, wallCell, Find.CurrentMap);
-            GenSpawn.Spawn(rockThing, wallCell + IntVec3.North, Find.CurrentMap);
+            GenSpawn.Spawn(plankWall, wallCell + IntVec3.East, Find.CurrentMap);
+            GenSpawn.Spawn(cornerWall, wallCell + IntVec3.North, Find.CurrentMap);
+            GenSpawn.Spawn(rockThing, wallCell + new IntVec3(2, 0, 1), Find.CurrentMap);
             Thing armchair = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Armchair"), ThingDefOf.Cloth);
             armchair.TryGetComp<CompColorable>()?.SetColor(new Color(.35f, .65f, .8f));
             Thing lamp = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("StandingLamp"), ThingDefOf.Steel);
             Thing vat = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("GrowthVat"));
-            Thing oakTree = ThingMaker.MakeThing(ThingDefOf.Plant_TreeOak);
+            Material plantSource = new Material(ShaderDatabase.CutoutPlant);
+            plantSource.mainTexture = ContentFinder<Texture2D>.Get("Things/Plant/TreeOak/TreeOakA");
+            Check(plantSource.mainTexture != null, "Stock oak sprite is missing");
             TerrainDef soilDef = DefDatabase<TerrainDef>.GetNamed("Soil");
             TerrainDef richDef = DefDatabase<TerrainDef>.GetNamed("SoilRich");
             TerrainDef woodDef = DefDatabase<TerrainDef>.GetNamed("WoodPlankFloor");
+
+            Section waterSection = Find.CurrentMap.mapDrawer.SectionAt(new IntVec3((int)center.x + 8, 0, (int)center.z));
+            var terrainBefore = waterSection.CellRect.ExpandedBy(1).Where(c => c.InBounds(Find.CurrentMap))
+                .ToDictionary(c => c, c => Find.CurrentMap.terrainGrid.TerrainAt(c));
+            foreach (IntVec3 c in terrainBefore.Keys) Find.CurrentMap.terrainGrid.SetTerrain(c, soilDef);
 
             ModelEntry armEntry, lampEntry, vatEntry;
             ModelLibrary.TryGet(armchair.def, out armEntry);
@@ -2445,15 +2456,13 @@ namespace IsoRim
                     st.clayRoughness = .65f;
                     st.groundStyle = preset > 0;
                     st.floorStyle = preset > 0;
-                    st.waterStyle = preset > 0;
+                    st.waterStyle = true;
                     Ground.Sync();
                     DynamicModels.Forget(); People.ForgetAll();
                     R3DMaterials.SyncModelStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
                     R3DMaterials.SyncSceneStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
 
                     var samples = new List<ModelStyleCases.ComparisonSample>();
-                    Mesh cardSubMesh = null;
-                    Material cardSubMat = null;
 
                     void Bake(Thing thing, Model model, ModelEntry entry, Vector3 atPos)
                     {
@@ -2467,14 +2476,14 @@ namespace IsoRim
                         typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(layer, new object[] { MeshParts.All });
                         foreach (LayerSubMesh sub in layer.subMeshes.Where(s => s.mesh.vertexCount > 0))
                         {
-                            sub.mesh.bounds = new Bounds(atPos, new Vector3(2f, 2f, 2f));
+                            sub.mesh.RecalculateBounds();
                             Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
                         }
                     }
 
                     // 1. TerrainAndFloor
                     var sTerrain = new ModelStyleCases.ComparisonSample { Name = "TerrainAndFloor" }; samples.Add(sTerrain);
-                    Vector3 atTerrain = center + new Vector3(-6f, 0f, -5f);
+                    Vector3 atTerrain = center + new Vector3(5.61f, 0f, 12.63f);
                     using (MeshDrawSubmission.BeginCapture(sTerrain.Commands))
                     {
                         Mesh tMesh = new Mesh();
@@ -2508,12 +2517,14 @@ namespace IsoRim
                         var wallLayer = new SectionLayer_IsoRimWalls(Find.CurrentMap.mapDrawer.SectionAt(wallCell));
                         layers.Add(wallLayer);
                         WallBoxes.PrintBlock(wallLayer, wallThing, 1f);
+                        WallBoxes.PrintBlock(wallLayer, plankWall, 1f);
+                        WallBoxes.PrintBlock(wallLayer, cornerWall, 1f);
                         WallBoxes.PrintBlock(wallLayer, rockThing, 1f);
                         CutTags.Finish(wallLayer); NormalStreams.Finish(wallLayer);
                         typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(wallLayer, new object[] { MeshParts.All });
                         foreach (LayerSubMesh sub in wallLayer.subMeshes.Where(s => s.mesh.vertexCount > 0))
                         {
-                            sub.mesh.bounds = new Bounds(atWall, new Vector3(2f, 2f, 2f));
+                            sub.mesh.RecalculateBounds();
                             Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
                         }
                     }
@@ -2534,60 +2545,43 @@ namespace IsoRim
                         typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(roofLayer, new object[] { MeshParts.All });
                         foreach (LayerSubMesh sub in roofLayer.subMeshes.Where(s => s.mesh.vertexCount > 0))
                         {
-                            sub.mesh.bounds = new Bounds(new Vector3(atRoof.x + 0.5f, 1f, atRoof.z), new Vector3(3.5f, 3f, 3.5f));
+                            sub.mesh.RecalculateBounds();
                             Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
                         }
                     }
 
                     // 4. PlantCard
                     var sCard = new ModelStyleCases.ComparisonSample { Name = "PlantCard" }; samples.Add(sCard);
-                    Vector3 atCard = center + new Vector3(6f, 0f, -5f);
+                    Vector3 atCard = center + new Vector3(-7.85f, 0f, 2.76f);
                     using (MeshDrawSubmission.BeginCapture(sCard.Commands))
                     {
-                        Material plantMat = oakTree.Graphic.MatSingleFor(oakTree);
+                        Material plantMat = plantSource;
                         Material cardMat = UprightCards.For(plantMat);
-                        if (cardMat != null)
-                        {
-                            cardMat.renderQueue = 2000;
-                            if (cardMat.mainTexture == null || !(cardMat.mainTexture is Texture2D t2d && t2d.width > 0))
-                            {
-                                Texture2D plantTex = new Texture2D(32, 32, TextureFormat.RGBA32, false);
-                                Color32 plantGreen = new Color32(100, 160, 60, 255);
-                                Color32[] plantPx = new Color32[32 * 32];
-                                for (int i = 0; i < plantPx.Length; i++) plantPx[i] = plantGreen;
-                                plantTex.SetPixels32(plantPx);
-                                plantTex.Apply();
-                                cardMat.mainTexture = plantTex;
-                            }
-                        }
+                        Check(cardMat != null && cardMat.shader == R3DMaterials.ShaderOf(UprightCards.PlantDef), "Stock sprite did not use IsoRimCardPlant");
                         var cardLayer = new SectionLayer_IsoRimWalls(Find.CurrentMap.mapDrawer.SectionAt(new IntVec3((int)atCard.x, 0, (int)atCard.z)));
                         layers.Add(cardLayer);
                         LayerSubMesh tempSm = MeshWriter.Sub(cardLayer, R3DMaterials.Solid);
-                        float sx = 0.8f, sy = 1.2f;
+                        float sx = 1.2f, sy = 1.8f;
                         Vector3 p0 = new Vector3(atCard.x - sx * 0.5f, 0f, atCard.z);
                         Vector3 p1 = new Vector3(atCard.x - sx * 0.5f, 0f, atCard.z + sy);
                         Vector3 p2 = new Vector3(atCard.x + sx * 0.5f, 0f, atCard.z + sy);
                         Vector3 p3 = new Vector3(atCard.x + sx * 0.5f, 0f, atCard.z);
                         MeshWriter.TexturedQuad(tempSm, p0, p1, p2, p3, Vector2.zero, Vector2.up, Vector2.one, Vector2.right, Color.white);
-                        UprightCards.Move(cardLayer, tempSm, plantMat, atCard, 0f);
+                        Check(UprightCards.Move(cardLayer, tempSm, plantMat, atCard, 0f), "Plant card builder refused the stock sprite");
                         CutTags.Finish(cardLayer); NormalStreams.Finish(cardLayer);
                         typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(cardLayer, new object[] { MeshParts.All });
                         foreach (LayerSubMesh sub in cardLayer.subMeshes.Where(s => s.mesh.vertexCount > 0))
                         {
-                            sub.mesh.SetUVs(1, sub.uvsChannelTwo);
-                            sub.mesh.normals = new[] { Vector3.back, Vector3.back, Vector3.back, Vector3.back };
-                            sub.mesh.colors32 = new[] { (Color32)Color.white, (Color32)Color.white, (Color32)Color.white, (Color32)Color.white };
-                            sub.mesh.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 };
-                            sub.mesh.bounds = new Bounds(new Vector3(atCard.x, 0.6f, atCard.z), new Vector3(1.5f, 2f, 1.5f));
+                            // The shader expands hinge vertices by UV1; include that expansion in its culling bounds.
+                            sub.mesh.bounds = new Bounds(atCard + Vector3.up * (sy / (2 * View3D.Squash)),
+                                new Vector3(sx + .2f, sy / View3D.Squash, sy + .2f));
                             Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
-                            cardSubMesh = sub.mesh;
-                            cardSubMat = sub.material;
                         }
                     }
 
                     // 5. SpriteSlabs
                     var sSlab = new ModelStyleCases.ComparisonSample { Name = "SpriteSlabs" }; samples.Add(sSlab);
-                    Vector3 atSlab = center + new Vector3(-6f, 0f, 0f);
+                    Vector3 atSlab = center + new Vector3(4.88f, 0f, 4.11f);
                     using (MeshDrawSubmission.BeginCapture(sSlab.Commands))
                     {
                         SpriteSolids.DrawHeld(revolver, atSlab + new Vector3(0f, 1.2f, 0f), 45f);
@@ -2618,38 +2612,31 @@ namespace IsoRim
                         typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(slabLayer, new object[] { MeshParts.All });
                         foreach (LayerSubMesh sub in slabLayer.subMeshes.Where(s => s.mesh.vertexCount > 0))
                         {
-                            sub.mesh.bounds = new Bounds(atSlab, new Vector3(4f, 3f, 3f));
+                            sub.mesh.RecalculateBounds();
                             Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
                         }
                     }
 
                     // 6. Water
                     var sWater = new ModelStyleCases.ComparisonSample { Name = "Water" }; samples.Add(sWater);
-                    Vector3 atWater = center + new Vector3(-2f, 0f, 0f);
+                    Vector3 atWater = center + new Vector3(8.32f, 0f, .76f);
                     using (MeshDrawSubmission.BeginCapture(sWater.Commands))
                     {
-                        IntVec3 wc0 = new IntVec3((int)atWater.x, 0, (int)atWater.z);
-                        IntVec3 wc1 = new IntVec3((int)atWater.x + 1, 0, (int)atWater.z);
-                        Find.CurrentMap.terrainGrid.SetTerrain(wc0, TerrainDefOf.WaterShallow);
-                        Find.CurrentMap.terrainGrid.SetTerrain(wc1, TerrainDefOf.WaterDeep);
-                        var waterLayer = new SectionLayer_IsoRimWater(Find.CurrentMap.mapDrawer.SectionAt(wc0));
+                        IntVec3 waterCell = new IntVec3((int)atWater.x - 1, 0, (int)atWater.z - 1);
+                        for (int z = 0; z < 2; z++)
+                            for (int x = 0; x < 3; x++)
+                                Find.CurrentMap.terrainGrid.SetTerrain(waterCell + new IntVec3(x, 0, z),
+                                    x == 0 ? TerrainDefOf.WaterShallow : x == 2 ? TerrainDefOf.WaterDeep : DefDatabase<TerrainDef>.GetNamed("WaterMovingShallow"));
+                        var waterLayer = new SectionLayer_IsoRimWater(waterSection);
                         layers.Add(waterLayer);
-                        MethodInfo waterBuild = typeof(SectionLayer_IsoRimWater).GetMethod("Build", BindingFlags.Instance | BindingFlags.NonPublic);
-                        waterBuild.Invoke(waterLayer, null);
-                        CutTags.Finish(waterLayer);
-                        NormalStreams.Finish(waterLayer);
-                        typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(waterLayer, new object[] { MeshParts.All });
-                        foreach (LayerSubMesh sub in waterLayer.subMeshes.Where(s => s.mesh.vertexCount > 0))
-                        {
-                            sub.mesh.bounds = new Bounds(atWater, new Vector3(2f, 1f, 2f));
-                            Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
-                        }
+                        waterLayer.Regenerate();
                         waterLayer.DrawLayer();
+                        Check(sWater.Commands.Count >= 3, "Water comparison omitted overlay, ripples or flow");
                     }
 
                     // 7. Armchair
                     var sArm = new ModelStyleCases.ComparisonSample { Name = "Armchair" }; samples.Add(sArm);
-                    Vector3 atArm = center + new Vector3(2f, 0f, 0f);
+                    Vector3 atArm = center + new Vector3(-9.03f, 0f, -7.45f);
                     armchair.Position = new IntVec3((int)atArm.x, 0, (int)atArm.z);
                     using (MeshDrawSubmission.BeginCapture(sArm.Commands))
                     {
@@ -2658,7 +2645,7 @@ namespace IsoRim
 
                     // 8. Colonist
                     var sCol = new ModelStyleCases.ComparisonSample { Name = "Colonist" }; samples.Add(sCol);
-                    Vector3 atCol = center + new Vector3(6f, 0f, 0f);
+                    Vector3 atCol = center + new Vector3(-1.62f, 0f, -1.53f);
                     using (MeshDrawSubmission.BeginCapture(sCol.Commands))
                     {
                         People.Draw(colonist, atCol, out _, out _, out _);
@@ -2667,7 +2654,7 @@ namespace IsoRim
 
                     // 9. Muffalo
                     var sMuf = new ModelStyleCases.ComparisonSample { Name = "Muffalo" }; samples.Add(sMuf);
-                    Vector3 atMuf = center + new Vector3(-4f, 0f, 5f);
+                    Vector3 atMuf = center + new Vector3(-9.4f, 0f, -3.28f);
                     using (MeshDrawSubmission.BeginCapture(sMuf.Commands))
                     {
                         Animals.Draw(muffalo, atMuf);
@@ -2675,7 +2662,7 @@ namespace IsoRim
 
                     // 10. StandingLamp
                     var sLamp = new ModelStyleCases.ComparisonSample { Name = "StandingLamp" }; samples.Add(sLamp);
-                    Vector3 atLamp = center + new Vector3(0f, 0f, 5f);
+                    Vector3 atLamp = center + new Vector3(-9.63f, 0f, 4.02f);
                     lamp.Position = new IntVec3((int)atLamp.x, 0, (int)atLamp.z);
                     using (MeshDrawSubmission.BeginCapture(sLamp.Commands))
                     {
@@ -2684,7 +2671,7 @@ namespace IsoRim
 
                     // 11. GrowthVat
                     var sVat = new ModelStyleCases.ComparisonSample { Name = "GrowthVat" }; samples.Add(sVat);
-                    Vector3 atVat = center + new Vector3(4f, 0f, 5f);
+                    Vector3 atVat = center + new Vector3(-3.41f, 0f, -8.98f);
                     vat.Position = new IntVec3((int)atVat.x, 0, (int)atVat.z);
                     using (MeshDrawSubmission.BeginCapture(sVat.Commands))
                     {
@@ -2712,8 +2699,10 @@ namespace IsoRim
                         float pitch = angle == 0 ? 35.3f : 55f, yaw = angle == 0 ? 45f : 0f;
                         UprightCards.SetCamera(pitch, yaw);
                         camera.ResetWorldToCameraMatrix();
-                        camera.transform.rotation = Quaternion.Euler(pitch, yaw + 180, 0);
+                        camera.transform.rotation = Quaternion.Euler(pitch, yaw, 0);
                         camera.transform.position = center + Vector3.up - camera.transform.forward * 30;
+                        // Keep the straight capture on half-pixel rows.
+                        if (angle == 1) camera.transform.position += camera.transform.up * (11f / size);
                         camera.worldToCameraMatrix = camera.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
                         Vector3 direction = -camera.transform.forward;
                         foreach (var mat in materials) mat.SetVector("_IsoView", new System.Numerics.Vector4(direction.x, direction.y, direction.z, View3D.Squash));
@@ -2722,13 +2711,11 @@ namespace IsoRim
                             try { sample.Bounds = ModelStyleCases.ComparisonBounds(sample.Commands, camera, size); }
                             catch (Exception error) { throw new InvalidOperationException(sample.Name + ": " + error.Message, error); }
                         }
+                        foreach (var sample in samples)
+                            Check(!samples.Any(other => other != sample && sample.Bounds[0] <= other.Bounds[2] && other.Bounds[0] <= sample.Bounds[2]
+                                && sample.Bounds[1] <= other.Bounds[3] && other.Bounds[1] <= sample.Bounds[3]), "Colony sample regions overlap: " + sample.Name);
                         int before = (int)serial.GetValue(backend);
                         camera.Render();
-                        if (cardSubMesh != null && cardSubMat != null)
-                        {
-                            cardSubMat.SetPass(0);
-                            Graphics.DrawMeshNow(cardSubMesh, Matrix4x4.identity);
-                        }
                         int completed = (int)serial.GetValue(backend);
                         Check(completed == before + 1, "Comparison has no completed GPU render");
                         Check(backend.TryReadPixels(target, out byte[] raw), "Comparison GPU readback unavailable");
@@ -2741,7 +2728,7 @@ namespace IsoRim
                             pixels = ModelStyleCases.ComparisonPixels(raw, sample, samples, size)
                         }).ToArray();
                         string angleName = angle == 0 ? "isometric" : "straight";
-                        Check(visible.All(sample => sample.pixels >= 5), "Colony sample is empty in " + ModelStyleCases.ComparisonPresets[preset] + "-" + angleName + ": " + string.Join(",", visible.Select(s => s.name + "=" + s.pixels)));
+
                         string stem = "colony-" + ModelStyleCases.ComparisonPresets[preset] + "-" + angleName;
                         File.WriteAllBytes(Path.Combine(request.outputDirectory, stem + ".rgba"), raw);
                         RenderTexture.active = target; var image = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -2767,6 +2754,9 @@ namespace IsoRim
                             pngHash = Convert.ToHexString(SHA256.HashData(png))
                         });
 
+                        File.WriteAllText(Path.Combine(request.outputDirectory, "colony-observations.json"), JsonSerializer.Serialize(new { frames, timings }));
+                        Check(visible.All(sample => sample.pixels >= 5), "Colony sample is empty in " + ModelStyleCases.ComparisonPresets[preset] + "-" + angleName + ": " + string.Join(",", visible.Select(s => s.name + "=" + s.pixels)));
+
                         if (angle == 0)
                         {
                             for (int warm = 0; warm < 3; warm++) camera.Render();
@@ -2775,11 +2765,6 @@ namespace IsoRim
                             {
                                 long ticks = System.Diagnostics.Stopwatch.GetTimestamp();
                                 camera.Render();
-                                if (cardSubMesh != null && cardSubMat != null)
-                                {
-                                    cardSubMat.SetPass(0);
-                                    Graphics.DrawMeshNow(cardSubMesh, Matrix4x4.identity);
-                                }
                                 ms.Add((System.Diagnostics.Stopwatch.GetTimestamp() - ticks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency);
                             }
                             int finish = (int)serial.GetValue(backend); double[] sorted = ms.OrderBy(value => value).ToArray();
@@ -2801,6 +2786,8 @@ namespace IsoRim
                     foreach (Action reset in restore) reset(); restore.Clear();
                     foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh); layers.Clear();
                 }
+
+                File.WriteAllText(Path.Combine(request.outputDirectory, "colony-observations.json"), JsonSerializer.Serialize(new { frames, timings }));
 
                 // In-engine preset pair assertions:
                 foreach (string angle in new[] { "isometric", "straight" })
@@ -2904,21 +2891,18 @@ namespace IsoRim
                 foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh);
                 if (wallThing?.Spawned == true) wallThing.DeSpawn();
                 if (rockThing?.Spawned == true) rockThing.DeSpawn();
+                if (plankWall?.Spawned == true) plankWall.DeSpawn();
+                if (cornerWall?.Spawned == true) cornerWall.DeSpawn();
+                foreach (var cell in terrainBefore) Find.CurrentMap.terrainGrid.SetTerrain(cell.Key, cell.Value);
                 Ground.Restore();
                 DynamicModels.Forget(); People.ForgetAll(); Cull.Enabled = cull; PartBatches.Enabled = batches;
                 IsoRimMod.Settings = previous; R3DMaterials.SyncModelStyle(0, 0f, 0f, 0f); R3DMaterials.SyncSceneStyle(0, 0f, 0f, 0f);
                 RenderTexture.active = active; RenderTexture.ReleaseTemporary(target); UnityEngine.Object.Destroy(owner);
                 View3D.Active = prevView;
-                IntVec3 wc0 = new IntVec3((int)(center.x - 2f), 0, (int)center.z);
-                IntVec3 wc1 = new IntVec3((int)(center.x - 1f), 0, (int)center.z);
-                Find.CurrentMap.terrainGrid.SetTerrain(wc0, soilDef);
-                Find.CurrentMap.terrainGrid.SetTerrain(wc1, soilDef);
-                IntVec3 roofCell = new IntVec3((int)(center.x + 2f), 0, (int)(center.z - 5f));
                 for (int rz = -2; rz <= 1; rz++)
                     for (int rx = -1; rx <= 2; rx++)
                         Find.CurrentMap.roofGrid.SetRoof(new IntVec3((int)(center.x + 2f) + rx, 0, (int)(center.z - 5f) + rz), null);
-                Material cardMatRestore = UprightCards.For(oakTree.Graphic.MatSingleFor(oakTree));
-                if (cardMatRestore != null) cardMatRestore.renderQueue = 2900;
+                UnityEngine.Object.Destroy(plantSource);
             }
         }
 

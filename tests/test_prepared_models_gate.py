@@ -418,6 +418,14 @@ class GateHostTests(unittest.TestCase):
                 bad = deepcopy(c_readings); del bad["frames"][0]["samples"][missing]
                 with self.assertRaises(gate.Refusal):
                     c_verify(bad)
+            for key, value in (("commands", 0), ("pixels", 0), ("bounds", [0, 20, 13, 23])):
+                bad = deepcopy(c_readings); bad["frames"][0]["samples"][0][key] = value
+                with self.assertRaises(gate.Refusal):
+                    c_verify(bad)
+            bad = deepcopy(c_readings)
+            bad["frames"][0]["samples"][1]["bounds"] = bad["frames"][0]["samples"][0]["bounds"]
+            with self.assertRaisesRegex(gate.Refusal, "overlap"):
+                c_verify(bad)
         # Host protocol control only. Actual acceptance also verifies every raw GPU source.
         paths = ("static-solid", "static-texture", "single-solid", "single-texture", "instanced-solid", "instanced-texture", "merged-solid-part0", "merged-solid-part1")
         tuples = []
