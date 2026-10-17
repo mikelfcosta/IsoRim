@@ -19,7 +19,7 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     vec4 _IsoView;    // global, no default: w = Squash (read by IsoRimCard.vert.glsl)
     vec4 _IsoCard;    // global, no default: sin a, cos a (a = pitch - 90), sin yaw, cos yaw
     vec4 _IsoSun;     // global, no default: xyz = direction toward sun
-    vec4 _IsoClayCard;// global, no default: x = mode, y = wrap, z = highlight, w = roughness
+    vec4 _IsoClayCard;// global, no default: x = mode, y = wrap, z = warmth, w = roughness
     vec4 _FallColorSource;
     vec4 _FallTransitionRange;
     float _FallBehaviorEnabled;
@@ -121,7 +121,7 @@ void main()
         rgb *= vColor.rgb;
         float lum = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
         vec3 warmMidtone = vec3(lum * 1.06, lum * 0.98, lum * 0.88);
-        rgb = mix(rgb, warmMidtone, 0.12);
+        rgb = mix(rgb, warmMidtone, 0.12 * clamp(uMaterial._IsoClayCard.z, 0.0, 1.0) * (1.0 - clamp(uMaterial._IsoSun.w, 0.0, 1.0)));
     }
 
     outColor = vec4(rgb, texVal.a);

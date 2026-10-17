@@ -53,6 +53,7 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _ClayHighlight; // @default = 0.0
     float _ClayRoughness; // @default = 0.0
     float _SceneClay; // @default = 0.0
+    float _ClayWarmth; // @default = 0.0
 } uMaterial;
 
 layout(set = 2, binding = 1) uniform sampler2D _MainTex;
@@ -118,10 +119,45 @@ vec3 GlowLight(vec4 g)
     vec3 s = uMaterial._IsoSky.rgb * (1.0 - g.a);
     vec3 L = s + g.rgb;
     float clampBase = 1.5 - 0.5 * min(s.r, s.b);
+    if (uMaterial._ClayWarmth > 1e-4)
+    {
+        L = max(L, vec3(0.036, 0.040, 0.048));
+        float peak = max(L.r, max(L.g, L.b));
+        float knee = clampBase - 0.25;
+        if (peak > knee)
+        {
+            float excess = peak - knee;
+            float compressed = knee + 0.25 * excess / (0.25 + excess);
+            L *= compressed / peak;
+        }
+        return L;
+    }
     if (L.r > clampBase) L *= clampBase / L.r;
     if (L.g > clampBase) L *= clampBase / L.g;
     if (L.b > clampBase) L *= clampBase / L.b;
     return L;
+}
+
+float CellTop(ivec2 cell)
+{
+    ivec2 size = ivec2(uMaterial._IsoCellMap.zw);
+    cell -= ivec2(floor(uMaterial._IsoCellMap.xy + 0.5));
+    if (any(lessThan(cell, ivec2(0))) || any(greaterThanEqual(cell, size))) return 0.0;
+    vec4 h = texelFetch(_IsoCellTex, ivec2(cell.x, size.y - 1 - cell.y), 0);
+    return (round(h.r * 255.0) * 256.0 + round(h.g * 255.0)) / 4096.0;
+}
+
+float Crease(vec3 p)
+{
+    if (p.y >= 0.45) return 1.0;
+    ivec2 cell = ivec2(floor(p.xz));
+    vec2 f = fract(p.xz);
+    float east = smoothstep(p.y + 0.35, p.y + 0.65, CellTop(cell + ivec2(1, 0))) * (1.0 - smoothstep(0.0, 0.45, 1.0 - f.x));
+    float west = smoothstep(p.y + 0.35, p.y + 0.65, CellTop(cell + ivec2(-1, 0))) * (1.0 - smoothstep(0.0, 0.45, f.x));
+    float north = smoothstep(p.y + 0.35, p.y + 0.65, CellTop(cell + ivec2(0, 1))) * (1.0 - smoothstep(0.0, 0.45, 1.0 - f.y));
+    float south = smoothstep(p.y + 0.35, p.y + 0.65, CellTop(cell + ivec2(0, -1))) * (1.0 - smoothstep(0.0, 0.45, f.y));
+    float occlusion = max(max(east, west), max(north, south)) * (1.0 - smoothstep(0.0, 0.45, max(0.0, p.y)));
+    return mix(1.0, 0.86, occlusion);
 }
 
 void main()
@@ -190,6 +226,8 @@ void main()
 
     float mode = uMaterial._LightMode;
     float shade = 1.0;
+    vec3 clayTint = vec3(1.0);
+    float roofCover = 0.0;
     if (mode > 0.5 && squash > 0.0)
     {
         bool clayActive = (mode < 1.5 || uMaterial._SceneClay > 0.5) && uMaterial._ClayMode > 0.5;
@@ -210,6 +248,35 @@ void main()
             float top = (max(0.2, L.y) + w) / (1.0 + w);
             float t = clamp(wrapped / top, 0.0, 1.0);
             t = mix(t, smoothstep(0.0, 1.0, t), 0.35);
+            vec3 lampTint = vec3(1.0);
+            if (uMaterial._ClayWarmth > 1e-4 && mode < 3.5
+                && glowMode > 0.5 && glowMode < 1.5 && uMaterial._IsoSky.w > 0.5)
+            {
+                vec4 gm = uMaterial._IsoGlowMap;
+                vec2 xz = vWorldPos.xz;
+                if (abs(faceNormal.y) < 0.92) xz += faceNormal.xz * 0.1;
+                vec2 uv = vec2((xz.x - gm.x + 0.5) * gm.z, 1.0 - (xz.y - gm.y + 0.5) * gm.w);
+                vec4 gBase = textureLod(_IsoGlowTex, uv, 0.0);
+                roofCover = gBase.a;
+                const vec3 luma = vec3(0.2126, 0.7152, 0.0722);
+                float lumE = dot(textureLod(_IsoGlowTex, uv + vec2(0.5 * gm.z, 0.0), 0.0).rgb, luma);
+                float lumW = dot(textureLod(_IsoGlowTex, uv - vec2(0.5 * gm.z, 0.0), 0.0).rgb, luma);
+                float lumN = dot(textureLod(_IsoGlowTex, uv - vec2(0.0, 0.5 * gm.w), 0.0).rgb, luma);
+                float lumS = dot(textureLod(_IsoGlowTex, uv + vec2(0.0, 0.5 * gm.w), 0.0).rgb, luma);
+                vec2 grad = vec2(lumE - lumW, lumN - lumS);
+                float lampPeak = max(gBase.r, max(gBase.g, gBase.b));
+                float indoorT = 0.62;
+                if (lampPeak > 0.05)
+                {
+                    if (length(grad) >= 1e-3)
+                    {
+                        vec3 L_lamp = normalize(vec3(grad.x, 0.65, grad.y));
+                        indoorT = clamp((dot(n, L_lamp) + w) / (1.0 + w), 0.0, 1.0);
+                    }
+                    lampTint = mix(vec3(1.0), gBase.rgb / lampPeak, clamp(uMaterial._ClayWarmth, 0.0, 1.0) * roofCover * indoorT);
+                }
+                t = mix(t, indoorT, roofCover * 0.65);
+            }
             float floorShade = (mode >= 1.5 && mode < 2.5)
                 ? mix(0.54, 0.58, clamp(w * 2.0, 0.0, 1.0))
                 : mix(0.50, 0.55, clamp(w * 2.0, 0.0, 1.0));
@@ -230,6 +297,24 @@ void main()
                 float sinAlphaTanBeta = sqrt(max(0.0, (1.0 - mu_i * mu_i) * (1.0 - mu_r * mu_r))) / max(max(mu_i, mu_r), 1e-4);
                 float onFactor = clamp(A + B * cosPhi * sinAlphaTanBeta, 0.5, 1.35);
                 clayShade = clamp(clayShade * mix(1.0, onFactor, 0.65), floorShade, 1.05);
+            }
+            if (uMaterial._ClayWarmth > 1e-4 && mode < 3.5)
+            {
+                float cw = clamp(uMaterial._ClayWarmth, 0.0, 1.0);
+                float peak = max(color.r, max(color.g, color.b));
+                float sat = (peak - min(color.r, min(color.g, color.b))) / max(peak, 1e-4);
+                float chromaWeight = mix(1.0, 0.65, sat);
+                float night = clamp(uMaterial._IsoSun.w, 0.0, 1.0);
+                float dusk = (1.0 - night) * (1.0 - smoothstep(0.22, 0.50, L.y));
+                vec3 key = mix(vec3(1.05, 1.00, 0.93), vec3(1.08, 0.96, 0.84), dusk);
+                key = mix(key, vec3(0.92, 0.97, 1.05), night);
+                vec3 keyTint = mix(vec3(1.0), key, cw * chromaWeight * (1.0 - roofCover));
+                vec3 shadowTint = mix(vec3(1.0), mix(vec3(0.90, 0.95, 1.04), vec3(0.88, 0.94, 1.07), night), cw * chromaWeight * (1.0 - roofCover));
+                vec3 clayLight = mix(shadowTint * floorShade, keyTint, t);
+                float hemisphere = mix(0.93, 1.04, clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+                float undercut = mix(0.88, 1.0, smoothstep(-0.65, 0.10, n.y));
+                clayTint = clayLight / max(mix(floorShade, 1.0, t), 1e-4) * hemisphere * undercut * lampTint;
+                if (mode < 2.5 && uMaterial._IsoCellMap.z > 0.5) clayTint *= Crease(p);
             }
         }
 
@@ -266,7 +351,7 @@ void main()
             }
         }
     }
-    color.rgb *= shade;
+    color.rgb *= shade * clayTint;
 
     if (mode > 0.5 && mode < 3.5 && squash > 0.0
         && ((mode < 1.5 || uMaterial._SceneClay > 0.5) && uMaterial._ClayMode > 0.5)
@@ -282,7 +367,10 @@ void main()
         float peak = max(color.r, max(color.g, color.b));
         float albedoWeight = clamp(peak * 1.5, 0.25, 1.0);
         float hlScale = (mode >= 1.5 && mode < 2.5) ? 0.65 : 1.0;
-        color.rgb += mix(color.rgb, vec3(1.0), 0.35) * (lobe * litGate * (hlScale * clamp(uMaterial._ClayHighlight, 0.0, 0.10)) * albedoWeight);
+        vec3 highlightTint = uMaterial._ClayWarmth > 1e-4
+            ? mix(vec3(1.0), vec3(1.04, 0.99, 0.90), clamp(uMaterial._ClayWarmth, 0.0, 1.0)) : vec3(1.0);
+        if (uMaterial._ClayWarmth > 1e-4) litGate *= 1.0 - roofCover * 0.80;
+        color.rgb += mix(color.rgb, vec3(1.0), 0.35) * highlightTint * (lobe * litGate * (hlScale * clamp(uMaterial._ClayHighlight, 0.0, 0.10)) * albedoWeight);
     }
 
     if (glowMode > 1.5)

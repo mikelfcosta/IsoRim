@@ -198,6 +198,7 @@ namespace IsoRim
                 IsoRimSettings st = IsoRimMod.Settings;
                 R3DMaterials.SyncModelStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
                 R3DMaterials.SyncSceneStyle(st.modelStyle, st.clayWrap, st.clayHighlight, st.clayRoughness);
+                R3DMaterials.SyncLightingStyle(st.modelStyle, st.clayWarmth);
                 ApplyCamera(main);
                 Grade.Draw(main);
             }
@@ -447,6 +448,7 @@ namespace IsoRim
                 h = h * 31 + (st.treeShadows ? 1 : 0);
                 h = h * 31 + Mathf.RoundToInt(st.treeShadowLength * 100f);
                 h = h * 31 + (st.modelStyle > 0 ? 1 : 0);
+                h = h * 31 + (st.modelStyle > 0 && st.clayWarmth > 1e-4f ? 1 : 0);
                 return h == 0 ? 1 : h;
             }
         }
@@ -482,7 +484,8 @@ namespace IsoRim
 
             appliedSig = sig;
             pendingSig = sig;
-            R3DMaterials.SetLight(LightNow());
+            Vector3 dir = LightNow(out float night);
+            R3DMaterials.SetLight(dir, night);
             MapSections.Clear();
             DynamicModels.Forget();
             People.ForgetAll();
@@ -504,7 +507,8 @@ namespace IsoRim
             {
                 return;
             }
-            R3DMaterials.SetLight(LightNow());
+            Vector3 dir = LightNow(out float night);
+            R3DMaterials.SetLight(dir, night);
 
             // A turn counts once the swing ends, also one that came back to where it started
             // (anything redrawn during the swing was built at an angle in between).
@@ -558,14 +562,18 @@ namespace IsoRim
         // "Sun moves through the day" off.
         // The direction of the light now: IsoRim's sun by day, the game's moon at night (see
         // R3DMaterials.LightAt); with "Sun moves" off, the fixed mid-morning sun.
-        public static Vector3 LightNow()
+        public static Vector3 LightNow() => LightNow(out _);
+
+        public static Vector3 LightNow(out float night)
         {
             Map map = Find.CurrentMap;
+            night = 0f;
             if (!IsoRimMod.Settings.sunMoves || map == null)
             {
                 return R3DMaterials.SunDirAt(9.5f);
             }
             float hour = GenLocalDate.HourFloat(map);
+            night = R3DMaterials.NightWeight(GenCelestial.CurCelestialSunGlow(map));
             Vector3 dir = R3DMaterials.LightAt(map, hour);
             if (ModLog.Diag)
             {

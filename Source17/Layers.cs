@@ -928,6 +928,13 @@ namespace IsoRim
             m.SetFloat("_ClayWrap", roofClayWrap);
             m.SetFloat("_ClayHighlight", roofClayHighlight);
             m.SetFloat("_ClayRoughness", roofClayRoughness);
+            m.SetFloat("_ClayWarmth", R3DMaterials.ClayWarmth);
+        }
+
+        public static void SyncLighting(float warmth)
+        {
+            foreach (Material m in textureMats.Values)
+                if (m != null) m.SetFloat("_ClayWarmth", warmth);
         }
 
         // The textured material for a roof colour, or null if the texture is missing. Drawn just

@@ -177,7 +177,17 @@ namespace IsoRim
                         {
                             throw new InvalidOperationException("Duplicate normal case");
                         }
-                        if (id.StartsWith("SceneStyleCases.", StringComparison.Ordinal))
+                        if (!id.StartsWith("LightingReadabilityCases.", StringComparison.Ordinal))
+                        {
+                            // Inherited reference pixels and bounds describe the zero-warmth path.
+                            IsoRimMod.Settings.clayWarmth = 0f;
+                            R3DMaterials.SyncLightingStyle(0, 0f);
+                        }
+                        if (id.StartsWith("LightingReadabilityCases.", StringComparison.Ordinal))
+                        {
+                            evidencePaths = new[] { LightingReadabilityCases.Run(id, request) };
+                        }
+                        else if (id.StartsWith("SceneStyleCases.", StringComparison.Ordinal))
                         {
                             evidencePaths = new[] { SceneStyleCases.Run(id, request) };
                         }

@@ -38,6 +38,7 @@ namespace IsoRim
         public bool outlines = true;
         public int modelStyle = 1;
         public float clayWrap = 0.22f;
+        public float clayWarmth = 0.55f;
         public float clayHighlight = 0.04f;
         public float clayRoughness = 0.65f;
         public float outlineWidth = 0.75f;
@@ -109,6 +110,7 @@ namespace IsoRim
             Scribe_Values.Look(ref outlines, "outlines", true);
             Scribe_Values.Look(ref modelStyle, "modelStyle", 1);
             Scribe_Values.Look(ref clayWrap, "clayWrap", 0.22f);
+            Scribe_Values.Look(ref clayWarmth, "clayWarmth", 0.55f);
             Scribe_Values.Look(ref clayHighlight, "clayHighlight", 0.04f);
             Scribe_Values.Look(ref clayRoughness, "clayRoughness", 0.65f);
             Scribe_Values.Look(ref outlineWidth, "outlineWidth", 0.75f);

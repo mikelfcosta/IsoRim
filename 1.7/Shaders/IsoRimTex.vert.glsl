@@ -56,6 +56,7 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
     float _ClayHighlight; // @default = 0.0
     float _ClayRoughness; // @default = 0.0
     float _SceneClay; // @default = 0.0
+    float _ClayWarmth; // @default = 0.0
 } uMaterial;
 
 // ---- Step 7: the cut-away in the vertex stage (C# ShaderCut, Source\ShaderCut.cs). IsoRim's walls, damage,

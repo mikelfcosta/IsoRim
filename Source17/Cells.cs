@@ -334,10 +334,10 @@ namespace IsoRim
         private static readonly int levelId = Shader.PropertyToID("_IsoLevel");
 
         // Before the map's meshes are drawn: brings the shown map's cell texture up to date and hands
-        // it to the shaders. Only the fog lid reads it today.
+        // it to the shaders. Fog lids, cutaway and clay creases read it.
         public static void BeginFrame(Map map)
         {
-            if (!View3D.Active || map == null || !(IsoRimMod.Settings.fogLid || ShaderCut.On))
+            if (!View3D.Active || map == null || !(IsoRimMod.Settings.fogLid || ShaderCut.On || IsoRimMod.Settings.modelStyle > 0))
             {
                 return;
             }
