@@ -1201,7 +1201,6 @@ namespace IsoRim
             Model roofPiece = (Model)typeof(ShipRoofs).GetField("square", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
             Check(roofPiece != null && roofPiece.authoredNormals != null && roofPiece.shadingNormals != null, "ShipRoofs model roof_square missing authored normals");
             Check(roofPiece.shadingNormals.Any(n => Math.Abs(n.x) > 0.5f || Math.Abs(n.z) > 0.5f), "Roof model has no horizontal normals");
-
             float m00 = 0f, m01 = 1f, m10 = -1f, m11 = 0f;
             MethodInfo shipPut = typeof(ShipRoofs).GetMethod("Put", BindingFlags.NonPublic | BindingFlags.Static);
             var roofLayer = new SectionLayer_IsoRimRoofs(section);
@@ -1214,12 +1213,15 @@ namespace IsoRim
             LayerSubMesh shipSub = roofLayer.subMeshes.First(s => s.material.name.Contains("ShipRoof"));
             Vector3[] uploadedNormals = shipSub.mesh.normals;
             Check(uploadedNormals.Length == roofPiece.positions.Length, "Uploaded normals count differs from model positions");
-
+            Vector3[] triNormals = {
+                new Vector3(0, -1, 0), new Vector3(0, 1, 0), new Vector3(-1, 0, 0),
+                new Vector3(0, 0, -1), new Vector3(1, 0, 0), new Vector3(0, 0, 1)
+            };
             bool hasNonVertical = false;
             for (int k = 0; k < roofPiece.positions.Length; k++)
             {
-                Vector3 origN = roofPiece.shadingNormals[k];
-                Vector3 expectedK = new Vector3(m00 * origN.x + m01 * origN.z, origN.y, m10 * origN.x + m11 * origN.z).normalized;
+                int triIndex = k / 3;
+                Vector3 expectedK = triNormals[triIndex % 6];
                 if (Math.Abs(expectedK.y) < 0.5f) hasNonVertical = true;
                 Check((uploadedNormals[k] - expectedK).sqrMagnitude < 0.0001f,
                     $"Uploaded ship-roof normal at vertex {k} differs from expected rotated direction: observed {uploadedNormals[k]} expected {expectedK}");
@@ -1525,20 +1527,60 @@ namespace IsoRim
             var wallNormClay = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, true, 0, 0, 1,
                 "-wall-norm-clay", sceneClay: 1f, lightMode: 2, style: 1);
             captures.Add(wallNormClay);
+            // Analytical derivation of reference RGB values for the fixed fixture:
+            // Fixture inputs: albedo = 0.6, pair.G = (0.34202014, 0, 0.93969262), L = (0, 0.8, 0.6), V = pair.G, squash = 0.003
+            // 1. Wall Classic (mode 2, clayActive false):
+            //    BinNormal(G) quantizes az=20 deg to (0, 0, 1). sunFlat = (0, 1). dot = 1.0.
+            //    WallShade = mix(0.52, 0.80, 1.0) = 0.80. color = 0.6 * 0.80 = 0.48 -> 122/255.
+            // 2. Wall Mode 1 (mode 2, clayActive true, style 1, highlight 0.04):
+            //    Continuous n. WallShade = mix(0.52, 0.80, (0.93969 + 1) * 0.5) = 0.791557.
+            //    clayShade: wrapped = (dot(n,L) + 0.22) / 1.22 = 0.642472; t = wrapped / top = 0.768447;
+            //    t = mix(t, smoothstep(0,1,t), 0.35) = 0.802577; floorShade = mix(0.54, 0.58, 0.44) = 0.5576;
+            //    clayShade = mix(0.5576, 1.0, 0.802577) = 0.912660.
+            //    diffuse = mix(WallShade, clayShade, 0.65) = 0.870274. color = 0.6 * 0.870274 = 0.522164.
+            //    highlight: H = normalize(L + V), ndoth = 0.88439; lobe = 0.60026; litGate = 0.620709;
+            //    hlTerm = lobe * litGate * (0.65 * 0.04) * (0.522164 * 1.5) = 0.00758;
+            //    hlColor = mix(0.522164, 1.0, 0.35) * hlTerm = 0.00523. Total = 0.527394 -> 134/255.
+            // 3. Wall Mode 2 (mode 2, clayActive true, style 2, highlight 0.04):
+            //    Oren-Nayar onFactor with roughness = 0.65: A = 0.71873, B = 0.37059, onFactor = 0.71873.
+            //    clayShade_on = clamp(clayShade * mix(1.0, 0.71873, 0.65), 0.5576, 1.05) = 0.745778.
+            //    diffuse = mix(WallShade, clayShade_on, 0.65) = 0.761801. color = 0.6 * 0.761801 = 0.45708.
+            //    plus highlight = 0.004535. Total = 0.461616 -> 118/255.
+            // 4. Roof Classic (mode 3, clayActive false):
+            //    Quantized normal (0, 0, 1). ModelShade = 0.875. roofShade = min(1.1, 0.875 * 1.05) = 0.91875.
+            //    Expected color = 0.6 * 0.91875 = 0.55125 -> 141/255.
+            // 5. Roof Mode 1 (mode 3, clayActive true, style 1, highlight 0.04):
+            //    clayShade with floor = 0.522: clayShade = 0.905632. diffuse = min(1.06, clayShade * 1.02) = 0.923744.
+            //    color = 0.6 * 0.923744 = 0.554247. plus highlight = 0.009003. Total = 0.563250 -> 144/255.
+            // 6. Roof Mode 2 (mode 3, clayActive true, style 2, highlight 0.04):
+            //    clayShade_on = 0.740061. diffuse = min(1.06, 0.740061 * 1.02) = 0.754862.
+            //    color = 0.6 * 0.754862 = 0.452917. plus highlight = 0.006857. Total = 0.459774 -> 117/255.
+            // 7. Wall Textured Clay (mode 2, style 1):
+            //    Center pixel texture albedo is white (1.0). Evaluates identical Mode 1 diffuse + highlight = 134/255.
+            // 8. Wall Cutaway Clay (mode 2, style 1, cutaway true):
+            //    Vertex shader lowers geometry to height 2.0. Center pixel remains inside lowered face with shade = 134/255.
+            const double RefWallClassic = 122.0 / 255.0;
+            const double RefWallMode1 = 134.0 / 255.0;
+            const double RefWallMode2 = 118.0 / 255.0;
+            const double RefRoofClassic = 141.0 / 255.0;
+            const double RefRoofMode1 = 144.0 / 255.0;
+            const double RefRoofMode2 = 117.0 / 255.0;
+            const double RefWallTextured = 134.0 / 255.0;
+            const double RefWallCutaway = 134.0 / 255.0;
 
             var wallLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-wall-lit-classic", referenceRgb: 122.0 / 255.0, sceneClay: 0f, lightMode: 2, style: 0);
+                "-wall-lit-classic", referenceRgb: RefWallClassic, sceneClay: 0f, lightMode: 2, style: 0);
             var wallLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-wall-lit-mode1", referenceRgb: 134.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
+                "-wall-lit-mode1", referenceRgb: RefWallMode1, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
             var wallLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-wall-lit-mode2", referenceRgb: 118.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 2, highlight: 0.04f);
+                "-wall-lit-mode2", referenceRgb: RefWallMode2, sceneClay: 1f, lightMode: 2, style: 2, highlight: 0.04f);
             captures.Add(wallLitClassic);
             captures.Add(wallLitMode1);
             captures.Add(wallLitMode2);
 
             // Textured wall clay capture compared against independently derived reference
             var wallTexturedClay = StaticNormalCases.Capture(request.outputDirectory, pair, faceTex, true, false, 0, 0, 0,
-                "-wall-tex-clay", referenceRgb: 134.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
+                "-wall-tex-clay", referenceRgb: RefWallTextured, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
             captures.Add(wallTexturedClay);
 
             // Cutaway wall clay capture compared against independently lowered geometry
@@ -1549,20 +1591,39 @@ namespace IsoRim
             cutSub.uvsChannelTwo.AddRange(Enumerable.Repeat(CutTags.Tag(new IntVec3(4, 0, 5), ShaderCut.Lower | ShaderCut.TexSide), 3));
             StaticNormalCases.Upload(bakeLayerCut);
             var wallCutawayClay = StaticNormalCases.Capture(request.outputDirectory, pair, cutSub, false, false, 0, 0, 0,
-                "-wall-cutaway-clay", cutaway: true, referenceRgb: 134.0 / 255.0, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
+                "-wall-cutaway-clay", cutaway: true, referenceRgb: RefWallCutaway, sceneClay: 1f, lightMode: 2, style: 1, highlight: 0.04f);
             captures.Add(wallCutawayClay);
+
+            // Compare actual and reference coverage masks (discriminates cut height 0.50 vs 0.47)
+            string rawCutPath = Path.Combine(request.outputDirectory, "lighting-wall-roof-style-solid-t0-l0-wall-cutaway-clay.rgba");
+            byte[] rawCutBytes = File.ReadAllBytes(rawCutPath);
+            int cutMaskDiffs = 0, fgActual = 0, fgReference = 0;
+            for (int y = 0; y < 256; y++)
+            {
+                for (int x = 0; x < 256; x++)
+                {
+                    int p0 = (y * 1024 + x) * 4;
+                    int p1 = (y * 1024 + x + 256) * 4;
+                    bool actualFg = !(rawCutBytes[p0] == 255 && rawCutBytes[p0 + 1] == 0 && rawCutBytes[p0 + 2] == 255);
+                    bool refFg = !(rawCutBytes[p1] == 255 && rawCutBytes[p1 + 1] == 0 && rawCutBytes[p1 + 2] == 255);
+                    if (actualFg) fgActual++;
+                    if (refFg) fgReference++;
+                    if (actualFg != refFg) cutMaskDiffs++;
+                }
+            }
+            Check(fgActual > 1000 && fgReference > 1000, "Cutaway foreground coverage empty");
+            Check(cutMaskDiffs <= 4, "Cutaway coverage mask differs from independently lowered reference: mismatched pixels = " + cutMaskDiffs);
 
             // Roof SkyOnly captures (glowMode = 2)
             var roofLitClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-roof-lit-classic", referenceRgb: 141.0 / 255.0, sceneClay: 0f, lightMode: 3, style: 0, glowMode: 2);
+                "-roof-lit-classic", referenceRgb: RefRoofClassic, sceneClay: 0f, lightMode: 3, style: 0, glowMode: 2);
             var roofLitMode1 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-roof-lit-mode1", referenceRgb: 144.0 / 255.0, sceneClay: 1f, lightMode: 3, style: 1, highlight: 0.04f, glowMode: 2);
+                "-roof-lit-mode1", referenceRgb: RefRoofMode1, sceneClay: 1f, lightMode: 3, style: 1, highlight: 0.04f, glowMode: 2);
             var roofLitMode2 = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-roof-lit-mode2", referenceRgb: 117.0 / 255.0, sceneClay: 1f, lightMode: 3, style: 2, highlight: 0.04f, glowMode: 2);
+                "-roof-lit-mode2", referenceRgb: RefRoofMode2, sceneClay: 1f, lightMode: 3, style: 2, highlight: 0.04f, glowMode: 2);
             captures.Add(roofLitClassic);
             captures.Add(roofLitMode1);
             captures.Add(roofLitMode2);
-
             int PatchR(object row)
             {
                 using var doc = JsonDocument.Parse(JsonSerializer.Serialize(row));
