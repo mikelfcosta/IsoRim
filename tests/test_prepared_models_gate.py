@@ -1002,7 +1002,7 @@ class GateHostTests(unittest.TestCase):
             gate.select_cases(b"M\0Source17/Models.cs\0", "ISORIM-005.S01", manifest)
         request = {"nonce": "fresh", "head": "head", "assemblyHash": "product"}
         proof = dict(request, caseId="case", passed=True, modules={"module": "hash"},
-                     runtime="10.0.10-waylithclr.dev", gameVersion="1.7.4980.60", processId=42, evidencePaths=[])
+                     runtime="10.0.13-waylithclr.dev", gameVersion="1.7.4981.136", processId=42, evidencePaths=[])
         with tempfile.TemporaryDirectory(dir=self.evidence) as tmp:
             path = Path(tmp) / "proof.json"
             proof["engineLogRoot"] = tmp
@@ -1035,11 +1035,11 @@ class GateHostTests(unittest.TestCase):
             (game / "Version.txt").write_text("1.7.4979 rev1")
             with self.assertRaises(gate.Refusal):
                 gate.verify_game(game)
-            (game / "Version.txt").write_text("1.7.4980 rev60")
+            (game / "Version.txt").write_text("1.7.4981 rev136")
             for name in gate.FINGERPRINTS:
                 (game / name).write_bytes(b"changed game fingerprint")
             (game / "RimWorld.runtimeconfig.json").write_text(json.dumps({"runtimeOptions": {"includedFrameworks": [
-                {"name": "Microsoft.NETCore.App", "version": "10.0.10-waylithclr.dev"}]}}))
+                {"name": "Microsoft.NETCore.App", "version": "10.0.13-waylithclr.dev"}]}}))
             with self.assertRaises(gate.Refusal):
                 gate.verify_game(game)
             assets = {"libraries": {"Krafs.Rimworld.Ref/1.7.4979-alpha": {}, "Lib.Harmony/3.0.0-rc.3": {}}}

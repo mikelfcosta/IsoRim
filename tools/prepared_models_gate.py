@@ -28,11 +28,11 @@ SDK = Path("C:/Users/mikel/AppData/Local/Microsoft/dotnet/dotnet.exe")
 GAME = Path("C:/Program Files (x86)/Steam/steamapps/common/RimWorld")
 HARMONY = Path("C:/Program Files (x86)/Steam/steamapps/workshop/content/294100/2009463077/1.7/Assemblies/0Harmony.dll")
 FINGERPRINTS = {
-    "RimWorld.dll": "485913A05EED5301E812898E82C860E69CCA6E8FA1BD91CDEA70B7E67D92A1D6",
-    "Assembly-CSharp.dll": "EFF7D97949F919FB2B151EBFB906E9BE749B63410B7DBDA78EEEBB7972B245C3",
-    "UnityStubs.dll": "CD95A2D1A2E0E52745F1B4562FC0CBF66B526CD942015A75DA63D2CF8770D535",
-    "Waylith.dll": "15633912DA7C890E8798AAC86121DDBCF28B4138786D926921DAFA7CA908929F",
-    "Waylith.UnityCompat.dll": "E4362E5F45EC39533C721B4B4E04C996CF59DE8FCDA2547EB648C3D68FBB5710",
+    "RimWorld.dll": "8D8DD60B7C87FBCBDAE4BC644D812825C4988089BF71F3CBB496660EAED062A3",
+    "Assembly-CSharp.dll": "EB0826B85AF430D13962E5C097EF53D869CF6A031656FB6A3673168A761C9F23",
+    "UnityStubs.dll": "B9A47E34D975A6B41FDF2AF7A2EFFD8080A543D34D0153EE5D8614EFBB019270",
+    "Waylith.dll": "4B14BC007509CA1ED31924939EC6106EF05B32E9726905CD6E63FBA91952DF36",
+    "Waylith.UnityCompat.dll": "BB7DD087598FC0452FD3173E16307A20825EF736B7C0AC41C5261E4D58FCFC46",
 }
 HARMONY_HASH = "C8EF7856B2BE3CF24B345C9B5C2F197F68FCF92649635064FCE7B3CCC8F77CB0"
 # Execution pin shared by frozen-input comparison and T1 selection.
@@ -87,14 +87,14 @@ def verify_artifact_files(paths):
 
 def verify_game(game):
     try:
-        if (game / "Version.txt").read_text().strip() != "1.7.4980 rev60":
-            raise Refusal("The game is not 1.7.4980 rev60")
+        if (game / "Version.txt").read_text().strip() != "1.7.4981 rev136":
+            raise Refusal("The game is not 1.7.4981 rev136")
         for name, expected in FINGERPRINTS.items():
             if digest(game / name) != expected:
                 raise Refusal(f"The game fingerprint changed: {name}")
         config = json.loads((game / "RimWorld.runtimeconfig.json").read_text())
         frameworks = config["runtimeOptions"]["includedFrameworks"]
-        if {"name": "Microsoft.NETCore.App", "version": "10.0.10-waylithclr.dev"} not in frameworks:
+        if {"name": "Microsoft.NETCore.App", "version": "10.0.13-waylithclr.dev"} not in frameworks:
             raise Refusal("The bundled CLR changed")
     except (OSError, KeyError, ValueError) as error:
         raise Refusal(f"Cannot verify the installed game: {error}") from error
@@ -266,9 +266,9 @@ def verify_proofs(paths, cases, request, modules, pid, started):
                 raise Refusal("The proof identity is stale")
             if proof.get("modules") != modules or proof.get("processId") != pid:
                 raise Refusal("The observed process or modules differ")
-            if proof.get("runtime") != "10.0.10-waylithclr.dev":
+            if proof.get("runtime") != "10.0.13-waylithclr.dev":
                 raise Refusal("The proof did not use the approved bundled CLR")
-            if proof.get("gameVersion") != "1.7.4980.60":
+            if proof.get("gameVersion") != "1.7.4981.136":
                 raise Refusal("The loaded game version differs from the approved identity")
             if Path(proof.get("engineLogRoot", "")).resolve() != path.parent.resolve():
                 raise Refusal("The engine log root is outside this run's evidence")
