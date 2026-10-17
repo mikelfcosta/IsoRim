@@ -2398,6 +2398,7 @@ namespace IsoRim
             var frames = new List<object>(); var timings = new List<object>();
             var images = new Dictionary<string, byte[]>();
             var sampleMaps = new Dictionary<string, List<ModelStyleCases.ComparisonSample>>();
+            var roofSubmissions = new List<object>();
             var layers = new List<SectionLayer>();
             var restore = new List<Action>();
             Camera.CameraCallback submit = null;
@@ -2441,7 +2442,7 @@ namespace IsoRim
 
             try
             {
-                IsoRimMod.Settings = new IsoRimSettings { squash = .003f, texturedModels = true, workAnimations = false };
+                IsoRimMod.Settings = new IsoRimSettings { squash = .003f, texturedModels = true, workAnimations = false, showRoofs = true };
                 View3D.Active = true;
                 Cull.Enabled = false; PartBatches.Flush(); PartBatches.Enabled = false;
 
@@ -2534,20 +2535,34 @@ namespace IsoRim
                     Vector3 atRoof = center + new Vector3(2f, 0f, -5f);
                     using (MeshDrawSubmission.BeginCapture(sRoof.Commands))
                     {
+                        var roofCells = new List<IntVec3>();
                         for (int rz = -2; rz <= 1; rz++)
                             for (int rx = -1; rx <= 2; rx++)
-                                Find.CurrentMap.roofGrid.SetRoof(new IntVec3((int)atRoof.x + rx, 0, (int)atRoof.z + rz), RoofDefOf.RoofConstructed);
-                        var roofLayer = new SectionLayer_IsoRimRoofs(Find.CurrentMap.mapDrawer.SectionAt(new IntVec3((int)atRoof.x, 0, (int)atRoof.z)));
-                        layers.Add(roofLayer);
-                        MethodInfo roofBuild = typeof(SectionLayer_IsoRimRoofs).GetMethod("Build", BindingFlags.Instance | BindingFlags.NonPublic);
-                        roofBuild.Invoke(roofLayer, null);
-                        CutTags.Finish(roofLayer); NormalStreams.Finish(roofLayer);
-                        typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(roofLayer, new object[] { MeshParts.All });
-                        foreach (LayerSubMesh sub in roofLayer.subMeshes.Where(s => s.mesh.vertexCount > 0))
+                            {
+                                IntVec3 cell = new IntVec3((int)atRoof.x + rx, 0, (int)atRoof.z + rz);
+                                roofCells.Add(cell);
+                                Find.CurrentMap.roofGrid.SetRoof(cell, RoofDefOf.RoofConstructed);
+                            }
+                        int roofVertices = 0;
+                        foreach (Section section in roofCells.Select(c => Find.CurrentMap.mapDrawer.SectionAt(c)).Distinct())
                         {
-                            sub.mesh.RecalculateBounds();
-                            Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0);
+                            var roofLayer = new SectionLayer_IsoRimRoofs(section);
+                            layers.Add(roofLayer);
+                            roofLayer.Regenerate();
+                            roofLayer.DrawLayer();
+                            roofVertices += roofLayer.subMeshes.Sum(sub => sub.verts.Count);
+                            roofSubmissions.Add(new
+                            {
+                                preset = ModelStyleCases.ComparisonPresets[preset],
+                                section = new[] { section.botLeft.x, section.botLeft.z },
+                                cells = roofCells.Count(c => section.CellRect.Contains(c)),
+                                vertices = roofLayer.subMeshes.Sum(sub => sub.verts.Count),
+                                indices = roofLayer.subMeshes.Sum(sub => sub.tris.Count)
+                            });
                         }
+                        // A 4x4 hip has 16 cells (192 facet vertices) and 16 eaves (128 vertices).
+                        // Outlines add 16 four-corner strips. This catches an omitted section or line stream.
+                        Check(roofVertices == (st.outlines ? 384 : 320), "Comparison did not submit the complete 4x4 roof and its eave lines");
                     }
 
                     // 4. PlantCard
@@ -2701,8 +2716,8 @@ namespace IsoRim
                         camera.ResetWorldToCameraMatrix();
                         camera.transform.rotation = Quaternion.Euler(pitch, yaw, 0);
                         camera.transform.position = center + Vector3.up - camera.transform.forward * 30;
-                        // Keep the straight capture on half-pixel rows.
-                        if (angle == 1) camera.transform.position += camera.transform.up * (11f / size);
+                        // The exposed eave strip is subpixel at normal zoom. Keep it on a sampled row.
+                        if (angle == 1) camera.transform.position += camera.transform.up * (22f / size * .625f);
                         camera.worldToCameraMatrix = camera.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
                         Vector3 direction = -camera.transform.forward;
                         foreach (var mat in materials) mat.SetVector("_IsoView", new System.Numerics.Vector4(direction.x, direction.y, direction.z, View3D.Squash));
@@ -2754,7 +2769,7 @@ namespace IsoRim
                             pngHash = Convert.ToHexString(SHA256.HashData(png))
                         });
 
-                        File.WriteAllText(Path.Combine(request.outputDirectory, "colony-observations.json"), JsonSerializer.Serialize(new { frames, timings }));
+                        File.WriteAllText(Path.Combine(request.outputDirectory, "colony-observations.json"), JsonSerializer.Serialize(new { frames, timings, roofSubmissions }));
                         Check(visible.All(sample => sample.pixels >= 5), "Colony sample is empty in " + ModelStyleCases.ComparisonPresets[preset] + "-" + angleName + ": " + string.Join(",", visible.Select(s => s.name + "=" + s.pixels)));
 
                         if (angle == 0)
@@ -2787,7 +2802,7 @@ namespace IsoRim
                     foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh); layers.Clear();
                 }
 
-                File.WriteAllText(Path.Combine(request.outputDirectory, "colony-observations.json"), JsonSerializer.Serialize(new { frames, timings }));
+                File.WriteAllText(Path.Combine(request.outputDirectory, "colony-observations.json"), JsonSerializer.Serialize(new { frames, timings, roofSubmissions }));
 
                 // In-engine preset pair assertions:
                 foreach (string angle in new[] { "isometric", "straight" })
@@ -2879,6 +2894,7 @@ namespace IsoRim
                 {
                     frames,
                     timings,
+                    roofSubmissions,
                     samples = sampleNames,
                     backend = backend.GetType().FullName,
                     timingMethod = "Stopwatch.GetTimestamp around Camera.Render; completed native GPU fence"
