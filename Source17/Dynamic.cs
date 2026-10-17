@@ -451,6 +451,7 @@ namespace IsoRim
 
         private static int applied;   // which of the options below are in force; 0 = the game's own textures
         private static readonly Dictionary<Material, Saved> originals = new Dictionary<Material, Saved>();
+        private static readonly Dictionary<string, Texture2D> clayTextures = new Dictionary<string, Texture2D>();
 
         // Called every frame; does nothing unless the wanted state has changed.
         public static void Sync()
@@ -459,7 +460,7 @@ namespace IsoRim
             int want = 0;
             if (View3D.Active)
             {
-                want = (st.groundStyle ? 1 : 0) | (st.groundStyle && st.grassSoil ? 2 : 0) | (st.floorStyle ? 4 : 0);
+                want = (st.groundStyle ? 1 : 0) | (st.groundStyle && st.grassSoil ? 2 : 0) | (st.floorStyle ? 4 : 0) | (st.modelStyle > 0 ? 8 : 0);
             }
             if (want == applied)
             {
@@ -520,7 +521,24 @@ namespace IsoRim
                 {
                     continue;
                 }
-                Texture2D tex = R3DTextures.Get("IsoRim/Ground/" + kind);
+                Texture2D tex = null;
+                bool clayFallback = false;
+                if (st.modelStyle > 0)
+                {
+                    tex = R3DTextures.Get("IsoRim/Clay/Ground/" + kind);
+                    if (tex == null)
+                    {
+                        Texture2D src = R3DTextures.Get("IsoRim/Ground/" + kind);
+                        if (src != null)
+                        {
+                            tex = ClayTextureFor(kind, src, out clayFallback);
+                        }
+                    }
+                }
+                if (tex == null)
+                {
+                    tex = R3DTextures.Get("IsoRim/Ground/" + kind);
+                }
                 if (tex == null)
                 {
                     continue;
@@ -538,6 +556,10 @@ namespace IsoRim
                     {
                         mat.color = new Color(tint.r, tint.g, tint.b, c.a);
                     }
+                }
+                if (clayFallback && mat.HasProperty("_Color"))
+                {
+                    mat.color = new Color(mat.color.r * 0.96f, mat.color.g * 0.94f, mat.color.b * 0.90f, mat.color.a);
                 }
                 changed++;
             }
@@ -559,7 +581,7 @@ namespace IsoRim
             originals[mat] = saved;
         }
 
-        private static void Restore()
+        public static void Restore()
         {
             foreach (KeyValuePair<Material, Saved> pair in originals)
             {
@@ -573,6 +595,66 @@ namespace IsoRim
                 {
                     mat.color = pair.Value.color;
                 }
+            }
+        }
+        private static Texture2D ClayTextureFor(string kind, Texture2D src, out bool fallback)
+        {
+            fallback = false;
+            Texture2D cached;
+            if (clayTextures.TryGetValue(kind, out cached) && cached != null)
+            {
+                return cached;
+            }
+            try
+            {
+                var core = src.CoreTexture;
+                var data = core != null ? core.EnsureCpuData() : null;
+                if (data == null || !data.HasData)
+                {
+                    fallback = true;
+                    return src;
+                }
+                Color32[] px = src.GetPixels32(0);
+                if (px == null || px.Length == 0)
+                {
+                    fallback = true;
+                    return src;
+                }
+                long sumR = 0, sumG = 0, sumB = 0;
+                for (int i = 0; i < px.Length; i++)
+                {
+                    sumR += px[i].r;
+                    sumG += px[i].g;
+                    sumB += px[i].b;
+                }
+                float muR = (float)sumR / px.Length;
+                float muG = (float)sumG / px.Length;
+                float muB = (float)sumB / px.Length;
+
+                Color32[] softened = new Color32[px.Length];
+                for (int i = 0; i < px.Length; i++)
+                {
+                    byte r = (byte)Mathf.Clamp(Mathf.RoundToInt(muR + 0.75f * ((float)px[i].r - muR)), 0, 255);
+                    byte g = (byte)Mathf.Clamp(Mathf.RoundToInt(muG + 0.75f * ((float)px[i].g - muG)), 0, 255);
+                    byte b = (byte)Mathf.Clamp(Mathf.RoundToInt(muB + 0.75f * ((float)px[i].b - muB)), 0, 255);
+                    softened[i] = new Color32(r, g, b, px[i].a);
+                }
+
+                Texture2D clayTex = new Texture2D(src.width, src.height, TextureFormat.RGBA32, true, false);
+                clayTex.name = "IsoRim_Clay_" + kind;
+                clayTex.wrapMode = TextureWrapMode.Repeat;
+                clayTex.filterMode = FilterMode.Trilinear;
+                clayTex.anisoLevel = 4;
+                clayTex.SetPixels32(softened);
+                clayTex.Apply(true);
+                clayTextures[kind] = clayTex;
+                return clayTex;
+            }
+            catch (Exception ex)
+            {
+                ModLog.Warn("[IsoRim] Softened clay texture generation failed for " + kind + ": " + ex.Message);
+                fallback = true;
+                return src;
             }
         }
 

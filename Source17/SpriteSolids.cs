@@ -18,6 +18,7 @@ namespace IsoRim
         {
             public Mesh faces;
             public Mesh sides;
+            public Mesh claySides;
         }
 
         private static readonly Dictionary<int, Solid> cache = new Dictionary<int, Solid>();
@@ -29,7 +30,8 @@ namespace IsoRim
         {
             Graphic g = weapon.Graphic;
             Material mat = g != null ? g.MatSingleFor(weapon) : null;
-            Material sideMat = R3DMaterials.Solid;
+            bool clay = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0;
+            Material sideMat = clay ? R3DMaterials.LitModel : R3DMaterials.Solid;
             if (mat == null || sideMat == null || !mat.HasProperty("_MainTex") || mat.mainTexture == null)
             {
                 return false;
@@ -49,7 +51,7 @@ namespace IsoRim
                 // turning the other way first lines the weapon up with where it points.
                 * Matrix4x4.Rotate(Quaternion.AngleAxis(-weapon.def.equippedAngleOffset, Vector3.forward))
                 * Matrix4x4.Scale(new Vector3(draw.x * Size, draw.y * Size, 1f));
-            IsoGlow.DrawLit(solid.sides, m, sideMat, 0);
+            IsoGlow.DrawLit(clay && solid.claySides != null ? solid.claySides : solid.sides, m, sideMat, 0);
             Graphics.DrawMesh(solid.faces, m, mat, 0);
             return true;
         }
@@ -61,7 +63,8 @@ namespace IsoRim
         {
             Graphic g = weapon.Graphic;
             Material mat = g != null ? g.MatSingleFor(weapon) : null;
-            Material sideMat = R3DMaterials.Solid;
+            bool clay = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0;
+            Material sideMat = clay ? R3DMaterials.LitModel : R3DMaterials.Solid;
             if (mat == null || sideMat == null || !mat.HasProperty("_MainTex") || mat.mainTexture == null)
             {
                 return false;
@@ -80,7 +83,7 @@ namespace IsoRim
                 * (flip ? Matrix4x4.Rotate(Quaternion.AngleAxis(180f, Vector3.up)) * Matrix4x4.Rotate(Quaternion.AngleAxis(angle, Vector3.forward))
                     : Matrix4x4.Rotate(Quaternion.AngleAxis(-angle, Vector3.forward)))
                 * Matrix4x4.Scale(new Vector3(draw.x * Size * scale, draw.y * Size * scale, 1f));
-            IsoGlow.DrawLit(solid.sides, m, sideMat, 0);
+            IsoGlow.DrawLit(clay && solid.claySides != null ? solid.claySides : solid.sides, m, sideMat, 0);
             Graphics.DrawMesh(solid.faces, m, mat, 0);
             return true;
         }
@@ -92,7 +95,8 @@ namespace IsoRim
         {
             Graphic g = t.Graphic;
             Material mat = g != null ? g.MatSingleFor(t) : null;
-            Material sideMat = R3DMaterials.Solid;
+            bool clay = IsoRimMod.Settings != null && IsoRimMod.Settings.modelStyle > 0;
+            Material sideMat = clay ? R3DMaterials.LitModel : R3DMaterials.Solid;
             if (mat == null || sideMat == null || !mat.HasProperty("_MainTex") || mat.mainTexture == null)
             {
                 return false;
@@ -109,7 +113,7 @@ namespace IsoRim
                 * Matrix4x4.Scale(new Vector3(1f, 1f / s, 1f))
                 * Matrix4x4.Rotate(Quaternion.AngleAxis(90f, Vector3.right))
                 * Matrix4x4.Scale(new Vector3(draw.x * scale, draw.y * scale, thick / Thickness));
-            IsoGlow.DrawLit(solid.sides, m, sideMat, 0);
+            IsoGlow.DrawLit(clay && solid.claySides != null ? solid.claySides : solid.sides, m, sideMat, 0);
             Graphics.DrawMesh(solid.faces, m, mat, 0);
             return true;
         }
@@ -230,9 +234,42 @@ namespace IsoRim
             sides.SetTriangles(st, 0);
             sides.RecalculateBounds();
 
+            List<Color32> scClay = new List<Color32>();
+            for (int i = 0; i < mask.runs.Count; i++)
+            {
+                Extruder.Run r = mask.runs[i];
+                Color32 c0 = R3DMaterials.Shaded(r.c0 * tint, 0.92f);
+                Color32 c1 = R3DMaterials.Shaded(r.c1 * tint, 0.92f);
+                scClay.Add(c0);
+                scClay.Add(c0);
+                scClay.Add(c1);
+                scClay.Add(c1);
+            }
+            Color32 fillClay = R3DMaterials.Shaded(mask.mean * tint, 0.86f);
+            for (int i = 0; i < mask.lids.Count; i++)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    for (int k = 0; k < 4; k++)
+                    {
+                        scClay.Add(fillClay);
+                    }
+                }
+            }
+            Mesh claySides = new Mesh();
+            if (sv.Count > 65000)
+            {
+                claySides.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            claySides.SetVertices(sv);
+            claySides.SetColors(scClay);
+            claySides.SetTriangles(st, 0);
+            claySides.RecalculateBounds();
+
             Solid solid = new Solid();
             solid.faces = faces;
             solid.sides = sides;
+            solid.claySides = claySides;
             return solid;
         }
     }

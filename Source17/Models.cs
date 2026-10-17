@@ -2454,10 +2454,12 @@ namespace IsoRim
         public static void SyncSceneStyle(int mode, float wrap, float highlight, float roughness)
         {
             sceneClayMode = mode; sceneClayWrap = wrap; sceneClayHighlight = highlight; sceneClayRoughness = roughness;
+            Shader.SetGlobalVector("_IsoClayCard", new Vector4(mode > 0 ? mode : 0, wrap, highlight, roughness));
             for (int i = 3; i < 6; i++) ApplySceneStyle(litSolid[i]);
             foreach (var entry in litByKey)
                 if (entry.Key.Contains("|1|")) ApplySceneStyle(entry.Value);
             ApplySceneStyle(roof);
+            ApplySceneStyle(waterOverlay);
             SectionLayer_IsoRimRoofs.SyncStyle(mode, wrap, highlight, roughness);
             ShipRoofs.SyncStyle(mode, wrap, highlight, roughness);
         }
@@ -2727,7 +2729,8 @@ namespace IsoRim
             {
                 if (waterOverlay == null && Solid != null)
                 {
-                    waterOverlay = Make(BlendDef, "IsoRim_Water", 3050);
+                    waterOverlay = Make(BlendDef, "IsoRim_Water", 3050, 4);
+                    ApplySceneStyle(waterOverlay);
                 }
                 return waterOverlay;
             }
