@@ -686,8 +686,7 @@ namespace IsoRim
                 }
                 Check(r, "Textures on models", ref st.texturedModels);
                 Check(r, "Dark outlines on models", ref st.outlines);
-                if (st.outlines)
-                    st.outlineWidth = Slider(r, "Outline width", st.outlineWidth, 0.25f, 1.50f, st.outlineWidth.ToString("0.00"));
+                st.outlineWidth = Slider(r, "Outline width", st.outlineWidth, 0.25f, 1.50f, st.outlineWidth.ToString("0.00"));
             }
         }
 

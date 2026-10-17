@@ -1129,7 +1129,51 @@ def verify_colony_pixels(evidence, started, captures):
             if changed != 0:
                 raise Refusal(f"Wrapped vs NoOutlines unexpectedly differed on un-outlined sample {name}: {changed} pixels")
 
+SETTINGS_UI_CASE = "ModelStyleCases.ControlledOutlines"
+
+
+def verify_settings_ui(evidence, started):
+    path = evidence / (SETTINGS_UI_CASE + ".json")
+    report = json.loads(path.read_text())
+    if path.stat().st_mtime < started or report.get("caseId") != SETTINGS_UI_CASE or report.get("passed") is not True:
+        raise Refusal("The settings UI report is stale or invalid")
+    ui = report["readings"]["uiProxy"]
+    modes = ui["modes"]
+    if len(modes) != 6 or {(row["mode"], row["outlines"]) for row in modes} != {(mode, enabled) for mode in range(3) for enabled in (True, False)}:
+        raise Refusal("The outline slider mode/state matrix is incomplete")
+    if not ui.get("settingsReloaded") or any("Outline width" not in row["labels"] or row.get("input") != [.75, .25, 1.5]
+                                            or row.get("value") != 1.25 or not row.get("settingsReloaded") for row in modes):
+        raise Refusal("The outline slider visibility, value, range or persistence changed")
+    frames = ui["frames"]
+    names = {f"ui-{mode}-{'on' if enabled else 'off'}-{phase}" for mode in range(3) for enabled in (True, False) for phase in ("before", "after")}
+    if len(frames) != 12 or {frame["name"] for frame in frames} != names:
+        raise Refusal("The UI outline effect captures are incomplete")
+    observed = {}; serials = set()
+    for frame in frames:
+        serial = frame["gpuFrameCompleted"]
+        if frame["commands"] <= 0 or serial != frame["gpuFrameBefore"] + 1 or serial in serials:
+            raise Refusal("A UI outline effect frame did not complete")
+        serials.add(serial)
+        for kind in ("raw", "png"):
+            source = evidence / frame[kind + "Path"]
+            if source.resolve().parent != evidence.resolve() or source.is_symlink() or source.stat().st_mtime < started or digest(source) != frame[kind + "Hash"]:
+                raise Refusal("A UI outline capture is stale or invalid")
+        raw = (evidence / frame["rawPath"]).read_bytes()
+        if len(raw) != 512 * 512 * 4:
+            raise Refusal("A UI outline framebuffer has invalid dimensions")
+        pixels = sum(raw[i:i+3] != bytes((255, 0, 255)) for i in range(0, len(raw), 4))
+        if pixels <= 1000 or pixels != frame["pixels"]:
+            raise Refusal("A UI outline coverage observation differs from its framebuffer")
+        observed[frame["name"]] = pixels
+    for row in modes:
+        before, after = observed[row["beforeFrame"]], observed[row["afterFrame"]]
+        if (before, after) != (row["beforePixels"], row["afterPixels"]) or (after <= before if row["outlines"] else after != before):
+            raise Refusal("The outline slider did not preserve its enabled/disabled rendered effect")
+
+
 def verify_integrated(evidence, cases, request, pid, started, captures):
+    if SETTINGS_UI_CASE in cases:
+        verify_settings_ui(evidence, started)
     if GAMEPLAY_CASE in cases:
         verify_gameplay_timings(gameplay_readings(evidence, started)["timings"])
     if COLONY_CASE in cases:
