@@ -1177,15 +1177,21 @@ namespace IsoRim
                 LayerSubMesh solid75 = layer75.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
                 Check(solid75 != null && solid75.verts.Count == solid100.verts.Count, "Solid outline vertex count differs between 0.75 and 1.00");
 
-                width100 = (solid100.verts[1] - solid100.verts[0]).magnitude;
-                width75 = (solid75.verts[1] - solid75.verts[0]).magnitude;
+                Color32 lineColor = R3DMaterials.Shaded(wallThing.DrawColor, 0.32f);
+                int idx100 = solid100.colors.FindIndex(c => c.r == lineColor.r && c.g == lineColor.g && c.b == lineColor.b);
+                int idx75 = solid75.colors.FindIndex(c => c.r == lineColor.r && c.g == lineColor.g && c.b == lineColor.b);
+                Check(idx100 >= 0 && idx75 >= 0, "Outline rim vertices not found in solid submesh");
+
+                width100 = (solid100.verts[idx100 + 1] - solid100.verts[idx100]).magnitude;
+                width75 = (solid75.verts[idx75 + 1] - solid75.verts[idx75]).magnitude;
                 Check(Math.Abs(width75 / width100 - 0.75f) < 0.02f, "Outline quad width did not scale to 0.75");
 
                 IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f, ruggedRock = false };
                 var layer0 = new SectionLayer_IsoRimWalls(section);
                 WallBoxes.PrintBlock(layer0, wallThing, 1f);
                 LayerSubMesh solid0 = layer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
-                Check(solid0 == null || solid0.verts.Count == 0, "Outline quads emitted when outlines=false");
+                bool hasOutlines0 = solid0 != null && solid0.colors.Any(c => c.r == lineColor.r && c.g == lineColor.g && c.b == lineColor.b);
+                Check(!hasOutlines0, "Outline quads emitted when outlines=false");
             }
             finally
             {
