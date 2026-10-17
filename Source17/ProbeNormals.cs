@@ -96,7 +96,6 @@ namespace IsoRim
             {
                 return;
             }
-            started = true;
             try
             {
                 Request request = JsonSerializer.Deserialize<Request>(File.ReadAllText(path));
@@ -124,6 +123,11 @@ namespace IsoRim
                 {
                     throw new InvalidOperationException("The engine log is not isolated: " + engineLogRoot);
                 }
+                if (!ModelStyleCases.SettingsLayoutTick(request))
+                {
+                    return;
+                }
+                started = true;
                 Dictionary<string, string> modules = new Dictionary<string, string>();
                 string runtimeRoot = Path.GetDirectoryName(typeof(object).Assembly.Location);
                 foreach (string name in new[] { "RimWorld.dll", "Assembly-CSharp.dll", "UnityStubs.dll", "Waylith.dll", "Waylith.UnityCompat.dll", "System.Private.CoreLib.dll", "coreclr.dll" })
@@ -230,6 +234,7 @@ namespace IsoRim
             }
             catch (Exception error)
             {
+                started = true;
                 Log.Error("[IsoRim normal proof] " + error);
             }
             Application.Quit();

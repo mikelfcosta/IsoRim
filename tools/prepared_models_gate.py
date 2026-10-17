@@ -596,7 +596,7 @@ def reset_work_directory(path):
     path.mkdir(parents=True)
 
 
-def stage_runtime(args, evidence, intake=False, comparison=False):
+def stage_runtime(args, evidence, intake=False, comparison=False, settings_ui=False):
     runtime = WORK / "runtime"
     staged = WORK / "staged-mod"
     # Copy approved game inputs and selected official data. Never follow the installed Mods junction.
@@ -647,8 +647,9 @@ def stage_runtime(args, evidence, intake=False, comparison=False):
     shutil.copy2(args.harmony, harmony_mod / "Assemblies/0Harmony.dll")
     save = evidence / "savedata"
     (save / "Config").mkdir(parents=True)
+    width, height = (1280, 800) if settings_ui else (960, 640)
     (save / "Config/Prefs.xml").write_text(
-        "<PrefsData><devMode>True</devMode><screenWidth>960</screenWidth><screenHeight>640</screenHeight>"
+        f"<PrefsData><devMode>True</devMode><screenWidth>{width}</screenWidth><screenHeight>{height}</screenHeight>"
         "<fullscreen>False</fullscreen><runInBackground>True</runInBackground></PrefsData>")
     (save / "Config/ModsConfig.xml").write_text(
         "<ModsConfigData><version>1.7.4980 rev60</version><activeMods>"
@@ -1144,6 +1145,28 @@ def verify_settings_ui(evidence, started):
     if not ui.get("settingsReloaded") or any("Outline width" not in row["labels"] or row.get("input") != [.75, .25, 1.5]
                                             or row.get("value") != 1.25 or not row.get("settingsReloaded") for row in modes):
         raise Refusal("The outline slider visibility, value, range or persistence changed")
+    layout = ui.get("realWindow", [])
+    if len(layout) != 12 or {(row["mode"], row["outlines"], row["position"]) for row in layout} != {
+            (mode, enabled, position) for mode in range(3) for enabled in (True, False) for position in ("top", "bottom")}:
+        raise Refusal("The real settings window mode/state/scroll matrix is incomplete")
+    for row in layout:
+        path = evidence / row["pngPath"]
+        if path.resolve().parent != evidence.resolve() or path.is_symlink() or path.stat().st_mtime < started or digest(path) != row["pngHash"]:
+            raise Refusal("A real settings window screenshot is stale or invalid")
+        if path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+            raise Refusal("A real settings window screenshot is not a PNG")
+        if row["position"] != "bottom":
+            continue
+        if not row.get("label") or not row.get("slider") or len(row.get("clips", [])) < 4:
+            raise Refusal("The real settings window did not draw Outline width")
+        for rect in (row["label"], row["slider"]):
+            if len(rect) != 4 or not all(math.isfinite(value) for value in rect) or min(rect[2:]) <= 0:
+                raise Refusal("The real Outline width widget has invalid bounds")
+            for clip in row["clips"]:
+                if (len(clip) != 4 or not all(math.isfinite(value) for value in clip) or min(clip[2:]) <= 0
+                        or rect[0] < clip[0] - .1 or rect[1] < clip[1] - .1
+                        or rect[0] + rect[2] > clip[0] + clip[2] + .1 or rect[1] + rect[3] > clip[1] + clip[3] + .1):
+                    raise Refusal("Outline width is clipped in the real settings window")
     frames = ui["frames"]
     names = {f"ui-{mode}-{'on' if enabled else 'off'}-{phase}" for mode in range(3) for enabled in (True, False) for phase in ("before", "after")}
     if len(frames) != 12 or {frame["name"] for frame in frames} != names:
@@ -1285,7 +1308,7 @@ def runtime_cases(args, evidence, protected, cases, head):
                   evidence, "game-exclusion", protected)
         intake = any(case.startswith("AssetIntakeCases.") for case in cases)
         comparison = "ModelStyleCases.GameplayComparisonAndPerf" in cases or "SceneStyleCases.ColonySceneComparisonAndPerf" in cases
-        runtime, save, product = stage_runtime(args, evidence, intake=intake, comparison=comparison)
+        runtime, save, product = stage_runtime(args, evidence, intake=intake, comparison=comparison, settings_ui=SETTINGS_UI_CASE in cases)
         validator_results = validate_staged_intake(evidence, protected) if intake else None
         modules = {name: digest(runtime / name) for name in [*FINGERPRINTS, "System.Private.CoreLib.dll", "coreclr.dll"]}
         modules["0Harmony.dll"] = HARMONY_HASH
