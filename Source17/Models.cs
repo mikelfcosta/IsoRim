@@ -2541,8 +2541,10 @@ namespace IsoRim
         public static Material LitTexture(string path, Color baseColor, int bin = 0, int curve = 0, ShadingNormalSpace normalSpace = ShadingNormalSpace.GeometricOnly)
         {
             curve = curve == 1 ? 1 : 0;
-            Color32 c = baseColor;
-            string key = path + "|" + c.r + "," + c.g + "," + c.b + "|" + curve + "|" + (int)normalSpace;
+            int cr = Mathf.RoundToInt(baseColor.r * 255f);
+            int cg = Mathf.RoundToInt(baseColor.g * 255f);
+            int cb = Mathf.RoundToInt(baseColor.b * 255f);
+            string key = path + "|" + cr + "," + cg + "," + cb + "|" + curve + "|" + (int)normalSpace;
             Material m;
             if (litByKey.TryGetValue(key, out m))
             {
