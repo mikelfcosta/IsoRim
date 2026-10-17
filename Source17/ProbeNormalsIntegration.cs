@@ -1013,6 +1013,12 @@ namespace IsoRim
         {
             if (!condition) throw new InvalidOperationException(message);
         }
+        private static readonly List<Tuple<Mesh, Material>> SubmittedDrawLit = new List<Tuple<Mesh, Material>>();
+        private static void RecordDrawLit(Mesh mesh, Matrix4x4 matrix, Material mat, int layer)
+        {
+            SubmittedDrawLit.Add(Tuple.Create(mesh, mat));
+        }
+
 
         private static object WallsRocksAndRoofs(ProbeNormals.Request request)
         {
@@ -1747,6 +1753,7 @@ namespace IsoRim
                     "Ground.Restore() failed to restore original SoilRich texture and color");
 
                 // -------------------------------------------------------------
+                // -------------------------------------------------------------
                 // 2. Upright Plant Cards (UprightCards.Move & Shading Contract)
                 // -------------------------------------------------------------
                 var cardLayer = new SectionLayer_IsoRimWalls(section);
@@ -1771,34 +1778,105 @@ namespace IsoRim
                 Check(cardSub.verts.Count == 4 && cardSub.uvsChannelTwo.Count == 4, "Card submesh vertex or UV2 count differs from 4");
 
                 // Check hinge root vs crown tip offsets in uvsChannelTwo:
-                // Vertex 0: d.z == 0 (hinge root)
-                // Vertex 1: d.z == sizeY > 0 (crown tip)
                 Check(Math.Abs(cardSub.uvsChannelTwo[0].z) < 1e-4f, "Card vertex 0 offset d.z is not at hinge root (0)");
                 Check(Math.Abs(cardSub.uvsChannelTwo[1].z - sizeY) < 1e-4f, "Card vertex 1 offset d.z is not at crown tip");
                 Check(Math.Abs(cardSub.uvsChannelTwo[0].y) < 1e-4f && Math.Abs(cardSub.uvsChannelTwo[1].y) < 1e-4f, "Flat quad inUv1 d.y is non-zero");
 
-                // Evaluate plant card shading formula from IsoRimCardPlant.frag.glsl:
-                // vCardHeight = clamp(d.z / max(0.25, max(d.z, abs(d.x) * 2.0)), 0.0, 1.0)
-                float hRoot = Mathf.Clamp01(0f / Mathf.Max(0.25f, Mathf.Max(0f, 0.4f * 2f))); // 0.0
-                float hTip = Mathf.Clamp01(sizeY / Mathf.Max(0.25f, Mathf.Max(sizeY, 0.4f * 2f))); // 1.0
-                float groundingRoot = Mathf.Lerp(0.86f, 1.02f, hRoot); // 0.86
-                float groundingTip = Mathf.Lerp(0.86f, 1.02f, hTip);   // 1.02
-                Check(Math.Abs(groundingRoot - 0.86f) < 1e-4f && Math.Abs(groundingTip - 1.02f) < 1e-4f, "Hinge-to-tip grounding differs from 0.86..1.02");
+                // Finalize mesh on cardLayer for GPU rendering:
+                CutTags.Finish(cardLayer);
+                NormalStreams.Finish(cardLayer);
+                typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(cardLayer, new object[] { MeshParts.All });
 
-                // Vary _IsoSun (high sun vs low opposing sun):
-                Vector3 cardN = new Vector3(0f, Mathf.Lerp(0.35f, 0.92f, hTip), 0.38f).normalized;
-                Vector3 sunHigh = new Vector3(0f, 0.9f, 0.435f).normalized;
-                Vector3 sunLow = new Vector3(0f, 0.2f, -0.98f).normalized;
-                float wrapW = 0.22f;
-                float diffHigh = Mathf.Lerp(0.88f, 1.04f, Mathf.Clamp01((Vector3.Dot(cardN, sunHigh) + wrapW) / (1f + wrapW)));
-                float diffLow = Mathf.Lerp(0.88f, 1.04f, Mathf.Clamp01((Vector3.Dot(cardN, sunLow) + wrapW) / (1f + wrapW)));
-                Check(Math.Abs(diffHigh - diffLow) > 0.05f, "Varying _IsoSun direction failed to change plant card diffuse brightness");
+                // Render cardSub directly on the GPU through IsoRimCardPlant:
+                var cardCamOwner = new GameObject("IsoRim plant card proof");
+                Camera cardCam = cardCamOwner.AddComponent<Camera>();
+                cardCam.enabled = false; cardCam.orthographic = true; cardCam.aspect = 1f; cardCam.cullingMask = 0;
+                cardCam.clearFlags = CameraClearFlags.SolidColor; cardCam.backgroundColor = Color.magenta;
+                RenderTexture cardTarget = RenderTexture.GetTemporary(128, 128, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+                cardCam.targetTexture = cardTarget;
+                cardCam.transform.position = new Vector3(pivot.x, 0f, pivot.z - 5f);
+                cardCam.transform.LookAt(new Vector3(pivot.x, 0f, pivot.z));
+                cardCam.worldToCameraMatrix = cardCam.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1f, View3D.Squash, 1f));
+                cardCam.orthographicSize = 1.5f;
+                UprightCards.SetCamera(0f, 0f);
 
-                // Vary clayWrap (0.10 vs 0.50):
-                Vector3 sunOblique = new Vector3(0.5f, 0.5f, -0.7f).normalized;
-                float diffWrap1 = Mathf.Lerp(0.88f, 1.04f, Mathf.Clamp01((Vector3.Dot(cardN, sunOblique) + 0.10f) / 1.10f));
-                float diffWrap2 = Mathf.Lerp(0.88f, 1.04f, Mathf.Clamp01((Vector3.Dot(cardN, sunOblique) + 0.50f) / 1.50f));
-                Check(Math.Abs(diffWrap1 - diffWrap2) > 0.01f, "Varying clayWrap failed to change plant card diffuse brightness");
+                Texture origCardTex = cardMat.mainTexture;
+                Texture2D cardTex = new Texture2D(32, 32, TextureFormat.RGBA32, false);
+                Color32[] cardPx = new Color32[32 * 32];
+                for (int i = 0; i < cardPx.Length; i++) cardPx[i] = new Color32(255, 255, 255, 255);
+                for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) cardPx[y * 32 + x] = new Color32(255, 255, 255, 0);
+                cardTex.SetPixels32(cardPx);
+                cardTex.Apply();
+                cardMat.mainTexture = cardTex;
+                Color SampleCard(Vector4 isoClayCard, Vector4 isoSun, Color vertexColor, float sway, int px, int py)
+                {
+                    Shader.SetGlobalVector("_IsoClayCard", isoClayCard);
+                    Shader.SetGlobalVector("_IsoSun", isoSun);
+                    cardMat.SetFloat("_SwayHead", sway);
+                    Color32 c32 = (Color32)vertexColor;
+                    cardSub.mesh.colors32 = new[] { c32, c32, c32, c32 };
+                    Camera.CameraCallback draw = active =>
+                    {
+                        if (active != cardCam) return;
+                        cardMat.SetPass(0);
+                        Graphics.DrawMeshNow(cardSub.mesh, Matrix4x4.identity);
+                    };
+                    Camera.onPreRender += draw;
+                    cardCam.Render();
+                    Camera.onPreRender -= draw;
+                    RenderTexture.active = cardTarget;
+                    Texture2D readTex = new Texture2D(128, 128, TextureFormat.RGBA32, false);
+                    readTex.ReadPixels(new Rect(0, 0, 128, 128), 0, 0);
+                    readTex.Apply();
+                    Color pixel = readTex.GetPixel(px, py);
+                    UnityEngine.Object.DestroyImmediate(readTex);
+                    return pixel;
+                }
+
+                try
+                {
+                    // Grounding: root (py=73) vs crown tip (py=107) in Clay mode
+                    Color rootPx = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), Color.white, 0f, 64, 73);
+                    Color tipPx = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), Color.white, 0f, 64, 107);
+                    Check(tipPx.r > rootPx.r, $"Crown tip rendered pixel ({tipPx.r:F3}, {tipPx.g:F3}, {tipPx.b:F3}) is not brighter than hinge root ({rootPx.r:F3}, {rootPx.g:F3}, {rootPx.b:F3})");
+                    float gRatio = tipPx.r / rootPx.r;
+                    Check(gRatio >= 1.05f && gRatio <= 1.25f, "Grounding ratio differs from 1.02 / 0.86 = 1.186: observed " + gRatio);
+
+                    // Two sun directions: high sun vs low opposing sun
+                    Color highSunPx = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.9f, 0.435f, 0f), Color.white, 0f, 64, 90);
+                    Color lowSunPx = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.2f, -0.98f, 0f), Color.white, 0f, 64, 90);
+                    Check(highSunPx.r > lowSunPx.r + 0.03f, "Varying _IsoSun direction failed to change rendered plant card brightness");
+
+                    // Two wrap values under oblique sun
+                    Vector4 obliqueSun = new Vector4(0.5f, 0.5f, -0.7f, 0f);
+                    Color wrap1Px = SampleCard(new Vector4(1f, 0.10f, 0f, 0f), obliqueSun, Color.white, 0f, 64, 90);
+                    Color wrap2Px = SampleCard(new Vector4(1f, 0.50f, 0f, 0f), obliqueSun, Color.white, 0f, 64, 90);
+                    Check(Math.Abs(wrap1Px.r - wrap2Px.r) > 0.01f, "Varying clayWrap failed to change rendered plant card brightness");
+
+                    // Classic comparison with non-white card:
+                    Color classicNonWhite = SampleCard(new Vector4(0f, 0f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), new Color(0.7f, 0.6f, 0.8f), 0f, 64, 90);
+                    Color classicWhite = SampleCard(new Vector4(0f, 0f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), Color.white, 0f, 64, 90);
+                    Check(Math.Abs(classicNonWhite.r - classicWhite.r) < 0.01f, "Classic plant card output changed for non-white card");
+                    Color clayNonWhite = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), new Color(0.7f, 0.6f, 0.8f), 0f, 64, 90);
+                    Color clayWhite = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), Color.white, 0f, 64, 90);
+                    Check(clayNonWhite.r < clayWhite.r - 0.03f, "Clay plant card failed to multiply vertex color");
+
+                    // Cutout observation:
+                    Color cornerPx = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), Color.white, 0f, 64, 20);
+                    Check(cornerPx == Color.magenta, "Cutout alpha < 0.35 failed to discard transparent texel");
+
+                    // Wind sway observation:
+                    Color stillPx = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), Color.white, 5f, 81, 90);
+                    Color swayedPx = SampleCard(new Vector4(1f, 0.22f, 0f, 0f), new Vector4(0f, 0.8f, 0.6f, 0f), Color.white, 25f, 81, 90);
+                    Check(stillPx != swayedPx, "Wind sway failed to shift plant card position");
+                }
+                finally
+                {
+                    cardMat.mainTexture = origCardTex;
+                    UnityEngine.Object.DestroyImmediate(cardTex);
+                    RenderTexture.ReleaseTemporary(cardTarget);
+                    UnityEngine.Object.DestroyImmediate(cardCamOwner);
+                }
 
                 // -------------------------------------------------------------
                 // 3. Sprite Slabs (SpriteSolids & Extruder)
@@ -1807,8 +1885,8 @@ namespace IsoRim
                 GenSpawn.Spawn(weaponThing, Find.CurrentMap.Center + new IntVec3(3, 0, 3), Find.CurrentMap);
 
                 // Build SpriteSolids and verify dual sides / claySides:
-                MethodInfo buildMethod = typeof(SpriteSolids).GetMethod("Build", BindingFlags.NonPublic | BindingFlags.Static);
-                object solidObj = buildMethod.Invoke(null, new object[] { weaponThing.Graphic.MatSingleFor(weaponThing) });
+                MethodInfo forMethod = typeof(SpriteSolids).GetMethod("For", BindingFlags.NonPublic | BindingFlags.Static);
+                object solidObj = forMethod.Invoke(null, new object[] { weaponThing.Graphic.MatSingleFor(weaponThing) });
                 FieldInfo sidesField = solidObj.GetType().GetField("sides");
                 FieldInfo claySidesField = solidObj.GetType().GetField("claySides");
                 Mesh classicSidesMesh = (Mesh)sidesField.GetValue(solidObj);
@@ -1819,35 +1897,57 @@ namespace IsoRim
                 Color32[] clayColors = claySidesMesh.colors32;
                 Check(classicColors.Length == clayColors.Length && classicColors.Length > 0, "SpriteSolids sides vertex count differs");
 
-                // Classic sides contain directional edge shading and 0.70f fill:
-                // Clay sides use uniform 0.92f edge shading and 0.86f interior fill:
-                bool hasDirectionalContrast = false;
-                bool hasFillContrast = false;
-                for (int i = 0; i < classicColors.Length; i++)
-                {
-                    if (classicColors[i].r > 10 && clayColors[i].r > 10)
-                    {
-                        float ratio = (float)clayColors[i].r / classicColors[i].r;
-                        if (Math.Abs(ratio - (0.92f / 0.60f)) < 0.18f || Math.Abs(ratio - (0.92f / 1.00f)) < 0.18f)
-                        {
-                            hasDirectionalContrast = true;
-                        }
-                        if (Math.Abs(ratio - (0.86f / 0.70f)) < 0.18f)
-                        {
-                            hasFillContrast = true;
-                        }
-                    }
-                }
-                Check(hasDirectionalContrast, "Clay sides do not replace classic directional edge shading with uniform 0.92f shading");
-                Check(hasFillContrast, "Clay sides do not replace classic 0.70f interior fill with 0.86f shading");
-                // DrawHeld mode conditioning:
-                IsoRimMod.Settings.modelStyle = 1;
-                bool heldClay = SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 0f);
-                Check(heldClay, "SpriteSolids.DrawHeld failed in clay mode");
+                // Check edge and fill colors separately:
+                Extruder.Mask mask = Extruder.MaskOf(weaponThing.Graphic.MatSingleFor(weaponThing).mainTexture, Vector2.one, Vector2.zero);
+                Check(mask != null, "MaskOf returned null for weapon texture");
+                int edgeVertCount = mask.runs.Count * 4;
+                float cMin = classicColors.Take(edgeVertCount).Min(c => (float)c.r / 255f);
+                float cMax = classicColors.Take(edgeVertCount).Max(c => (float)c.r / 255f);
+                Check(cMax - cMin > 0.20f, "Classic edge vertices do not contain directional contrast");
+                float classicFillR = (float)classicColors[edgeVertCount].r / 255f;
+                float clayFillR = (float)clayColors[edgeVertCount].r / 255f;
+                Check(Math.Abs(clayFillR / classicFillR - (0.86f / 0.70f)) < 0.05f, "Fill vertices ratio differs from 0.86 / 0.70");
 
-                IsoRimMod.Settings.modelStyle = 0;
-                bool heldClassic = SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 0f);
-                Check(heldClassic, "SpriteSolids.DrawHeld failed in classic mode");
+                // Observe submitted mesh and material across 0, 1, 0:
+                var hook = new Harmony("isorim.style.slab-routing-proof");
+                MethodInfo drawLitMethod = typeof(IsoGlow).GetMethod("DrawLit", BindingFlags.Public | BindingFlags.Static);
+                hook.Patch(drawLitMethod, prefix: new HarmonyMethod(typeof(SceneStyleCases).GetMethod("RecordDrawLit", BindingFlags.NonPublic | BindingFlags.Static)));
+                try
+                {
+                    // Classic mode (0):
+                    SubmittedDrawLit.Clear();
+                    IsoRimMod.Settings.modelStyle = 0;
+                    SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 0f);
+                    SpriteSolids.DrawUpright(weaponThing, new Vector3(10f, 1f, 10f), 0f, false, 1f);
+                    SpriteSolids.DrawLying(weaponThing, new Vector3(10f, 0f, 10f), 0.1f, 1f);
+                    Check(SubmittedDrawLit.Count == 3, "DrawHeld/Upright/Lying failed to submit to DrawLit in classic mode");
+                    Check(SubmittedDrawLit.All(s => s.Item1 == classicSidesMesh && s.Item2 == R3DMaterials.Solid && s.Item2.GetFloat("_LightMode") == 0f),
+                        "Classic slab did not submit classic sides and unlit Solid");
+
+                    // Clay mode (1):
+                    SubmittedDrawLit.Clear();
+                    IsoRimMod.Settings.modelStyle = 1;
+                    SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 0f);
+                    SpriteSolids.DrawUpright(weaponThing, new Vector3(10f, 1f, 10f), 0f, false, 1f);
+                    SpriteSolids.DrawLying(weaponThing, new Vector3(10f, 0f, 10f), 0.1f, 1f);
+                    Check(SubmittedDrawLit.Count == 3, "DrawHeld/Upright/Lying failed to submit to DrawLit in clay mode");
+                    Check(SubmittedDrawLit.All(s => s.Item1 == claySidesMesh && s.Item2 == R3DMaterials.LitModel && s.Item2.GetFloat("_LightMode") == 1f),
+                        "Clay slab did not submit claySides and LitModel");
+
+                    // Restore mode (0):
+                    SubmittedDrawLit.Clear();
+                    IsoRimMod.Settings.modelStyle = 0;
+                    SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 0f);
+                    SpriteSolids.DrawUpright(weaponThing, new Vector3(10f, 1f, 10f), 0f, false, 1f);
+                    SpriteSolids.DrawLying(weaponThing, new Vector3(10f, 0f, 10f), 0.1f, 1f);
+                    Check(SubmittedDrawLit.Count == 3, "DrawHeld/Upright/Lying failed to submit to DrawLit on restore");
+                    Check(SubmittedDrawLit.All(s => s.Item1 == classicSidesMesh && s.Item2 == R3DMaterials.Solid && s.Item2.GetFloat("_LightMode") == 0f),
+                        "Restored slab did not submit classic sides and unlit Solid");
+                }
+                finally
+                {
+                    hook.Unpatch(drawLitMethod, HarmonyPatchType.Prefix, hook.Id);
+                }
 
                 // Extruder.Extrude outline scaling and BottomShade:
                 Vector3 ev0 = new Vector3(10f, 0f, 10f);
@@ -1866,27 +1966,69 @@ namespace IsoRim
                 float squash = View3D.Squash;
                 float expectedLine100 = 0.03f * 1.00f / squash;
                 float expectedLine75 = 0.03f * 0.75f / squash;
-                bool hasLine100 = extSolid100.verts.Any(v => Math.Abs(v.y - expectedLine100) < 1e-4f);
+                bool hasLine100 = extSolid100.verts.Any(v => Math.Abs(v.y * squash - 0.03f * 1.00f) < 1e-3f);
                 Check(hasLine100, "Extruder ground line quad missing at outlineWidth=1.00");
+
+                // Extruder bottom shade check in clay mode (0.86):
+                float bottomShadeObs100 = 0f;
+                foreach (var sub in extLayer100.subMeshes)
+                {
+                    if (sub == extSm100 || sub.material == R3DMaterials.Solid) continue;
+                    for (int i = 0; i < sub.colors.Count; i += 4)
+                    {
+                        int topVal = Math.Max(sub.colors[i + 1].r, Math.Max(sub.colors[i + 1].g, sub.colors[i + 1].b));
+                        int botVal = Math.Max(sub.colors[i].r, Math.Max(sub.colors[i].g, sub.colors[i].b));
+                        if (topVal > 20 && botVal > 0)
+                        {
+                            bottomShadeObs100 = (float)botVal / topVal;
+                            break;
+                        }
+                    }
+                    if (bottomShadeObs100 > 0f) break;
+                }
+                Check(bottomShadeObs100 > 0f && Math.Abs(bottomShadeObs100 - 0.86f) < 0.03f, "Extruder bottom shade is not 0.86 in clay mode: observed " + bottomShadeObs100);
                 IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 0.75f, modelStyle = 1 };
                 var extLayer75 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh extSm75 = MeshWriter.Sub(extLayer75, extMat);
                 MeshWriter.TexturedQuad(extSm75, ev0, ev1, ev2, ev3, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f), Color.white);
                 Extruder.Extrude(extLayer75, extSm75, 4, extMat, 0f, 1f);
                 LayerSubMesh extSolid75 = extLayer75.subMeshes.First(s => s.material == R3DMaterials.Solid);
-                bool hasLine75 = extSolid75.verts.Any(v => Math.Abs(v.y - expectedLine75) < 1e-4f);
+                bool hasLine75 = extSolid75.verts.Any(v => Math.Abs(v.y * squash - 0.03f * 0.75f) < 1e-3f);
                 Check(hasLine75, "Extruder ground line quad missing at outlineWidth=0.75");
                 float observedH100 = extSolid100.verts.Where(v => v.y > 0.001f).Min(v => v.y) * squash;
                 float observedH75 = extSolid75.verts.Where(v => v.y > 0.001f).Min(v => v.y) * squash;
                 Check(Math.Abs(observedH75 / observedH100 - 0.75f) < 0.02f, "Extruder ground line height did not scale to 0.75");
 
+                // Extruder bottom shade check in classic mode (0.78):
+                IsoRimMod.Settings = new IsoRimSettings { outlines = true, outlineWidth = 1.00f, modelStyle = 0 };
+                var extLayerClassic = new SectionLayer_IsoRimWalls(section);
+                LayerSubMesh extSmClassic = MeshWriter.Sub(extLayerClassic, extMat);
+                MeshWriter.TexturedQuad(extSmClassic, ev0, ev1, ev2, ev3, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f), Color.white);
+                Extruder.Extrude(extLayerClassic, extSmClassic, 4, extMat, 0f, 1f);
+                float bottomShadeObsClassic = 0f;
+                foreach (var sub in extLayerClassic.subMeshes)
+                {
+                    if (sub == extSmClassic || sub.material == R3DMaterials.Solid) continue;
+                    for (int i = 0; i < sub.colors.Count; i += 4)
+                    {
+                        int topVal = Math.Max(sub.colors[i + 1].r, Math.Max(sub.colors[i + 1].g, sub.colors[i + 1].b));
+                        int botVal = Math.Max(sub.colors[i].r, Math.Max(sub.colors[i].g, sub.colors[i].b));
+                        if (topVal > 20 && botVal > 0)
+                        {
+                            bottomShadeObsClassic = (float)botVal / topVal;
+                            break;
+                        }
+                    }
+                    if (bottomShadeObsClassic > 0f) break;
+                }
+                Check(bottomShadeObsClassic > 0f && Math.Abs(bottomShadeObsClassic - 0.78f) < 0.03f, "Extruder bottom shade is not 0.78 in classic mode: observed " + bottomShadeObsClassic);
                 IsoRimMod.Settings = new IsoRimSettings { outlines = false, outlineWidth = 0.75f, modelStyle = 1 };
                 var extLayer0 = new SectionLayer_IsoRimWalls(section);
                 LayerSubMesh extSm0 = MeshWriter.Sub(extLayer0, extMat);
                 MeshWriter.TexturedQuad(extSm0, ev0, ev1, ev2, ev3, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f), Color.white);
                 Extruder.Extrude(extLayer0, extSm0, 4, extMat, 0f, 1f);
                 LayerSubMesh extSolid0 = extLayer0.subMeshes.FirstOrDefault(s => s.material == R3DMaterials.Solid);
-                bool hasLine0 = extSolid0 != null && extSolid0.verts.Any(v => Math.Abs(v.y - expectedLine100) < 1e-4f || Math.Abs(v.y - expectedLine75) < 1e-4f);
+                bool hasLine0 = extSolid0 != null && extSolid0.verts.Any(v => Math.Abs(v.y * squash - 0.03f * 1.00f) < 1e-3f || Math.Abs(v.y * squash - 0.03f * 0.75f) < 1e-3f);
                 Check(!hasLine0, "Extruder emitted ground line quads when outlines=false");
                 Check(extSolid0 == null || extSolid0.verts.Count < extSolid100.verts.Count, "Extruder vertex count did not decrease when outlines=false");
 
@@ -1896,35 +2038,75 @@ namespace IsoRim
                 Material waterMat = R3DMaterials.WaterOverlay;
                 Check(waterMat != null && waterMat.GetFloat("_LightMode") == 4f, "R3DMaterials.WaterOverlay missing LightMode 4");
 
-                IntVec3 waterCell = Find.CurrentMap.Center + new IntVec3(15, 0, 15);
-                Find.CurrentMap.terrainGrid.SetTerrain(waterCell, TerrainDefOf.WaterShallow);
-                Find.CurrentMap.terrainGrid.SetTerrain(waterCell + IntVec3.North, TerrainDefOf.WaterDeep);
-                Section waterSection = Find.CurrentMap.mapDrawer.SectionAt(waterCell);
-                MethodInfo waterBuildMethod = typeof(SectionLayer_IsoRimWater).GetMethod("Build", BindingFlags.Instance | BindingFlags.NonPublic);
+                // Shore-to-deep fixture with concave inner corner at shoreCenter:
+                IntVec3 shoreCenter = Find.CurrentMap.Center + new IntVec3(15, 0, 15);
+                var waterCells = new List<IntVec3>();
+                for (int dz = -5; dz <= 5; dz++)
+                {
+                    for (int dx = -5; dx <= 5; dx++)
+                    {
+                        IntVec3 c = shoreCenter + new IntVec3(dx, 0, dz);
+                        if (c.InBounds(Find.CurrentMap))
+                        {
+                            if (dx == -5 && dz == -5) continue; // concave inner corner on land
+                            bool shallow = dx == -5 || dz == -5 || dx == 5 || dz == 5;
+                            TerrainDef wDef = (dx == 1 && dz == 1) ? DefDatabase<TerrainDef>.GetNamed("WaterMovingShallow") : (shallow ? TerrainDefOf.WaterShallow : TerrainDefOf.WaterDeep);
+                            Find.CurrentMap.terrainGrid.SetTerrain(c, wDef);
+                            waterCells.Add(c);
+                        }
+                    }
+                }
+                Section waterSection = Find.CurrentMap.mapDrawer.SectionAt(shoreCenter);
+                FieldInfo ripplesField = typeof(SectionLayer_IsoRimWater).GetField("ripples", BindingFlags.NonPublic | BindingFlags.Static);
+                FieldInfo flowField = typeof(SectionLayer_IsoRimWater).GetField("flow", BindingFlags.NonPublic | BindingFlags.Static);
 
                 try
                 {
                     // Water in Clay mode (modelStyle = 1):
-                    IsoRimMod.Settings = new IsoRimSettings { waterStyle = true, modelStyle = 1 };
+                    IsoRimMod.Settings = new IsoRimSettings { waterStyle = true, effects3D = true, modelStyle = 1 };
                     var waterLayerClay = new SectionLayer_IsoRimWater(waterSection);
-                    waterBuildMethod.Invoke(waterLayerClay, null);
+                    waterLayerClay.Regenerate();
                     LayerSubMesh waterSmClay = waterLayerClay.subMeshes.First(s => s.material == R3DMaterials.WaterOverlay);
                     Check(waterSmClay.colors.Count > 0, "Water submesh has no vertices in clay mode");
+
                     // Verify feathered alpha: shallow shore is 210, deep water is 245, NOT 255:
-                    Check(waterSmClay.colors.Any(c => c.a == 210), "Water submesh missing feathered 210 alpha at shallow shore in clay mode");
-                    Check(!waterSmClay.colors.All(c => c.a == 255), "Water submesh wrote 255 alpha in clay mode");
+                    Check(waterSmClay.colors.Any(c => c.a == 210), "Water submesh missing feathered 210 alpha at shallow shore/inner corner in clay mode");
+                    Check(waterSmClay.colors.Any(c => c.a == 245), "Water submesh missing feathered 245 alpha at deep water in clay mode");
+                    Check(waterSmClay.colors.Select(c => c.a).Distinct().Count() >= 2, "Water vertex alpha is flat instead of feathered");
+
+                    // Observe wave opacity and scrolling in clay mode:
+                    waterLayerClay.DrawLayer();
+                    Material rClay = (Material)ripplesField.GetValue(null);
+                    Material fClay = (Material)flowField.GetValue(null);
+                    Check(rClay != null && Math.Abs(rClay.color.a - 0.68f) < 0.03f, "Ripples material opacity is not 0.68 in clay mode");
+                    Check(fClay != null && Math.Abs(fClay.color.a - 0.68f) < 0.03f, "Flow material opacity is not 0.68 in clay mode");
+                    Vector2 shift1 = rClay.mainTextureOffset;
+                    Vector2 flow1 = fClay.mainTextureOffset;
+                    Find.TickManager.DebugSetTicksGame(Find.TickManager.TicksGame + 120);
+                    waterLayerClay.DrawLayer();
+                    Vector2 shift2 = rClay.mainTextureOffset;
+                    Vector2 flow2 = fClay.mainTextureOffset;
+                    Check(shift1 != shift2, "Ripples texture offset did not scroll with game ticks");
+                    Check(flow1 != flow2, "Flow texture offset did not scroll with game ticks");
 
                     // Water in Classic mode (modelStyle = 0):
-                    IsoRimMod.Settings = new IsoRimSettings { waterStyle = true, modelStyle = 0 };
+                    IsoRimMod.Settings = new IsoRimSettings { waterStyle = true, effects3D = true, modelStyle = 0 };
                     var waterLayerClassic = new SectionLayer_IsoRimWater(waterSection);
-                    waterBuildMethod.Invoke(waterLayerClassic, null);
+                    waterLayerClassic.Regenerate();
                     LayerSubMesh waterSmClassic = waterLayerClassic.subMeshes.First(s => s.material == R3DMaterials.WaterOverlay);
                     Check(waterSmClassic.colors.All(c => c.a == 255), "Water submesh wrote non-255 alpha in classic mode");
+
+                    // Observe wave opacity in classic mode:
+                    waterLayerClassic.DrawLayer();
+                    Check(Math.Abs(rClay.color.a - 1.0f) < 0.03f, "Ripples material opacity is not 1.0 in classic mode");
+                    Check(Math.Abs(fClay.color.a - 1.0f) < 0.03f, "Flow material opacity is not 1.0 in classic mode");
                 }
                 finally
                 {
-                    Find.CurrentMap.terrainGrid.SetTerrain(waterCell, TerrainDefOf.Soil);
-                    Find.CurrentMap.terrainGrid.SetTerrain(waterCell + IntVec3.North, TerrainDefOf.Soil);
+                    foreach (IntVec3 c in waterCells)
+                    {
+                        Find.CurrentMap.terrainGrid.SetTerrain(c, TerrainDefOf.Soil);
+                    }
                 }
 
                 if (weaponThing.Spawned) weaponThing.Destroy();
@@ -1938,9 +2120,9 @@ namespace IsoRim
             // -------------------------------------------------------------
             // 5. GPU Framebuffer Captures for S02 Surfaces
             // -------------------------------------------------------------
-            var pair = new StaticNormalCases.Pair
+            var slabPair = new StaticNormalCases.Pair
             {
-                Name = "terrain-cards-water",
+                Name = "terrain-cards-water-slab",
                 Scale = new Vector3(1.3f, 0.9f, 1.1f),
                 Turn = 20,
                 N = new Vector3(0.989247403381f, 0.140757555142f, 0.039710018574f),
@@ -1949,35 +2131,51 @@ namespace IsoRim
                 L = new Vector3(0f, 0.8f, 0.6f),
                 Shades = new[] { 1d, 0.75d, 0.5d }
             };
+            var waterPair = new StaticNormalCases.Pair
+            {
+                Name = "terrain-cards-water-sheen",
+                Scale = new Vector3(1.3f, 0.9f, 1.1f),
+                Turn = 20,
+                N = new Vector3(0.989247403381f, 0.140757555142f, 0.039710018574f),
+                G = new Vector3(0f, 0.7071068f, -0.7071068f),
+                Q = Vector3.forward,
+                L = new Vector3(0f, 0.7071068f, 0.7071068f),
+                Shades = new[] { 1d, 0.75d, 0.5d }
+            };
             SectionLayer bakeLayer = StaticNormalCases.Bake(StaticNormalCases.Fixture(request.fixtureDirectory, false, false),
-                Quaternion.AngleAxis(20, Vector3.up), Quaternion.identity, pair.Scale);
+                Quaternion.AngleAxis(20, Vector3.up), Quaternion.identity, slabPair.Scale);
             StaticNormalCases.Upload(bakeLayer);
             LayerSubMesh face = StaticNormalCases.Face(bakeLayer, false);
 
             var captures = new List<object>();
 
-            // Water sheen capture in clay mode (LightMode 4, sceneClay 1):
-            // Reference: albedo 0.6 * (mix(0.94, 1.03, 0.8) = 1.012) = 0.6072 -> 155/255
-            const double RefWaterSheenClay = 155.0 / 255.0;
-            const double RefWaterClassic = 153.0 / 255.0; // unlit shade 1.0 * albedo 0.6 = 0.60 -> 153/255
-            const double RefSlabClay = 141.0 / 255.0; // LitModel mode 1 under sun in clay mode (albedo 0.6 * clayShade 0.9267 = 0.556 -> 141/255)
-            const double RefSlabClassic = 134.0 / 255.0; // LitModel mode 1 under sun in classic mode (albedo 0.6 * ModelShade 0.875 = 0.525 -> 134/255)
+            // Water sheen capture:
+            // L = (0, 0.707, 0.707), V = (0, 0.707, -0.707) -> H = (0, 1, 0), H.y = 1.0 -> spec 0.35 * 0.50 * 1.0 = 0.175, diff mix(0.94, 1.03, 0.707) = 1.0036 -> shade 1.1786 -> albedo 0.6 * 1.1786 = 0.7072 -> 180/255
+            const double RefWaterSheenClay = 180.0 / 255.0;
+            // Classic unlit water: shade 1.0 -> albedo 0.6 * 1.0 = 0.60 -> 153/255 (separates from 180 by 27 levels)
+            const double RefWaterClassic = 153.0 / 255.0;
+            // Slab in clay mode: LightMode 1 under sun -> albedo 0.6 * clayShade 0.9267 = 0.556 -> 141/255
+            const double RefSlabClay = 141.0 / 255.0;
+            // Slab in classic mode: production unlit LightMode 0 -> albedo 0.6 * 1.0 = 0.60 -> 153/255 (separates from 141 by 12 levels)
+            const double RefSlabClassic = 153.0 / 255.0;
 
-            var waterSheenClay = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-water-sheen-clay", referenceRgb: RefWaterSheenClay, sceneClay: 1f, lightMode: 4, style: 1);
+            var waterSheenClay = StaticNormalCases.Capture(request.outputDirectory, waterPair, face, false, false, 0, 0, 0,
+                "-water-sheen-clay", referenceRgb: RefWaterSheenClay, sceneClay: 1f, lightMode: 4, style: 1, highlight: 0.50f, alignedHighlight: false);
             captures.Add(waterSheenClay);
 
-            var waterSheenClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-water-sheen-classic", referenceRgb: RefWaterClassic, sceneClay: 0f, lightMode: 4, style: 0);
+            var waterSheenClassic = StaticNormalCases.Capture(request.outputDirectory, waterPair, face, false, false, 0, 0, 0,
+                "-water-sheen-classic", referenceRgb: RefWaterClassic, sceneClay: 0f, lightMode: 4, style: 0, highlight: 0f, alignedHighlight: false);
             captures.Add(waterSheenClassic);
 
-            var slabClay = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
+            var slabClay = StaticNormalCases.Capture(request.outputDirectory, slabPair, face, false, false, 0, 0, 0,
                 "-slab-clay", referenceRgb: RefSlabClay, sceneClay: 1f, lightMode: 1, style: 1, highlight: 0.04f);
             captures.Add(slabClay);
 
-            var slabClassic = StaticNormalCases.Capture(request.outputDirectory, pair, face, false, false, 0, 0, 0,
-                "-slab-classic", referenceRgb: RefSlabClassic, sceneClay: 0f, lightMode: 1, style: 0);
+            var slabClassic = StaticNormalCases.Capture(request.outputDirectory, slabPair, face, false, false, 0, 0, 0,
+                "-slab-classic", referenceRgb: RefSlabClassic, sceneClay: 0f, lightMode: 0, style: 0);
             captures.Add(slabClassic);
+
+            StaticNormalCases.ClearIntegrationMeshes();
 
             StaticNormalCases.ClearIntegrationMeshes();
 
