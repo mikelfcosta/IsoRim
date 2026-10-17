@@ -1013,6 +1013,11 @@ namespace IsoRim
         {
             if (!condition) throw new InvalidOperationException(message);
         }
+        private static void SunPrefix(ref System.Numerics.Vector3? sunDirection)
+        {
+            sunDirection = new System.Numerics.Vector3(0f, 0.8f, 0.6f);
+        }
+
 
 
         private static object WallsRocksAndRoofs(ProbeNormals.Request request)
@@ -2002,13 +2007,48 @@ namespace IsoRim
                 slabCamera.clearFlags = CameraClearFlags.SolidColor; slabCamera.backgroundColor = Color.magenta;
                 RenderTexture slabTarget = RenderTexture.GetTemporary(128, 128, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
                 slabCamera.targetTexture = slabTarget;
-                slabCamera.transform.position = new Vector3(10f, 1f / View3D.Squash, 5f);
-                slabCamera.transform.LookAt(new Vector3(10f, 1f / View3D.Squash, 10f));
+                Vector3 slabCenter = new Vector3(10f, 1f / View3D.Squash, 10f);
+                Vector3 slabCamDir = new Vector3(1f, 1f, -1.5f).normalized;
+                slabCamera.transform.position = slabCenter - slabCamDir * 5f;
+                slabCamera.transform.LookAt(slabCenter);
                 slabCamera.orthographicSize = 1.0f;
+                Vector4 prevLitSun = R3DMaterials.LitModel.GetVector("_IsoSun");
+                Vector4 prevLitView = R3DMaterials.LitModel.GetVector("_IsoView");
+                R3DMaterials.LitModel.SetVector("_IsoSun", new Vector4(0f, 0.8f, 0.6f, 0f));
+                R3DMaterials.LitModel.SetVector("_IsoView", new Vector4(slabCamDir.x, slabCamDir.y, slabCamDir.z, View3D.Squash));
                 Shader.SetGlobalVector("_IsoSun", new Vector4(0f, 0.8f, 0.6f, 0f));
+                Shader.SetGlobalVector("_IsoView", new Vector4(slabCamDir.x, slabCamDir.y, slabCamDir.z, View3D.Squash));
 
+                float AverageLum(byte[] raw, out int sidePixels)
+                {
+                    sidePixels = 0;
+                    float lumSum = 0f;
+                    for (int i = 0; i < raw.Length; i += 4)
+                    {
+                        if (!(raw[i] == 255 && raw[i + 1] == 0 && raw[i + 2] == 255))
+                        {
+                            sidePixels++;
+                            lumSum += raw[i] * 0.2126f + raw[i + 1] * 0.7152f + raw[i + 2] * 0.0722f;
+                        }
+                    }
+                    return sidePixels > 0 ? (lumSum / sidePixels / 255f) : 0f;
+                }
+
+                // Clone production side geometry with uniform vertex colours to isolate lighting from contour/fill colour differences:
+                Mesh uniformSideMesh = UnityEngine.Object.Instantiate(claySidesMesh);
+                Color32[] uniformColors = new Color32[uniformSideMesh.vertexCount];
+                for (int i = 0; i < uniformColors.Length; i++) uniformColors[i] = new Color32(200, 200, 200, 255);
+                uniformSideMesh.colors32 = uniformColors;
+
+                var sunHook = new Harmony("isorim.slab.sun");
+                var recordMethod = typeof(Waylith.Rendering.MeshBatchRenderer).GetMethod("RecordBatch");
+                sunHook.Patch(recordMethod, prefix: new HarmonyMethod(typeof(SceneStyleCases).GetMethod(nameof(SunPrefix), BindingFlags.Static | BindingFlags.NonPublic)));
                 try
                 {
+                    // Render uniform clone with production LitModel material across two orientations:
+                    claySidesField.SetValue(solidObj, uniformSideMesh);
+                    IsoRimMod.Settings.modelStyle = 1;
+                    R3DMaterials.SyncModelStyle(1, 0.22f, 0.04f, 0.65f);
                     var aim0Commands = new List<MeshDrawCommand>();
                     using (MeshDrawSubmission.BeginCapture(aim0Commands))
                     {
@@ -2029,36 +2069,53 @@ namespace IsoRim
                     Check(aim90SideOnly.Count > 0, "No side draw submitted at aim 90");
                     byte[] rawAim90 = MovingNormalCases.RenderProofScene(slabTarget, slabCamera, aim90SideOnly, out _, out _);
 
-                    int sidePixels0 = 0;
-                    float lumSum0 = 0f;
-                    for (int i = 0; i < rawAim0.Length; i += 4)
-                    {
-                        if (!(rawAim0[i] == 255 && rawAim0[i + 1] == 0 && rawAim0[i + 2] == 255))
-                        {
-                            sidePixels0++;
-                            lumSum0 += rawAim0[i] * 0.2126f + rawAim0[i + 1] * 0.7152f + rawAim0[i + 2] * 0.0722f;
-                        }
-                    }
-                    int sidePixels90 = 0;
-                    float lumSum90 = 0f;
-                    for (int i = 0; i < rawAim90.Length; i += 4)
-                    {
-                        if (!(rawAim90[i] == 255 && rawAim90[i + 1] == 0 && rawAim90[i + 2] == 255))
-                        {
-                            sidePixels90++;
-                            lumSum90 += rawAim90[i] * 0.2126f + rawAim90[i + 1] * 0.7152f + rawAim90[i + 2] * 0.0722f;
-                        }
-                    }
+                    float avgLum0 = AverageLum(rawAim0, out int sidePixels0);
+                    float avgLum90 = AverageLum(rawAim90, out int sidePixels90);
                     Check(sidePixels0 >= 20 && sidePixels90 >= 20, $"Held slab side pixel coverage below floor (20): aim0={sidePixels0}, aim90={sidePixels90}");
-                    float avgLum0 = lumSum0 / sidePixels0 / 255f;
-                    float avgLum90 = lumSum90 / sidePixels90 / 255f;
                     float delta = Math.Abs(avgLum0 - avgLum90);
-                    Check(delta > 0.03f, $"Held slab side shading delta ({delta:F3}) under fixed sun is not > 0.03: aim0={avgLum0:F3}, aim90={avgLum90:F3}");
+                    Check(delta > 0.03f, $"Held slab side shading delta ({delta:F3}) on uniform mesh under fixed sun is not > 0.03: aim0={avgLum0:F3}, aim90={avgLum90:F3}");
+
+                    // Meaningful control: same uniform geometry with lighting neutralised (unlit Solid, modelStyle 0) must NOT show delta:
+                    sidesField.SetValue(solidObj, uniformSideMesh);
+                    IsoRimMod.Settings.modelStyle = 0;
+                    R3DMaterials.SyncModelStyle(0, 0.22f, 0.04f, 0.65f);
+
+                    var aim0UnlitCommands = new List<MeshDrawCommand>();
+                    using (MeshDrawSubmission.BeginCapture(aim0UnlitCommands))
+                    {
+                        SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 0f);
+                    }
+                    var aim0UnlitSideOnly = aim0UnlitCommands.Where(c => c.Material != null && c.Material.DebugName == "IsoRim_Solid").ToList();
+                    Check(aim0UnlitSideOnly.Count > 0, "No side draw submitted for unlit control at aim 0");
+                    byte[] rawAim0Unlit = MovingNormalCases.RenderProofScene(slabTarget, slabCamera, aim0UnlitSideOnly, out _, out _);
+
+                    var aim90UnlitCommands = new List<MeshDrawCommand>();
+                    using (MeshDrawSubmission.BeginCapture(aim90UnlitCommands))
+                    {
+                        SpriteSolids.DrawHeld(weaponThing, new Vector3(10f, 1f, 10f), 90f);
+                    }
+                    var aim90UnlitSideOnly = aim90UnlitCommands.Where(c => c.Material != null && c.Material.DebugName == "IsoRim_Solid").ToList();
+                    Check(aim90UnlitSideOnly.Count > 0, "No side draw submitted for unlit control at aim 90");
+                    byte[] rawAim90Unlit = MovingNormalCases.RenderProofScene(slabTarget, slabCamera, aim90UnlitSideOnly, out _, out _);
+
+                    float avgUnlit0 = AverageLum(rawAim0Unlit, out int unlitPixels0);
+                    float avgUnlit90 = AverageLum(rawAim90Unlit, out int unlitPixels90);
+                    Check(unlitPixels0 >= 20 && unlitPixels90 >= 20, $"Unlit control side coverage below floor (20): aim0={unlitPixels0}, aim90={unlitPixels90}");
+                    float unlitDelta = Math.Abs(avgUnlit0 - avgUnlit90);
+                    Check(unlitDelta < 0.01f, $"Neutralised lighting control showed spurious delta ({unlitDelta:F3}): aim0={avgUnlit0:F3}, aim90={avgUnlit90:F3}");
                 }
                 finally
                 {
+                    claySidesField.SetValue(solidObj, claySidesMesh);
+                    sidesField.SetValue(solidObj, classicSidesMesh);
+                    IsoRimMod.Settings.modelStyle = 1;
+                    R3DMaterials.SyncModelStyle(1, 0.22f, 0.04f, 0.65f);
+                    UnityEngine.Object.DestroyImmediate(uniformSideMesh);
                     RenderTexture.ReleaseTemporary(slabTarget);
                     UnityEngine.Object.DestroyImmediate(slabProofOwner);
+                    sunHook.Unpatch(recordMethod, HarmonyPatchType.Prefix, sunHook.Id);
+                    R3DMaterials.LitModel.SetVector("_IsoSun", prevLitSun);
+                    R3DMaterials.LitModel.SetVector("_IsoView", prevLitView);
                 }
 
                 // Extruder.Extrude outline scaling and BottomShade:
