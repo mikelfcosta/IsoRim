@@ -357,6 +357,11 @@ def validate_materials(root: Path) -> list[str]:
     return errors
 
 
+OPTIONAL_SOURCE_TEXTURE_PREFIXES = {
+    "IsoRim/Clay/Ground/",
+}
+
+
 def validate_source_textures(root: Path) -> list[str]:
     errors = []
     tex_pattern = re.compile(r'"(IsoRim/[^"]+)"')
@@ -371,7 +376,7 @@ def validate_source_textures(root: Path) -> list[str]:
                 continue
             for match in tex_pattern.finditer(content):
                 val = match.group(1).replace("\\", "/")
-                if val == "IsoRim/LUT":
+                if val == "IsoRim/LUT" or val in OPTIONAL_SOURCE_TEXTURE_PREFIXES:
                     continue
                 if val.endswith("/"):
                     target_dir = textures_dir / val

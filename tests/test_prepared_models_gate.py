@@ -619,6 +619,20 @@ class GateHostTests(unittest.TestCase):
             missing = subprocess.run(command, capture_output=True, text=True, timeout=30)
             self.assertEqual(missing.returncode, 1)
             self.assertIn("material library missing", missing.stderr)
+            import validate_mod
+            # Control: absent optional override folder is accepted, while missing required folder or texture fails closed.
+            with tempfile.TemporaryDirectory() as test_root_dir:
+                t_root = Path(test_root_dir)
+                (t_root / "Source17").mkdir(parents=True)
+                (t_root / "Textures").mkdir(parents=True)
+                (t_root / "Source17/Test.cs").write_text('string p = "IsoRim/Clay/Ground/";')
+                self.assertEqual(validate_mod.validate_source_textures(t_root), [])
+                (t_root / "Source17/Test.cs").write_text('string p = "IsoRim/MissingFolder/";')
+                errs = validate_mod.validate_source_textures(t_root)
+                self.assertTrue(any("references missing texture folder: IsoRim/MissingFolder/" in e for e in errs))
+                (t_root / "Source17/Test.cs").write_text('string p = "IsoRim/MissingTexture";')
+                errs = validate_mod.validate_source_textures(t_root)
+                self.assertTrue(any("references missing texture: IsoRim/MissingTexture" in e for e in errs))
 
         import prepared_models_gate as gate
 

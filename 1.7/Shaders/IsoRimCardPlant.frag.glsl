@@ -118,11 +118,11 @@ void main()
         float clayDiffuse = mix(0.88, 1.04, wrapped);
         float grounding = mix(0.86, 1.02, vCardHeight);
         rgb *= clayDiffuse * grounding;
+        rgb *= vColor.rgb;
         float lum = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
         vec3 warmMidtone = vec3(lum * 1.06, lum * 0.98, lum * 0.88);
         rgb = mix(rgb, warmMidtone, 0.12);
     }
 
-    rgb *= vColor.rgb;
     outColor = vec4(rgb, texVal.a);
 }
