@@ -185,7 +185,7 @@ namespace IsoRim
                 && fields["exports"] == "generated asymmetric fixture; no production export required", "The handoff changed the approved convention");
             string note = File.ReadAllText(Path.Combine(root, "README.md"));
             Require(required.All(key => note.Contains("| " + key + " | " + fields[key] + " |"))
-                && note.Contains("R01Ã¢â‚¬â€œR29") && note.Contains("230 subcases") && note.Contains("23 earlier staged controls"), "The preparation note omits the settled profile or recovery ledger");
+                && note.Contains("R01–R29") && note.Contains("230 subcases") && note.Contains("23 earlier staged controls"), "The preparation note omits the settled profile or recovery ledger");
             return new { fields, contractHash = Hash(contract), noteHash = Hash(Path.Combine(root, "README.md")), requiredRecoveryClasses = 29, requiredRecoverySubcases = 230, requiredEarlierControls = 23 };
         }
 
@@ -2415,6 +2415,26 @@ namespace IsoRim
                 // Shore-to-deep fixture with concave inner corner at shoreCenter:
                 Section waterSection = Find.CurrentMap.mapDrawer.SectionAt(Find.CurrentMap.Center + new IntVec3(15, 0, 15));
                 IntVec3 shoreCenter = waterSection.botLeft + new IntVec3(8, 0, 8);
+                // Shore alpha depends on terrain beyond the painted water patch. Save the
+                // collar and underlays too, so a naturally wet neighbour cannot change d.
+                TerrainGrid terrain = Find.CurrentMap.terrainGrid;
+                IntVec3[] waterFixture = new CellRect(shoreCenter.x - 7, shoreCenter.z - 7, 15, 15).Where(c => c.InBounds(Find.CurrentMap)).ToArray();
+                TerrainDef[] topBefore = waterFixture.Select(terrain.TerrainAt).ToArray();
+                FieldInfo underField = typeof(TerrainGrid).GetField("underGrid", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                FieldInfo foundationField = typeof(TerrainGrid).GetField("foundationGrid", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                FieldInfo colorField = typeof(TerrainGrid).GetField("colorGrid", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var underGrid = (TerrainDef[])underField.GetValue(terrain);
+                var foundationGrid = (TerrainDef[])foundationField.GetValue(terrain);
+                var colorGrid = (ColorDef[])colorField.GetValue(terrain);
+                int[] fixtureIndices = waterFixture.Select(c => Find.CurrentMap.cellIndices.CellToIndex(c)).ToArray();
+                Check(underGrid != null, "Water fixture has no underlay grid");
+                TerrainDef[] underBefore = fixtureIndices.Select(i => underGrid[i]).ToArray(), foundationBefore = foundationGrid == null ? null : fixtureIndices.Select(i => foundationGrid[i]).ToArray();
+                ColorDef[] colorBefore = colorGrid == null ? null : fixtureIndices.Select(i => colorGrid[i]).ToArray();
+                foreach (IntVec3 c in waterFixture)
+                {
+                    terrain.SetTerrain(c, TerrainDefOf.Soil);
+                    underGrid[Find.CurrentMap.cellIndices.CellToIndex(c)] = null;
+                }
                 var waterCells = new List<IntVec3>();
                 IntVec3 landCorner = shoreCenter + new IntVec3(-5, 0, -5);
                 TerrainDef landBefore = Find.CurrentMap.terrainGrid.TerrainAt(landCorner);
@@ -2441,6 +2461,16 @@ namespace IsoRim
                 {
                     // Water in Clay mode (modelStyle = 1):
                     IsoRimMod.Settings = new IsoRimSettings { clayWarmth = 0f, waterStyle = true, effects3D = true, modelStyle = 1 };
+                    // Negative control: continue water across the expected shore. This
+                    // reproduces the 217-vs-210 failure without changing the alpha oracle.
+                    IntVec3[] wetCollar = Enumerable.Range(-5, 11).Select(dx => shoreCenter + new IntVec3(dx, 0, 6)).ToArray();
+                    foreach (IntVec3 c in wetCollar) terrain.SetTerrain(c, TerrainDefOf.WaterShallow);
+                    var poisonedWater = new SectionLayer_IsoRimWater(waterSection); poisonedWater.Regenerate();
+                    LayerSubMesh poisonedSub = poisonedWater.subMeshes.First(sub => sub.material == R3DMaterials.WaterOverlay);
+                    int poisonedIndex = poisonedSub.verts.FindIndex(v => Math.Abs(v.x - shoreCenter.x) < 1e-3f && Math.Abs(v.z - (shoreCenter.z + 6)) < 1e-3f);
+                    Check(poisonedIndex >= 0 && poisonedSub.colors[poisonedIndex].a > 210, "Wet shore collar did not falsify the alpha control");
+                    byte poisonedAlpha = poisonedSub.colors[poisonedIndex].a;
+                    foreach (IntVec3 c in wetCollar) terrain.SetTerrain(c, TerrainDefOf.Soil);
                     var waterLayerClay = new SectionLayer_IsoRimWater(waterSection);
                     waterLayerClay.Regenerate();
                     LayerSubMesh waterSmClay = waterLayerClay.subMeshes.First(s => s.material == R3DMaterials.WaterOverlay);
@@ -2454,6 +2484,7 @@ namespace IsoRim
                     int ordinaryShoreIdx = waterSmClay.verts.FindIndex(v => Math.Abs(v.x - shoreCenter.x) < 1e-3f && Math.Abs(v.z - (shoreCenter.z + 6)) < 1e-3f);
                     Check(ordinaryShoreIdx >= 0, "Ordinary shallow shoreline vertex (d <= 1) missing in clay water mesh");
                     Check(waterSmClay.colors[ordinaryShoreIdx].a == 210, $"Ordinary shallow shoreline vertex does not have alpha 210: observed {waterSmClay.colors[ordinaryShoreIdx].a}");
+                    File.WriteAllText(Path.Combine(request.outputDirectory, "water-collar-isolation.json"), JsonSerializer.Serialize(new { poisonedAlpha, isolatedAlpha = waterSmClay.colors[ordinaryShoreIdx].a, cells = waterFixture.Length }));
 
                     // Check RoundInnerCorners tip alpha 210 at the concave land corner:
                     int kx = landCorner.x + 1;
@@ -2495,11 +2526,14 @@ namespace IsoRim
                 }
                 finally
                 {
-                    foreach (IntVec3 c in waterCells)
+                    for (int i = 0; i < waterFixture.Length; i++)
                     {
-                        Find.CurrentMap.terrainGrid.SetTerrain(c, TerrainDefOf.Soil);
+                        terrain.SetTerrain(waterFixture[i], topBefore[i]);
+                        underGrid[fixtureIndices[i]] = underBefore[i];
+                        if (foundationGrid != null) foundationGrid[fixtureIndices[i]] = foundationBefore[i];
+                        if (colorGrid != null) colorGrid[fixtureIndices[i]] = colorBefore[i];
                     }
-                    Find.CurrentMap.terrainGrid.SetTerrain(landCorner, landBefore);
+                    Check(topBefore.SequenceEqual(waterFixture.Select(terrain.TerrainAt)) && underBefore.SequenceEqual(waterFixture.Select(terrain.UnderTerrainAt)), "Water fixture terrain/underlays were not restored");
                 }
 
                 if (weaponThing.Spawned) weaponThing.Destroy();
