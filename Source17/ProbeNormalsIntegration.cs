@@ -185,7 +185,7 @@ namespace IsoRim
                 && fields["exports"] == "generated asymmetric fixture; no production export required", "The handoff changed the approved convention");
             string note = File.ReadAllText(Path.Combine(root, "README.md"));
             Require(required.All(key => note.Contains("| " + key + " | " + fields[key] + " |"))
-                && note.Contains("R01–R29") && note.Contains("230 subcases") && note.Contains("23 earlier staged controls"), "The preparation note omits the settled profile or recovery ledger");
+                && note.Contains("R01Ã¢â‚¬â€œR29") && note.Contains("230 subcases") && note.Contains("23 earlier staged controls"), "The preparation note omits the settled profile or recovery ledger");
             return new { fields, contractHash = Hash(contract), noteHash = Hash(Path.Combine(root, "README.md")), requiredRecoveryClasses = 29, requiredRecoverySubcases = 230, requiredEarlierControls = 23 };
         }
 
@@ -987,7 +987,7 @@ namespace IsoRim
         }
 
         private static readonly HashSet<string> uiLabels = new HashSet<string>();
-        private static readonly Dictionary<string, float> uiSliders = new Dictionary<string, float> { { "Soft light wrap", .31f }, { "Matte highlight", .08f }, { "Roughness", .9f }, { "Outline width", 1.25f } };
+        private static readonly Dictionary<string, float> uiSliders = new Dictionary<string, float> { { "Soft light wrap", .31f }, { "Matte highlight", .08f }, { "Roughness", .9f }, { "Outline width", 1.25f }, { "Warm/cool light shift", 0f } };
         private static string uiSlider;
         private static readonly List<float[]> uiOutlineInputs = new List<float[]>();
         private static bool UiLabel(object[] __args)
@@ -3197,10 +3197,596 @@ namespace IsoRim
 
     internal static class LightingReadabilityCases
     {
-        internal static readonly string[] Cases = { "LightingReadabilityCases.ClayDaylightAndGlow" };
+        internal static readonly string[] Cases = { "LightingReadabilityCases.ClayDaylightAndGlow", "LightingReadabilityCases.GradingAndSignalReadability" };
         private static void Check(bool condition, string message)
         {
             if (!condition) throw new InvalidOperationException(message);
+        }
+
+        private static object GradingMath(ProbeNormals.Request request)
+        {
+            // Literal hashes captured at the commissioned base, before grading changes.
+            var frozen = new Dictionary<string, string>
+            {
+                { "Gentle", "3DC5632AEA453D84A57B84B15840AF6782FA5ED0554D91E130571D9704E2AD77" },
+                { "WarmAfternoon", "687D0520EEE57D45293E581CA71A81D29A9961DD5FFD0473002ABF2A51D4A40A" },
+                { "CoolMorning", "5736E5BD7C39974F0C4236B473657DA8B4EA20B93B906CB074338DE0C800942D" },
+                { "Filmic", "9B29222B4172F2A574BDFE7BA420F78F20D87CACF08E61DF8689356977DB59F8" },
+                { "Bleak", "6A62E0F39ACCFF7B7FAF1F081AFF926A53481D660C6A469C9118542EC078AC79" },
+                { "Vivid", "E62C2E7E2D2431E27566FC09CF57086A2945ACC307F304CEB72B6A946DAFBC1B" },
+                { "Autumn", "F37788BA8FBF0E84989283D8ADFA3D3A930429DEA040667AEE1F2EC67604E4FF" },
+                { "Moonlight", "9B1367C6EF4C7B63D1E9594F53ADE05A388549FE29AAF5AD1C0E3BACF6D2ADC3" },
+                { "Toxic", "1C9A89E978F21507F389F5AC9FA6869EF009ABDA06047E0427FD4378FA8BA845" },
+                { "Sepia", "E8C5A117841E053317045073A6A4D6AF08E411CD5FEA8738879FC881A71BCE5A" },
+                { "Noir", "138EA6A5710A4D7965BD5AC18004CC41210375B504AE4DCE0C12A30CD55CFBA3" },
+            };
+            foreach (var row in frozen)
+            {
+                LookPreset p = Looks.Find(row.Key);
+                Check(!p.lumaDesat && p.shoulder == 0 && !p.hasClayRecipe && p.softBloom == 0, "Legacy preset flags changed: " + row.Key);
+                byte[] bytes = LookMath.Strip(p, 64, null).SelectMany(c => new[] { c.r, c.g, c.b, c.a }).ToArray();
+                Check(Convert.ToHexString(SHA256.HashData(bytes)) == row.Value, "Legacy strip changed: " + row.Key);
+            }
+            string[] names = { "WarmDiorama", "PastelDiorama", "GoldenDiorama" };
+            string[] labels = { "Warm diorama", "Pastel glade", "Golden hour" };
+            float[][] expected = {
+                new[] { 0.55f, 0.22f, 0.04f, 0.05f, 0.08f, 0.14f, 0.18f, 1.0f, 0.02f, 1.0f, 0.97f, 0.91f, 0.018f, 0.016f, 0.028f },
+                new[] { 0.42f, 0.28f, 0.03f, 0.06f, 0.16f, 0.08f, 0.24f, 1.01f, 0.03f, 0.99f, 0.97f, 0.93f, 0.026f, 0.024f, 0.034f },
+                new[] { 0.72f, 0.22f, 0.05f, 0.07f, 0.06f, 0.18f, 0.2f, 0.99f, 0.02f, 1.0f, 0.93f, 0.84f, 0.024f, 0.015f, 0.028f },
+            };
+            for (int i = 0; i < names.Length; i++)
+            {
+                Check(Looks.Presets.Any(p => p.name == names[i]), "Missing preset " + names[i]);
+                LookPreset p = Looks.Find(names[i]);
+                Check(p.label == labels[i] && p.hasClayRecipe && p.lumaDesat, "Diorama preset flags differ");
+                float[] actual = { p.clayWarmth, p.clayWrap, p.clayHighlight, p.softBloom, p.desat, p.contrast, p.shoulder, p.bright, p.exposure,
+                    p.gain.r, p.gain.g, p.gain.b, p.lift.r, p.lift.g, p.lift.b };
+                Check(actual.SequenceEqual(expected[i]), "Exact preset values differ: " + names[i]);
+                var st = new IsoRimSettings { clayWarmth = .01f, clayWrap = .01f, clayHighlight = .01f, softBloom = .01f };
+                Looks.ApplyRecipe(p, st);
+                Check(new[] { st.clayWarmth, st.clayWrap, st.clayHighlight, st.softBloom }.SequenceEqual(expected[i].Take(4)), "Recipe did not overwrite sentinels");
+            }
+            var legacySettings = new IsoRimSettings { clayWarmth = .37f, softBloom = .13f };
+            Looks.ApplyRecipe(Looks.Find("Gentle"), legacySettings);
+            Check(legacySettings.softBloom == 0 && legacySettings.clayWarmth == .37f, "Legacy recipe reset differs");
+            Looks.ApplyRecipe(new LookPreset("no-recipe", "", "") { softBloom = .14f }, legacySettings);
+            Check(legacySettings.softBloom == 0f, "Non-recipe preset retained bloom");
+            var grey = new LookPreset("proof", "", "") { lumaDesat = true, desat = 1f };
+            Color redGrey = LookMath.Apply(grey, Color.red);
+            Check(Math.Abs(redGrey.r - .2126f) < 1e-6f && redGrey.r == redGrey.g && redGrey.g == redGrey.b, "Desaturation is not true luminance");
+            foreach (LookPreset p in Looks.Presets)
+            {
+                Color last = LookMath.Apply(p, new Color(.70f, .70f, .70f));
+                for (int j = 701; j <= 1000; j++)
+                {
+                    float x = j / 1000f; Color next = LookMath.Apply(p, new Color(x, x, x));
+                    Check(next.r >= last.r && next.g >= last.g && next.b >= last.b, "Nonmonotonic preset: " + p.name);
+                    last = next;
+                }
+                if (p.shoulder == 0) continue;
+                var isolated = new LookPreset("shoulder", "", "") { shoulder = p.shoulder };
+                Check(LookMath.Apply(isolated, new Color(.9f, .9f, .9f)).r < .9f
+                    && LookMath.Apply(isolated, new Color(.7f, .7f, .7f)).r == .7f, "Shoulder did not compress only highlights");
+            }
+            Color[][] groups = {
+                new[] { "WoodLog", "BlocksGranite", "Steel", "Cloth", "Gold", "Jade", "DevilstrandCloth" }
+                    .Select(name => DefDatabase<ThingDef>.GetNamed(name).stuffProps.color).ToArray(),
+                new[] { new Color(0, .737f, .847f), new Color(.85f, 0, 0), new Color(.135f, .5235f, .5735f), new Color(.590f, .505f, .460f) }
+            };
+            float Hue(Color c)
+            {
+                // HSV, neutral RGB has hue zero; this convention includes Steel in the bound.
+                Color.RGBToHSV(c, out float h, out _, out _); return h * 360f;
+            }
+            var metrics = new List<object>();
+            foreach (string look in new[] { "WarmDiorama", "Bleak" })
+            {
+                float maxHue = 0, minRatio = float.MaxValue; int pairCount = 0;
+                var inputs = new List<object>(); var groupMetrics = new List<object>();
+                foreach (Color[] group in groups)
+                {
+                    float groupHue = 0, groupRatio = float.MaxValue;
+                    var pairs = new List<object>();
+                    Color[] graded = group.Select(c => LookMath.Apply(Looks.Find(look), c)).ToArray();
+                    for (int i = 0; i < group.Length; i++)
+                    {
+                        float shift = Math.Abs(Mathf.DeltaAngle(Hue(group[i]), Hue(graded[i])));
+                        maxHue = Math.Max(maxHue, shift); groupHue = Math.Max(groupHue, shift);
+                        inputs.Add(new { raw = new[] { group[i].r, group[i].g, group[i].b }, graded = new[] { graded[i].r, graded[i].g, graded[i].b }, shift });
+                        for (int j = i + 1; j < group.Length; j++)
+                        {
+                            Vector3 V(Color c) => new Vector3(c.r, c.g, c.b);
+                            float ratio = Vector3.Distance(V(graded[i]), V(graded[j])) / Vector3.Distance(V(group[i]), V(group[j]));
+                            minRatio = Math.Min(minRatio, ratio); groupRatio = Math.Min(groupRatio, ratio); pairCount++;
+                            pairs.Add(new { a = i, b = j, rawDistance = Vector3.Distance(V(group[i]), V(group[j])), gradedDistance = Vector3.Distance(V(graded[i]), V(graded[j])), ratio });
+                        }
+                    }
+                    Check(pairs.Count == (group.Length == 7 ? 21 : 6), "Within-group pair roster differs");
+                    groupMetrics.Add(new { group = group.Length == 7 ? "stuff" : "faction", maxHue = groupHue, minRatio = groupRatio, pairs });
+                }
+                Check(pairCount == 27, "Reference pair count differs from 21+6");
+                Check(look == "WarmDiorama" ? maxHue <= 10f && minRatio >= .60f : maxHue > 10f && minRatio < .60f, "Swatch bounds/control failed: " + look + " hue=" + maxHue + " ratio=" + minRatio);
+                metrics.Add(new { look, maxHue, minRatio, pairCount, inputs, groups = groupMetrics });
+            }
+            return new { legacyHashes = frozen, presets = names, hueDefinition = "HSV degrees; neutral hue=0", metrics };
+        }
+
+        private static byte[] SignalFrame(ProbeNormals.Request request, string name, Camera camera, RenderTexture target, List<MeshDrawCommand> commands)
+        {
+            // The offscreen baker does not own the main camera's scene-grab lifecycle. Supply
+            // its input at that engine boundary from a completed GPU render of the real scene.
+            // Grade.Draw still owns every grade material uniform and its LUT binding.
+            var grade = commands.Where(c => c.Material.DebugName == "IsoRim_Grade").ToList();
+            RenderTexture input = null;
+            int grabId = Shader.PropertyToID("_GrabIsoRimGrade");
+            Waylith.Rendering.GlobalShaderState.TryGetTexture(grabId, out var oldGrab);
+            byte[] raw; int before, completed;
+            try
+            {
+                if (grade.Count > 0)
+                {
+                    input = RenderTexture.GetTemporary(64, 64, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+                    MovingNormalCases.RenderProofScene(input, camera, commands.Except(grade).ToList(), out _, out _);
+                    Shader.SetGlobalTexture(grabId, input);
+                }
+                raw = MovingNormalCases.RenderProofScene(target, camera, grade.Count > 0 ? grade : commands, out before, out completed);
+            }
+            finally
+            {
+                Waylith.Rendering.GlobalShaderState.SetTexture(grabId, oldGrab);
+                if (input != null) RenderTexture.ReleaseTemporary(input);
+            }
+            Check(raw.Length == 64 * 64 * 4, "Signal frame dimensions differ");
+            string rawPath = name + ".rgba", pngPath = name + ".png";
+            File.WriteAllBytes(Path.Combine(request.outputDirectory, rawPath), raw);
+            RenderTexture previous = RenderTexture.active;
+            var image = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+            try
+            {
+                RenderTexture.active = target; image.ReadPixels(new Rect(0, 0, 64, 64), 0, 0); image.Apply();
+                File.WriteAllBytes(Path.Combine(request.outputDirectory, pngPath), image.EncodeToPNG());
+            }
+            finally { RenderTexture.active = previous; UnityEngine.Object.Destroy(image); }
+            lightingFrames.Add(new { name, rawPath, pngPath, gpuFrameBefore = before, gpuFrameCompleted = completed });
+            return raw;
+        }
+
+        private static Color SignalPixel(byte[] raw, int x, int y)
+        {
+            int i = (y * 64 + x) * 4;
+            return new Color(raw[i] / 255f, raw[i + 1] / 255f, raw[i + 2] / 255f, raw[i + 3] / 255f);
+        }
+
+        private static Mesh SignalQuad(float x0, float y0, float x1, float y1, float z, Color color)
+        {
+            var mesh = new Mesh();
+            mesh.vertices = new[] { new Vector3(x0, y0, z), new Vector3(x0, y1, z), new Vector3(x1, y1, z), new Vector3(x1, y0, z) };
+            mesh.colors = Enumerable.Repeat(color, 4).ToArray();
+            mesh.normals = Enumerable.Repeat(Vector3.back, 4).ToArray();
+            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 }; mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private static object GradingGpu(ProbeNormals.Request request)
+        {
+            IsoRimSettings previous = IsoRimMod.Settings;
+            string gradeSource = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Mods", "IsoRim", "1.7", "Shaders", "IsoRimGrade.frag.glsl"));
+            Check(gradeSource.Contains("float _SoftBloom; // @default = 0.0"), "SoftBloom shader default changed");
+            Vector4 view = Shader.GetGlobalVector("_IsoView");
+            var owner = new GameObject("IsoRim grading signal witness");
+            Camera camera = owner.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.aspect = 1; camera.orthographicSize = 1; camera.cullingMask = 0;
+            camera.transform.position = new Vector3(0, 0, -5); camera.transform.rotation = Quaternion.identity;
+            RenderTexture target = RenderTexture.GetTemporary(64, 64, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            camera.targetTexture = target;
+            Material surface = R3DMaterials.Make(R3DMaterials.SolidDef, "IsoRim grade input");
+            Mesh backdrop = SignalQuad(-1, -1, 1, 1, 0, new Color(.3f, .3f, .3f));
+            Mesh peak = SignalQuad(-.125f, -.125f, .125f, .125f, -.1f, new Color(.95f, .95f, .95f));
+            Mesh dark = SignalQuad(-.9f, -.8f, -.6f, .8f, -.1f, new Color(.05f, .05f, .05f));
+            var st = new IsoRimSettings { grade = true, modelStyle = 1, lookName = "Custom", saturation = 1, brightness = 1, softBloom = 0 };
+            IsoRimMod.Settings = st;
+            var rows = new List<object>();
+            List<MeshDrawCommand> Draw(bool grade, bool hot = true)
+            {
+                var commands = new List<MeshDrawCommand>();
+                using (MeshDrawSubmission.BeginCapture(commands))
+                {
+                    Graphics.DrawMesh(backdrop, Matrix4x4.identity, surface, 0, camera);
+                    Graphics.DrawMesh(dark, Matrix4x4.identity, surface, 0, camera);
+                    if (hot) Graphics.DrawMesh(peak, Matrix4x4.identity, surface, 0, camera);
+                    if (grade) Grade.Draw(camera);
+                }
+                return commands;
+            }
+            try
+            {
+                Shader.SetGlobalVector("_IsoView", new Vector4(0, 0, -1, 1));
+                FieldInfo rebuilt = typeof(Grade).GetField("rebuilds", BindingFlags.Static | BindingFlags.NonPublic);
+                FieldInfo pixels = typeof(Grade).GetField("builtPixels", BindingFlags.Static | BindingFlags.NonPublic);
+                var hashes = new HashSet<string>();
+                foreach (string name in new[] { "WarmDiorama", "PastelDiorama", "GoldenDiorama", "Gentle" })
+                {
+                    st.lookName = name; st.lookStrength = 1; st.softBloom = .14f;
+                    Looks.ApplyRecipe(Looks.Find(name), st); View3D.Tick();
+                    Check(Math.Abs(R3DMaterials.LitModel.GetFloat("_ClayWarmth") - st.clayWarmth) < 1e-6f, "Recipe warmth did not reach View3D");
+                    var commands = Draw(true);
+                    Check(commands.Count == 4, "Production Grade.Draw omitted the preset pass");
+                    var grade = commands.Last().Material;
+                    Check(Math.Abs(grade.GetFloat("_SoftBloom") - st.softBloom) < 1e-6f, "Grade.Draw omitted recipe bloom");
+                    Color32[] strip = (Color32[])pixels.GetValue(null);
+                    Check(strip.Length == 64 * 64 * 64, "Built strip dimensions differ");
+                    Check(hashes.Add(Convert.ToHexString(SHA256.HashData(strip.SelectMany(c => new[] { c.r, c.g, c.b, c.a }).ToArray()))), "Switching presets reused stale LUT bytes");
+                    byte[] frame = SignalFrame(request, "grade-" + name, camera, target, commands);
+                    Color actual = SignalPixel(frame, 20, 32), expected = LookMath.Apply(Looks.Current(), new Color(76f / 255, 76f / 255, 76f / 255));
+                    Check(Math.Abs(actual.r - expected.r) <= 2f / 255 && Math.Abs(actual.g - expected.g) <= 2f / 255 && Math.Abs(actual.b - expected.b) <= 2f / 255, "Production LUT binding differs from LookMath: " + name);
+                    rows.Add(new { name, warmth = R3DMaterials.LitModel.GetFloat("_ClayWarmth"), bloom = grade.GetFloat("_SoftBloom") });
+                }
+                st.lookName = "WarmDiorama"; st.lookStrength = .5f; Draw(true);
+                Check(Looks.Current().lumaDesat && Looks.Current().shoulder == .09f, "Current omitted shoulder/strength or luma mode");
+                LookPreset warm = Looks.Find("WarmDiorama"); float shoulder = warm.shoulder;
+                int before = (int)rebuilt.GetValue(null);
+                try
+                {
+                    warm.shoulder += .01f; Draw(true);
+                    Check((int)rebuilt.GetValue(null) == before + 1, "Grade key omitted shoulder");
+                    warm.lumaDesat = false; Draw(true);
+                    Check((int)rebuilt.GetValue(null) == before + 2, "Grade key omitted luma mode");
+                }
+                finally { warm.shoulder = shoulder; warm.lumaDesat = true; }
+                st.lookName = "Custom"; st.lookStrength = 1; st.softBloom = 0;
+                byte[] zero = SignalFrame(request, "bloom-zero", camera, target, Draw(true));
+                byte[] ungraded = SignalFrame(request, "bloom-ungraded", camera, target, Draw(false));
+                Check(zero.SequenceEqual(ungraded), "Zero bloom differs from un-diffused identity lookup");
+                st.softBloom = .05f;
+                List<MeshDrawCommand> bloom = Draw(true);
+                Check(bloom.Count == 4 && Math.Abs(bloom.Last().Material.GetFloat("_SoftBloom") - .05f) < 1e-6f, "Bloom-only production grade omitted pass/uniform");
+                byte[] soft = SignalFrame(request, "bloom-soft", camera, target, bloom);
+                Color a = SignalPixel(zero, 26, 32), b = SignalPixel(soft, 26, 32);
+                Check(b.r > a.r && b.r - a.r >= b.b - a.b, "Thresholded bloom did not lift warm halo next to peak");
+                Check(SignalPixel(zero, 8, 32) == SignalPixel(soft, 8, 32), "Bloom changed distant dark outline");
+                byte[] lowSoft = SignalFrame(request, "bloom-low-soft", camera, target, Draw(true, false));
+                st.softBloom = 0;
+                byte[] lowZero = SignalFrame(request, "bloom-low-zero", camera, target, Draw(true, false));
+                Check(lowSoft.SequenceEqual(lowZero), "Bloom changed subthreshold neighbourhoods");
+                st.softBloom = .1f; st.lookStrength = .5f; st.lookName = "Gentle";
+                Check(Math.Abs(Draw(true).Last().Material.GetFloat("_SoftBloom") - .05f) < 1e-6f, "Bloom strength not scaled");
+                st.modelStyle = 0;
+                Check(Draw(true).Last().Material.GetFloat("_SoftBloom") == 0, "Classic grade did not reset bloom");
+                return new { recipes = rows, haloZero = new[] { a.r, a.g, a.b }, haloSoft = new[] { b.r, b.g, b.b }, zeroExact = true, subthresholdExact = true };
+            }
+            finally
+            {
+                IsoRimMod.Settings = previous; Shader.SetGlobalVector("_IsoView", view);
+                UnityEngine.Object.Destroy(surface); UnityEngine.Object.Destroy(backdrop); UnityEngine.Object.Destroy(peak); UnityEngine.Object.Destroy(dark);
+                UnityEngine.Object.Destroy(owner); RenderTexture.ReleaseTemporary(target);
+            }
+        }
+
+        private static readonly HashSet<string> signalLabels = new HashSet<string>();
+        private static readonly Dictionary<string, float> signalInputs = new Dictionary<string, float>
+        { { "Warm/cool light shift", .73f }, { "Soft light wrap", .31f }, { "Matte highlight", .08f }, { "Soft highlight glow", .11f } };
+        private static readonly Dictionary<string, float[]> signalRanges = new Dictionary<string, float[]>();
+        private static string signalSlider;
+        private static bool signalManual, signalMenu;
+        private static bool SignalLabel(object[] __args)
+        {
+            foreach (string label in __args.OfType<string>())
+            {
+                signalLabels.Add(label);
+                if (signalInputs.ContainsKey(label)) signalSlider = label;
+            }
+            return false;
+        }
+        private static bool SignalButton(object[] __args, ref bool __result)
+        {
+            __result = signalMenu && __args.OfType<string>().Any(s => s.StartsWith("Look: ", StringComparison.Ordinal));
+            return false;
+        }
+        private static bool SignalSlider(object[] __args, ref float __result)
+        {
+            float[] values = __args.OfType<float>().Take(3).ToArray();
+            __result = values[0];
+            if (signalSlider != null)
+            {
+                signalRanges[signalSlider] = values;
+                if (signalManual) __result = signalInputs[signalSlider];
+                signalSlider = null;
+            }
+            return false;
+        }
+
+        private static object GradingSettings(ProbeNormals.Request request)
+        {
+            IsoRimSettings previous = IsoRimMod.Settings;
+            var st = new IsoRimSettings { modelStyle = 1, grade = true, lookName = "Custom" };
+            IsoRimMod.Settings = st;
+            var hook = new Harmony("isorim.lighting.recipe-settings");
+            var hidden = BindingFlags.NonPublic | BindingFlags.Static;
+            var label = typeof(Widgets).GetMethod("Label", new[] { typeof(Rect), typeof(string) });
+            var button = typeof(Widgets).GetMethods().Where(m => m.Name == "ButtonText" && m.GetParameters().Length >= 2 && m.GetParameters()[0].ParameterType == typeof(Rect) && m.GetParameters()[1].ParameterType == typeof(string)).OrderBy(m => m.GetParameters().Length).First();
+            var slider = typeof(Widgets).GetMethods().Where(m => m.Name == "HorizontalSlider" && m.ReturnType == typeof(float) && m.GetParameters()[0].ParameterType == typeof(Rect)).OrderBy(m => m.GetParameters().Length).First();
+            hook.Patch(label, prefix: new HarmonyMethod(typeof(LightingReadabilityCases).GetMethod(nameof(SignalLabel), hidden)));
+            hook.Patch(button, prefix: new HarmonyMethod(typeof(LightingReadabilityCases).GetMethod(nameof(SignalButton), hidden)));
+            hook.Patch(slider, prefix: new HarmonyMethod(typeof(LightingReadabilityCases).GetMethod(nameof(SignalSlider), hidden)));
+            var owner = new GameObject("IsoRim settings grade observer"); Camera camera = owner.AddComponent<Camera>(); camera.enabled = false;
+            void Tab(string method)
+            {
+                signalSlider = null;
+                var listing = new Listing_Standard(); listing.Begin(new Rect(0, 0, 700, 1800));
+                typeof(SettingsWindow).GetMethod(method, hidden).Invoke(null, method == "ObjectsTab" ? new object[] { null, listing, st } : new object[] { listing, null, st });
+                listing.End();
+            }
+            var recipes = new List<object>();
+            try
+            {
+                signalLabels.Clear(); signalRanges.Clear(); signalManual = false; signalMenu = true;
+                foreach (string name in new[] { "WarmDiorama", "PastelDiorama", "GoldenDiorama", "Gentle" })
+                {
+                    st.clayWarmth = .01f; st.clayWrap = .01f; st.clayHighlight = .01f; st.softBloom = .14f; st.lutFile = "";
+                    Tab("ColourTab");
+                    FloatMenu menu = Find.WindowStack.Windows.OfType<FloatMenu>().LastOrDefault();
+                    Check(menu != null, "Real Look menu did not open");
+                    var options = (List<FloatMenuOption>)typeof(FloatMenu).GetField("options", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu);
+                    try { options.Single(o => o.Label == Looks.Find(name).label).action(); }
+                    finally { menu.Close(); }
+                    LookPreset p = Looks.Find(name);
+                    Check(st.lookName == name && st.lutFile == "", "Look menu did not select preset");
+                    Check(st.softBloom == p.softBloom && (!p.hasClayRecipe || st.clayWarmth == p.clayWarmth && st.clayWrap == p.clayWrap && st.clayHighlight == p.clayHighlight), "Look callback omitted recipe: " + name);
+                    R3DMaterials.SyncModelStyle(1, .01f, .01f, .01f); R3DMaterials.SyncLightingStyle(1, .01f);
+                    View3D.Tick();
+                    Check(R3DMaterials.LitModel.GetFloat("_ClayWarmth") == st.clayWarmth
+                        && R3DMaterials.LitModel.GetFloat("_ClayWrap") == st.clayWrap && R3DMaterials.LitModel.GetFloat("_ClayHighlight") == st.clayHighlight, "Settings recipe not transported");
+                    recipes.Add(new { name, st.clayWarmth, st.clayWrap, st.clayHighlight, st.softBloom });
+                }
+                signalMenu = false; signalManual = true; st.lookName = "WarmDiorama";
+                Tab("ObjectsTab"); Tab("ColourTab");
+                Check(signalLabels.Contains("Warm/cool light shift") && signalLabels.Contains("Soft highlight glow"), "New slider labels missing");
+                Check(st.clayWarmth == .73f && st.clayWrap == .31f && st.clayHighlight == .08f && st.softBloom == .11f, "Manual sliders did not override recipe");
+                Check(signalRanges["Warm/cool light shift"].Skip(1).SequenceEqual(new[] { 0f, 1f })
+                    && signalRanges["Soft highlight glow"].Skip(1).SequenceEqual(new[] { 0f, .15f }), "New slider ranges differ");
+                View3D.Tick();
+                Check(R3DMaterials.LitModel.GetFloat("_ClayWarmth") == .73f && R3DMaterials.LitModel.GetFloat("_ClayWrap") == .31f && R3DMaterials.LitModel.GetFloat("_ClayHighlight") == .08f, "Manual surface settings not transported");
+                var commands = new List<MeshDrawCommand>();
+                using (MeshDrawSubmission.BeginCapture(commands)) Grade.Draw(camera);
+                Check(commands.Count == 1 && Math.Abs(commands[0].Material.GetFloat("_SoftBloom") - .11f) < 1e-6f, "Manual bloom did not reach Grade.Draw");
+                string file = Path.Combine(request.fixtureDirectory, "s02-settings.xml");
+                Scribe.saver.InitSaving(file, "settings"); st.ExposeData(); Scribe.saver.FinalizeSaving();
+                var loaded = new IsoRimSettings(); Scribe.loader.InitLoading(file); loaded.ExposeData(); Scribe.loader.FinalizeLoading();
+                Check(loaded.clayWarmth == .73f && loaded.softBloom == .11f && loaded.lookName == "WarmDiorama" && loaded.clayWrap == .31f && loaded.clayHighlight == .08f, "New/manual settings did not persist");
+                loaded.Reset(); Check(loaded.clayWarmth == .55f && loaded.softBloom == .05f && loaded.lookName == "WarmDiorama", "Reset defaults differ");
+                File.WriteAllText(file, "<settings />"); loaded.softBloom = .12f; loaded.lookName = "wrong"; loaded.clayWarmth = .12f;
+                Scribe.loader.InitLoading(file); loaded.ExposeData(); Scribe.loader.FinalizeLoading();
+                Check(loaded.clayWarmth == .55f && loaded.softBloom == .05f && loaded.lookName == "WarmDiorama", "Missing-field defaults differ");
+                signalLabels.Clear(); st.modelStyle = 0; st.grade = false; Tab("ObjectsTab"); Tab("ColourTab");
+                Check(!signalLabels.Contains("Warm/cool light shift") && !signalLabels.Contains("Soft highlight glow"), "Disabled slider visibility differs");
+                return new { recipes, manual = signalInputs, ranges = signalRanges, persisted = true, reset = true };
+            }
+            finally
+            {
+                hook.UnpatchAll(hook.Id); IsoRimMod.Settings = previous; UnityEngine.Object.Destroy(owner);
+                signalManual = false; signalMenu = false; signalSlider = null;
+            }
+        }
+
+        private static object GhostSignals(ProbeNormals.Request request)
+        {
+            IsoRimSettings previous = IsoRimMod.Settings;
+            var st = new IsoRimSettings { modelStyle = 1, lookName = "WarmDiorama", sunMoves = false };
+            IsoRimMod.Settings = st;
+            var owner = new GameObject("IsoRim production ghost witness");
+            Camera camera = owner.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 1.2f; camera.aspect = 1; camera.cullingMask = 0;
+            Vector3 center = new Vector3(10.5f, .6f, 10.5f), direction = new Vector3(0, 2, -3).normalized;
+            camera.transform.position = center + direction * 6; camera.transform.rotation = Quaternion.LookRotation(-direction, Vector3.up);
+            camera.worldToCameraMatrix = camera.worldToCameraMatrix * Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
+            var target = RenderTexture.GetTemporary(64, 64, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear); camera.targetTexture = target;
+            var black = new Texture2D(1, 1, TextureFormat.RGBA32, false, true); black.SetPixels32(new[] { new Color32(0, 0, 0, 0) }); black.Apply();
+            Material backgroundMat = R3DMaterials.Make(R3DMaterials.OverlayDef, "IsoRim ghost black background", 1000);
+            Mesh background = SignalQuad(-3, -3, 3, 3, 0, Color.black);
+            Quaternion rotation = Quaternion.LookRotation(direction, Vector3.up);
+            background.vertices = background.vertices.Select(v =>
+            {
+                Vector3 p = center - direction + rotation * v; p.y /= View3D.Squash; return p;
+            }).ToArray(); background.RecalculateBounds();
+            var rows = new List<object>(); var clay = new Dictionary<string, Color>(); var graded = new Dictionary<string, Color>();
+            var layers = new List<SectionLayer>(); var things = new List<Thing>();
+            FieldInfo ghostCache = typeof(R3DMaterials).GetField("ghost", BindingFlags.Static | BindingFlags.NonPublic);
+            Material previousGhost = (Material)ghostCache.GetValue(null);
+            try
+            {
+                // Begin with a classic factory material, independently of earlier cases. Tick
+                // must update this cached reference; no getter or manual write may repair it.
+                R3DMaterials.SyncLightingStyle(0, 0);
+                ghostCache.SetValue(null, null);
+                Material ghost = R3DMaterials.Ghost;
+                Check(ghost.GetFloat("_ClayMode") == 0 && ghost.GetFloat("_ClayWarmth") == 0, "Ghost sentinel was not classic");
+                foreach (int mode in new[] { 1, 0 })
+                {
+                    if (mode == 1) R3DMaterials.SyncLightingStyle(0, 0);
+                    st.modelStyle = mode; View3D.Tick();
+                    Check(ghost.GetFloat("_ClayMode") == mode && ghost.GetFloat("_ClayWarmth") == (mode == 0 ? 0 : .55f), "Tick did not synchronize cached Ghost state");
+                    // Controlled engine light input, never a ghost material uniform.
+                    Shader.SetGlobalVector("_IsoSky", Vector4.zero); Shader.SetGlobalTexture("_IsoGlowTex", black);
+                    Shader.SetGlobalVector("_IsoGlowMap", Vector4.zero);
+                    foreach (string name in new[] { "blueprint", "frame", "valid-green", "invalid-red" })
+                    {
+                        var commands = new List<MeshDrawCommand>();
+                        using (MeshDrawSubmission.BeginCapture(commands))
+                        {
+                            Graphics.DrawMesh(background, Matrix4x4.identity, backgroundMat, 0, camera);
+                            if (name == "blueprint" || name == "frame")
+                            {
+                                Thing thing = ThingMaker.MakeThing(name == "blueprint" ? ThingDefOf.Wall.blueprintDef : ThingDefOf.Wall.frameDef);
+                                things.Add(thing); thing.Position = new IntVec3(10, 0, 10);
+                                var layer = new SectionLayer_IsoRimWalls(new Section(new IntVec3(0, 0, 0), Find.CurrentMap)); layers.Add(layer);
+                                Check(Ghosts.Print(layer, thing), "Production Ghosts.Print refused " + name);
+                                CutTags.Finish(layer); NormalStreams.Finish(layer);
+                                typeof(SectionLayer).GetMethod("FinalizeMesh", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(layer, new object[] { MeshParts.All });
+                                foreach (LayerSubMesh sub in layer.subMeshes.Where(s => s.verts.Count > 0))
+                                    Graphics.DrawMesh(sub.mesh, Matrix4x4.identity, sub.material, 0, camera);
+                            }
+                            else Ghosts.DrawPreview(ThingDefOf.Wall, new IntVec3(10, 0, 10), Rot4.North, name == "valid-green" ? Color.green : Color.red);
+                        }
+                        Check(commands.Count > 1 && commands.Skip(1).All(c => c.Material.DebugName == "IsoRim_Ghost" && c.Material.GetFloat("_GlowMode") == 3), "Ghost route did not submit the factory material");
+                        byte[] raw = SignalFrame(request, "ghost-" + mode + "-" + name, camera, target, commands);
+                        float maximum = 0; Color brightest = Color.black; int visible = 0;
+                        for (int i = 0; i < raw.Length; i += 4)
+                        {
+                            float peak = Math.Max(raw[i], Math.Max(raw[i + 1], raw[i + 2])) / 255f;
+                            if (peak > maximum) { maximum = peak; brightest = new Color(raw[i] / 255f, raw[i + 1] / 255f, raw[i + 2] / 255f); }
+                            if (peak >= .18f) visible++;
+                        }
+                        Check(mode == 1 ? maximum >= .18f && visible > 5 : maximum == 0, "Production ghost dark-room floor/reset failed: " + name + " mode=" + mode + " max=" + maximum);
+                        if (mode == 1)
+                        {
+                            clay[name] = brightest;
+                            using (MeshDrawSubmission.BeginCapture(commands)) Grade.Draw(camera);
+                            byte[] grade = SignalFrame(request, "ghost-graded-" + name, camera, target, commands);
+                            Color best = Color.black; float span = 0;
+                            for (int i = 0; i < grade.Length; i += 4)
+                            {
+                                float chroma = Math.Max(grade[i], Math.Max(grade[i + 1], grade[i + 2])) - Math.Min(grade[i], Math.Min(grade[i + 1], grade[i + 2]));
+                                if (chroma > span) { span = chroma; best = new Color(grade[i] / 255f, grade[i + 1] / 255f, grade[i + 2] / 255f); }
+                            }
+                            graded[name] = best;
+                        }
+                        rows.Add(new { name, mode, maximum, visible });
+                    }
+                }
+                float Separation(Color a, Color b)
+                {
+                    Color.RGBToHSV(a, out float ha, out _, out _); Color.RGBToHSV(b, out float hb, out _, out _);
+                    return Math.Abs(Mathf.DeltaAngle(ha * 360, hb * 360));
+                }
+                foreach (var colors in new[] { clay, graded })
+                    Check(Separation(colors["valid-green"], colors["invalid-red"]) > 60 && Separation(colors["blueprint"], colors["frame"]) > 60, "Production ghost hues collapsed");
+                return new { rows, clay = clay.ToDictionary(p => p.Key, p => new[] { p.Value.r, p.Value.g, p.Value.b }), graded = graded.ToDictionary(p => p.Key, p => new[] { p.Value.r, p.Value.g, p.Value.b }), manualGhostUniformWrites = false };
+            }
+            finally
+            {
+                foreach (SectionLayer layer in layers) foreach (LayerSubMesh sub in layer.subMeshes) UnityEngine.Object.Destroy(sub.mesh);
+                foreach (Thing thing in things) thing.Destroy();
+                Material proofGhost = (Material)ghostCache.GetValue(null); ghostCache.SetValue(null, previousGhost); UnityEngine.Object.Destroy(proofGhost);
+                IsoRimMod.Settings = previous; UnityEngine.Object.Destroy(black); UnityEngine.Object.Destroy(background); UnityEngine.Object.Destroy(backgroundMat);
+                UnityEngine.Object.Destroy(owner); RenderTexture.ReleaseTemporary(target);
+            }
+        }
+
+        private static object ProtectedSignals(ProbeNormals.Request request)
+        {
+            var st = new IsoRimSettings { modelStyle = 1, lookName = "WarmDiorama", outlines = false };
+            IsoRimSettings previous = IsoRimMod.Settings; IsoRimMod.Settings = st;
+            var owner = new GameObject("IsoRim protected signal witness"); Camera camera = owner.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 1.2f; camera.aspect = 1; camera.cullingMask = 0;
+            Vector3 direction = new Vector3(0, 2, -3).normalized, center = new Vector3(.5f, .4f, .5f);
+            camera.transform.position = center + direction * 6; camera.transform.rotation = Quaternion.LookRotation(-direction, Vector3.up);
+            camera.worldToCameraMatrix *= Matrix4x4.Scale(new Vector3(1, View3D.Squash, 1));
+            RenderTexture target = RenderTexture.GetTemporary(64, 64, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear); camera.targetTexture = target;
+            var cellTex = new Texture2D(3, 3, TextureFormat.RGBA32, false, true); cellTex.filterMode = FilterMode.Point;
+            var glowTex = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+            var owned = new List<Mesh>(); var rows = new List<object>();
+            Mesh Flat(Color color, float x0 = .05f, float x1 = .95f)
+            {
+                var mesh = new Mesh();
+                mesh.vertices = new[] { new Vector3(x0, 0, .05f), new Vector3(x0, 0, .95f), new Vector3(x1, 0, .95f), new Vector3(x1, 0, .05f) };
+                mesh.colors32 = Enumerable.Repeat((Color32)color, 4).ToArray(); mesh.normals = Enumerable.Repeat(Vector3.up, 4).ToArray();
+                mesh.uv = new[] { Vector2.zero, Vector2.up, Vector2.one, Vector2.right };
+                mesh.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 }; mesh.RecalculateBounds(); owned.Add(mesh); return mesh;
+            }
+            void Inputs(float warmth, bool high, bool lamp)
+            {
+                R3DMaterials.SyncModelStyle(1, .22f, .04f, .65f); R3DMaterials.SyncSceneStyle(1, .22f, .04f, .65f); R3DMaterials.SyncLightingStyle(1, warmth);
+                R3DMaterials.SetView(direction, View3D.Squash); R3DMaterials.SetLight(new Vector3(0, .8f, -.6f));
+                cellTex.SetPixels32(Enumerable.Repeat(high ? new Color32(32, 0, 0, 0) : new Color32(0, 0, 0, 0), 9).ToArray()); cellTex.Apply();
+                Shader.SetGlobalTexture("_IsoCellTex", cellTex); Shader.SetGlobalVector("_IsoCellMap", new Vector4(-1, -1, 3, 3)); Shader.SetGlobalVector("_IsoLevel", new Vector4(0, 1, 0, 0));
+                glowTex.SetPixels32(new[] { lamp ? new Color32(255, 64, 32, 255) : new Color32(0, 0, 0, 0) }); glowTex.Apply();
+                Shader.SetGlobalTexture("_IsoGlowTex", glowTex); Shader.SetGlobalVector("_IsoGlowMap", Vector4.zero); Shader.SetGlobalVector("_IsoSky", new Vector4(.3f, .3f, .3f, 1));
+            }
+            byte[] Render(string name, Action draw, bool grade = true)
+            {
+                var commands = new List<MeshDrawCommand>();
+                using (MeshDrawSubmission.BeginCapture(commands)) { draw(); if (grade) Grade.Draw(camera); }
+                Check(commands.Count > (grade ? 1 : 0), "Protected signal omitted geometry: " + name);
+                byte[] raw = SignalFrame(request, name, camera, target, commands);
+                int visible = 0;
+                for (int i = 0; i < raw.Length; i += 4) if (!(raw[i] == 255 && raw[i + 1] == 0 && raw[i + 2] == 255)) visible++;
+                // With grade enabled the background is graded too: the ungraded control below
+                // establishes actual mesh coverage before any signal comparison.
+                if (!grade) Check(visible > 5, "Protected signal geometry is empty: " + name);
+                rows.Add(new { name, commands = commands.Count, visible }); return raw;
+            }
+            int Changed(byte[] a, byte[] b) => a.Where((v, i) => v != b[i]).Count();
+            try
+            {
+                // Actual unlit production material, representative glow/flame/ember/panel colours.
+                Mesh emission = Flat(new Color(.95f, .82f, .32f)); Material unlit = R3DMaterials.Solid;
+                Check(unlit.GetFloat("_LightMode") == 0, "Emission material became diffuse-lit");
+                Action emit = () => Graphics.DrawMesh(emission, Matrix4x4.identity, unlit, 0, camera);
+                Inputs(0, false, false); Render("emission-coverage", emit, false); byte[] zero = Render("emission-zero", emit);
+                Inputs(.55f, true, false); byte[] warm = Render("emission-warm-height", emit);
+                Check(zero.SequenceEqual(warm), "Clay/crease shading darkened unlit emission");
+                Mesh inactive = Flat(new Color(.1f, .1f, .1f));
+                byte[] off = Render("emission-off", () => Graphics.DrawMesh(inactive, Matrix4x4.identity, unlit, 0, camera));
+                Check(Changed(warm, off) > 20, "Emissive on/off meaning lost under grading");
+
+                Thing bracket = ThingMaker.MakeThing(ThingDefOf.Steel); bracket.Position = IntVec3.Zero;
+                Action overlay = () => Interaction.Bracket(bracket);
+                Inputs(0, false, false); Render("overlay-coverage", overlay, false); byte[] overlayZero = Render("overlay-zero", overlay);
+                Inputs(.55f, true, false); byte[] overlayWarm = Render("overlay-warm-height", overlay);
+                Check(overlayZero.SequenceEqual(overlayWarm), "Clay/crease shading darkened production brackets");
+                var bracketCommands = new List<MeshDrawCommand>(); using (MeshDrawSubmission.BeginCapture(bracketCommands)) overlay();
+                Check(bracketCommands.Count == 8 && bracketCommands.All(c => c.Material.GetFloat("_LightMode") == 0 && c.Material.RenderQueue == 3650), "Overlay queue/unlit contract changed"); bracket.Destroy();
+
+                var bands = (Color[])typeof(SectionLayer_IsoRimWater).GetField("ClayBands", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+                Mesh shallow = Flat(new Color(bands[0].r, bands[0].g, bands[0].b, 210f / 255)), deep = Flat(new Color(bands.Last().r, bands.Last().g, bands.Last().b, 245f / 255));
+                Check(R3DMaterials.WaterOverlay.GetFloat("_LightMode") == 4, "Water became opaque diffuse-lit");
+                Action waterA = () => Graphics.DrawMesh(shallow, Matrix4x4.identity, R3DMaterials.WaterOverlay, 0, camera);
+                Inputs(.55f, false, false); Render("water-coverage", waterA, false); byte[] shore = Render("water-shallow", waterA);
+                byte[] depth = Render("water-deep", () => Graphics.DrawMesh(deep, Matrix4x4.identity, R3DMaterials.WaterOverlay, 0, camera));
+                Check(Changed(shore, depth) > 20 && shallow.colors32[0].a == 210 && deep.colors32[0].a == 245, "Water bands/shore alpha lost meaning");
+
+                Material roof = R3DMaterials.Roof; Mesh roofMesh = Flat(new Color(.6f, .6f, .6f));
+                Check(roof.GetFloat("_GlowMode") == 2, "Roof lost SkyOnly mode");
+                Action roofDraw = () => Graphics.DrawMesh(roofMesh, Matrix4x4.identity, roof, 0, camera);
+                Render("roof-coverage", roofDraw, false); byte[] roofDark = Render("roof-lamp-off", roofDraw);
+                Inputs(.55f, false, true); byte[] roofLamp = Render("roof-lamp-on", roofDraw);
+                Check(roofDark.SequenceEqual(roofLamp), "Indoor lamp leaked onto exterior roof");
+
+                Material fog = IsoCellMap.FogFor(MatBases.FogOfWar);
+                Check(fog != null && fog.shader == R3DMaterials.ShaderOf("IsoRimFog"), "Production fog lid unavailable");
+                Mesh fogMesh = Flat(Color.white); Inputs(.55f, false, false);
+                Action fogDraw = () => Graphics.DrawMesh(fogMesh, Matrix4x4.identity, fog, 0, camera);
+                Render("fog-coverage", fogDraw, false); byte[] fogFrame = Render("fog-lid", fogDraw);
+                Check(Changed(fogFrame, roofDark) > 20 && IsoCellMap.HeightSteps == 4096f, "Fog lost explored-surface distinction/height encoding");
+
+                Material shield = (Material)typeof(CompProjectileInterceptor).GetField("ForceFieldMat", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public).GetValue(null);
+                Check(shield != null && !IsoGlow.Marked(shield), "Game force-field material was clay-marked");
+                var block = new MaterialPropertyBlock();
+                Action dome = () => ShieldDomes.DrawMesh(MeshPool.plane10, Matrix4x4.TRS(new Vector3(.5f, 0, .5f), Quaternion.identity, new Vector3(2, 1, 2)), shield, 0, camera, 0, block);
+                block.SetColor("_Color", new Color(.2f, .6f, 1, .2f)); Render("shield-coverage", dome, false); byte[] shieldLow = Render("shield-low", dome);
+                block.SetColor("_Color", new Color(.2f, .6f, 1, .7f)); byte[] shieldHigh = Render("shield-hit", dome);
+                Mesh domeMesh = (Mesh)typeof(ShieldDomes).GetField("dome", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+                var domeCommands = new List<MeshDrawCommand>(); using (MeshDrawSubmission.BeginCapture(domeCommands)) dome();
+                object nativeDome = domeMesh == null ? null : typeof(Mesh).GetField("_mesh", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(domeMesh);
+                Check(domeMesh != null && domeMesh.vertexCount == 539 && domeCommands.Count == 1 && ReferenceEquals(domeCommands[0].Mesh, nativeDome)
+                    && Changed(shieldLow, shieldHigh) > 20, "Shield dome geometry/pulse meaning lost");
+                Inputs(0, false, false); byte[] shieldZero = Render("shield-zero-warmth", dome);
+                Check(shieldZero.SequenceEqual(shieldHigh), "Clay warmth changed the game's transparent shield");
+
+                Apparel belt = (Apparel)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Apparel_ShieldBelt"));
+                WornGearDef gear = WornGear.For(belt.def);
+                Check(gear != null && gear.defName == "R3DGear_Apparel_ShieldBelt" && gear.tintMaterials.Contains("utility_shell"), "Shield belt tint contract changed");
+                Model model = WornGear.ModelFor(gear, belt, out Color tint);
+                Check(model != null && model.positions.Length > 0, "Shield belt model missing");
+                Action beltDraw = () => DynamicModels.Draw(model, new Vector3(.5f, .4f, .5f), 0, Vector3.one, tint, null);
+                Inputs(.55f, false, false); Render("shield-belt-coverage", beltDraw, false); Render("shield-belt", beltDraw); belt.Destroy();
+                return new { rows, emissionExact = true, overlayExact = true, roofLampExact = true, waterBands = true, fogDistinct = true, domeVertices = domeMesh.vertexCount, shieldBelt = gear.defName };
+            }
+            finally
+            {
+                IsoRimMod.Settings = previous; foreach (Mesh mesh in owned) UnityEngine.Object.Destroy(mesh);
+                UnityEngine.Object.Destroy(cellTex); UnityEngine.Object.Destroy(glowTex); UnityEngine.Object.Destroy(owner); RenderTexture.ReleaseTemporary(target);
+            }
         }
 
         private static void MaterialTransport(ProbeNormals.Request request)
@@ -3734,6 +4320,52 @@ namespace IsoRim
         {
             switch (id)
             {
+                case "LightingReadabilityCases.GradingAndSignalReadability":
+                {
+                    Map map = Find.CurrentMap;
+                    IntVec3[] cells = new CellRect(0, 0, map.Size.x, map.Size.z).ToArray();
+                    RoofDef[] roofs = cells.Select(c => map.roofGrid.RoofAt(c)).ToArray();
+                    Thing[] edifices = cells.Select(c => c.GetEdifice(map)).ToArray();
+                    IsoRimSettings savedSettings = IsoRimMod.Settings;
+                    string[] controlNames = { "lastActive", "appliedSig", "pendingSig", "pendingSince", "Stamp", "litFacing", "wasTurning", "yawNow", "yawSet" };
+                    FieldInfo[] fields = controlNames.Select(n => typeof(View3D).GetField(n, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)).ToArray();
+                    object[] controls = fields.Select(f => f.GetValue(null)).ToArray();
+                    string[] names = { "_IsoSun", "_IsoView", "_IsoCard", "_IsoClayCard", "_IsoSky", "_IsoGlowMap", "_IsoCellMap", "_IsoLevel" };
+                    Vector4[] globals = names.Select(Shader.GetGlobalVector).ToArray();
+                    Vector3 light = R3DMaterials.SunDir;
+                    FieldInfo neutral = typeof(IsoGlow).GetField("neutralBound", BindingFlags.Static | BindingFlags.NonPublic);
+                    object neutralBound = neutral.GetValue(null);
+                    var bindings = new Dictionary<int, Waylith.Rendering.Texture>();
+                    foreach (string name in new[] { "_IsoGlowTex", "_IsoCellTex", "_GrabIsoRimGrade" })
+                    {
+                        int key = Shader.PropertyToID(name); Waylith.Rendering.GlobalShaderState.TryGetTexture(key, out var texture); bindings[key] = texture;
+                    }
+                    try
+                    {
+                        lightingFrames.Clear();
+                        object maths = GradingMath(request);
+                        object gpu = GradingGpu(request);
+                        object settings = GradingSettings(request);
+                        object ghosts = GhostSignals(request);
+                        object protectedSignals = ProtectedSignals(request);
+                        string path = Path.Combine(request.outputDirectory, id + ".json");
+                        File.WriteAllText(path, JsonSerializer.Serialize(new { caseId = id, passed = true, maths, gpu, settings, ghosts, protectedSignals, frames = lightingFrames }));
+                        return path;
+                    }
+                    finally
+                    {
+                        IsoRimMod.Settings = savedSettings;
+                        R3DMaterials.SyncModelStyle(savedSettings.modelStyle, savedSettings.clayWrap, savedSettings.clayHighlight, savedSettings.clayRoughness);
+                        R3DMaterials.SyncSceneStyle(savedSettings.modelStyle, savedSettings.clayWrap, savedSettings.clayHighlight, savedSettings.clayRoughness);
+                        R3DMaterials.SyncLightingStyle(savedSettings.modelStyle, savedSettings.clayWarmth);
+                        for (int i = 0; i < fields.Length; i++) fields[i].SetValue(null, controls[i]);
+                        R3DMaterials.SetLight(light, globals[0].w);
+                        for (int i = 0; i < names.Length; i++) Shader.SetGlobalVector(names[i], globals[i]);
+                        foreach (var binding in bindings) Waylith.Rendering.GlobalShaderState.SetTexture(binding.Key, binding.Value);
+                        neutral.SetValue(null, neutralBound);
+                        Check(roofs.SequenceEqual(cells.Select(c => map.roofGrid.RoofAt(c))) && edifices.SequenceEqual(cells.Select(c => c.GetEdifice(map))), "Grading witness changed map roofs/edifices");
+                    }
+                }
                 case "LightingReadabilityCases.ClayDaylightAndGlow":
                 {
                     Map map = Find.CurrentMap;

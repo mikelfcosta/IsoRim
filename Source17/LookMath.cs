@@ -4,10 +4,11 @@ namespace IsoRim
 {
     // The colour grade's maths, kept apart from the game so it can be checked on its own.
     //
-    // A look works on each colour channel by itself. Channel() is exactly what the see-through
+    // Legacy looks work on each colour channel by itself. Channel() is exactly what the see-through
     // sheets of the 1.5/1.6 grade did with blending, step by step, each step left out when its sheet
     // was. Strip() turns it into a lookup table (LUT) for the 1.7 grade shader, in the layout of the
     // LUT files: N slices of N x N side by side, blue picks the slice, red runs across, green up.
+    // Diorama looks couple the channels for luminance desaturation, then soften highlights.
     public static class LookMath
     {
         public const float Pivot = 0.3f;   // the grey colours are pulled toward
@@ -45,10 +46,12 @@ namespace IsoRim
             return p.exposure > 0.002f;
         }
 
+        public static bool HasShoulder(LookPreset p) => p.shoulder > 0f;
+
         // True if the look changes nothing (no sheet would have been drawn).
         public static bool Identity(LookPreset p)
         {
-            return !HasContrast(p) && !HasGrey(p) && !HasGain(p) && !HasLift(p) && !HasExposure(p);
+            return !HasContrast(p) && !HasGrey(p) && !HasGain(p) && !HasLift(p) && !HasExposure(p) && !HasShoulder(p);
         }
 
         // One channel (0 red, 1 green, 2 blue) of a colour under a look.
@@ -83,7 +86,35 @@ namespace IsoRim
 
         public static Color Apply(LookPreset p, Color c)
         {
-            return new Color(Channel(p, c.r, 0), Channel(p, c.g, 1), Channel(p, c.b, 2), 1f);
+            if (!p.lumaDesat && !HasShoulder(p))
+                return new Color(Channel(p, c.r, 0), Channel(p, c.g, 1), Channel(p, c.b, 2), 1f);
+            if (HasContrast(p))
+            {
+                ContrastTerms(p.contrast, out float s, out float cc);
+                for (int i = 0; i < 3; i++)
+                {
+                    float y = s * c[i];
+                    c[i] = Mathf.Clamp01(y * (cc + y));
+                }
+            }
+            float luma = .2126f * c.r + .7152f * c.g + .0722f * c.b;
+            for (int i = 0; i < 3; i++)
+            {
+                float x = c[i];
+                if (HasGrey(p) || p.bright != 1f)
+                    x = Mathf.Clamp01(p.bright * Mathf.Lerp(x, p.lumaDesat ? luma : Pivot, Mathf.Clamp01(p.desat)));
+                if (HasGain(p)) x = Mathf.Clamp01(x * p.gain[i]);
+                if (HasLift(p)) x = Mathf.Clamp01(x + p.lift[i] * (1f - x));
+                if (HasExposure(p)) x = Mathf.Clamp01(x * (1f + p.exposure));
+                if (HasShoulder(p) && x > .70f)
+                {
+                    float t = (x - .70f) / .30f;
+                    x = .70f + .30f * t / (1f + p.shoulder * t);
+                }
+                c[i] = x;
+            }
+            c.a = 1f;
+            return c;
         }
 
         // The lookup table of a look, n slices of n x n, in Texture2D.SetPixels32 order (row 0 is
@@ -94,6 +125,14 @@ namespace IsoRim
             if (into == null || into.Length != w * n)
             {
                 into = new Color32[w * n];
+            }
+            if (p.lumaDesat || HasShoulder(p))
+            {
+                for (int g = 0; g < n; g++)
+                    for (int b = 0; b < n; b++)
+                        for (int r = 0; r < n; r++)
+                            into[g * w + b * n + r] = Apply(p, new Color(r / (float)(n - 1), g / (float)(n - 1), b / (float)(n - 1)));
+                return into;
             }
             byte[][] curve = new byte[3][];
             for (int i = 0; i < 3; i++)

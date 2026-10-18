@@ -376,6 +376,8 @@ void main()
     if (glowMode > 1.5)
     {
         color.rgb = min(color.rgb, vec3(1.0));   // the 8-bit colour the overlay would multiply
+        if (glowMode > 2.5 && (uMaterial._ClayMode > 0.5 || uMaterial._ClayWarmth > 1e-4))
+            glowLight = max(glowLight, vec3(0.45));
         color.rgb *= glowLight;
     }
     outColor = color;

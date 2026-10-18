@@ -37,7 +37,8 @@
     "SceneStyleCases.WallsRocksAndRoofs": {"story": 9},
     "SceneStyleCases.TerrainCardsSlabsAndWater": {"story": 10},
     "SceneStyleCases.ColonySceneComparisonAndPerf": {"story": 11},
-    "LightingReadabilityCases.ClayDaylightAndGlow": {"story": 12}
+    "LightingReadabilityCases.ClayDaylightAndGlow": {"story": 12},
+    "LightingReadabilityCases.GradingAndSignalReadability": {"story": 13}
   },
   "groups": {
     "data": ["NormalDataCases.AuthoredIndices", "NormalDataCases.InvalidTriangleFallback", "NormalDataCases.GeometricChannelsPreserved", "NormalDataCases.DerivedModels"],
@@ -45,10 +46,17 @@
     "static": ["StaticNormalCases.TrueSpaceTransform", "StaticNormalCases.MixedStreams", "StaticNormalCases.MaterialAndShaderContract", "StaticNormalCases.GpuAuthoredDirection", "StaticNormalCases.ProductionLighting", "StaticNormalCases.GeometricResponsibilities", "StaticNormalCases.OracleControls"],
     "moving": ["MovingNormalCases.DynamicTrueSpace", "MovingNormalCases.InstanceMatrices", "MovingNormalCases.MergedPartTransforms", "MovingNormalCases.TexturesMarksAndFallback", "MovingNormalCases.CacheAndBatchReuse", "MovingNormalCases.GpuAgreement", "MovingNormalCases.ProductionLighting"],
     "integrated": ["IntegratedNormalCases.AllPaths", "IntegratedNormalCases.ProductionLightingAllPaths", "IntegratedNormalCases.RegressionControls", "IntegratedNormalCases.ProvenanceAndCompleteness", "IntegratedNormalCases.FrozenInputsAndArtifact", "IntegratedNormalCases.HandoffContract"],
-    "style": ["ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines", "ModelStyleCases.GameplayComparisonAndPerf", "SceneStyleCases.WallsRocksAndRoofs", "SceneStyleCases.TerrainCardsSlabsAndWater", "SceneStyleCases.ColonySceneComparisonAndPerf", "LightingReadabilityCases.ClayDaylightAndGlow"]
+    "style": ["ModelStyleCases.DiffuseAndHighlightModes", "ModelStyleCases.ProtectedExceptions", "ModelStyleCases.ControlledOutlines", "ModelStyleCases.GameplayComparisonAndPerf", "SceneStyleCases.WallsRocksAndRoofs", "SceneStyleCases.TerrainCardsSlabsAndWater", "SceneStyleCases.ColonySceneComparisonAndPerf", "LightingReadabilityCases.ClayDaylightAndGlow", "LightingReadabilityCases.GradingAndSignalReadability"]
   },
   "paths": {
     "Source17/IsoRimMod.cs": ["style"],
+    "Source17/Looks.cs": ["style"],
+    "Source17/LookMath.cs": ["style"],
+    "Source17/Ghosts.cs": ["style"],
+    "Source17/Interaction.cs": ["style"],
+    "Source17/ShieldDomes.cs": ["style"],
+    "1.7/Shaders/IsoRimGrade.frag.glsl": ["style"],
+    "1.7/Shaders/IsoRimFog.frag.glsl": ["style"],
     "Source17/View3D.cs": ["style"],
     "Source17/Glass.cs": ["static", "moving", "integrated", "style"],
     "Source17/Models.cs": ["data", "intake", "static", "moving", "integrated", "style"],
