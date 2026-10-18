@@ -59,7 +59,8 @@ namespace IsoRim
         public bool groundShadows = true;
         public bool treeShadows = true;
         public bool grade = true;        // colour grade on
-        public string lookName = "Gentle";
+        public string lookName = "WarmDiorama";
+        public float softBloom = .05f;
         public float lookStrength = 1f;
         public string lutFile = "";      // a LUT file picked by name instead of a look's own
         public bool animals3D = true;
@@ -133,7 +134,8 @@ namespace IsoRim
             Scribe_Values.Look(ref groundShadows, "groundShadows", true);
             Scribe_Values.Look(ref treeShadows, "treeShadows", true);
             Scribe_Values.Look(ref grade, "grade", true);
-            Scribe_Values.Look(ref lookName, "lookName", "Gentle");
+            Scribe_Values.Look(ref lookName, "lookName", "WarmDiorama");
+            Scribe_Values.Look(ref softBloom, "softBloom", .05f);
             Scribe_Values.Look(ref lookStrength, "lookStrength", 1f);
             Scribe_Values.Look(ref lutFile, "lutFile", "");
             Scribe_Values.Look(ref animals3D, "animals3D", true);
@@ -156,7 +158,7 @@ namespace IsoRim
             Scribe_Values.Look(ref roofOverColonists, "roofOverColonists", false);
             if (lookName == null)
             {
-                lookName = "Gentle";
+                lookName = "WarmDiorama";
             }
             if (lutFile == null)
             {
@@ -525,6 +527,7 @@ namespace IsoRim
                             {
                                 st.lookName = chosen.name;
                                 st.lutFile = "";
+                                Looks.ApplyRecipe(chosen, st);
                             }));
                         }
                         Grade.Rescan();
@@ -567,6 +570,7 @@ namespace IsoRim
                             st.lookStrength = Slider(l, "Strength", st.lookStrength, 0f, 1f, (st.lookStrength * 100f).ToString("0") + "%");
                         }
                     }
+                    st.softBloom = Slider(l, "Soft highlight glow", st.softBloom, 0f, .15f, st.softBloom.ToString("0.00"));
                 }
             }
             if (r != null)
@@ -688,6 +692,8 @@ namespace IsoRim
                     if (st.modelStyle == 2)
                         st.clayRoughness = Slider(r, "Roughness", st.clayRoughness, 0f, 1f, st.clayRoughness.ToString("0.00"));
                 }
+                if (st.modelStyle > 0)
+                    st.clayWarmth = Slider(r, "Warm/cool light shift", st.clayWarmth, 0f, 1f, st.clayWarmth.ToString("0.00"));
                 Check(r, "Textures on models", ref st.texturedModels);
                 Check(r, "Dark outlines on models", ref st.outlines);
                 st.outlineWidth = Slider(r, "Outline width", st.outlineWidth, 0.25f, 1.50f, st.outlineWidth.ToString("0.00"));

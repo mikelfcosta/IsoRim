@@ -14,6 +14,13 @@ namespace IsoRim
         public string name;
         public string label;
         public string description;
+        public float shoulder;
+        public bool lumaDesat;
+        public bool hasClayRecipe;
+        public float clayWarmth = 0.55f;
+        public float clayWrap = 0.22f;
+        public float clayHighlight = 0.04f;
+        public float softBloom;
         public float contrast;              // 0 to 1: deeper shadows and mid-tones
         public float desat;                 // 0 to 1: how much colour is taken out
         public float bright = 1f;           // scales the whole picture
@@ -59,6 +66,54 @@ namespace IsoRim
             Add("Sepia", "Sepia", "Old photograph browns.", desat: 0.85f,
                 gain: new Color(1f, 0.88f, 0.70f), lift: new Color(0.04f, 0.025f, 0.01f), lutFile: "Sepia");
             Add("Noir", "Noir", "Black and white with hard contrast.", desat: 1f, contrast: 0.6f, lutFile: "Noir");
+            Presets.Add(new LookPreset("WarmDiorama", "Warm diorama", "Soft clay colour with gentle highlights.")
+            {
+                hasClayRecipe = true,
+                clayWarmth = 0.55f,
+                clayWrap = 0.22f,
+                clayHighlight = 0.04f,
+                softBloom = 0.05f,
+                lumaDesat = true,
+                desat = 0.08f,
+                contrast = 0.14f,
+                shoulder = 0.18f,
+                bright = 1.0f,
+                exposure = 0.02f,
+                gain = new Color(1.0f, 0.97f, 0.91f),
+                lift = new Color(0.018f, 0.016f, 0.028f)
+            });
+            Presets.Add(new LookPreset("PastelDiorama", "Pastel glade", "Soft clay colour with gentle highlights.")
+            {
+                hasClayRecipe = true,
+                clayWarmth = 0.42f,
+                clayWrap = 0.28f,
+                clayHighlight = 0.03f,
+                softBloom = 0.06f,
+                lumaDesat = true,
+                desat = 0.16f,
+                contrast = 0.08f,
+                shoulder = 0.24f,
+                bright = 1.01f,
+                exposure = 0.03f,
+                gain = new Color(0.99f, 0.97f, 0.93f),
+                lift = new Color(0.026f, 0.024f, 0.034f)
+            });
+            Presets.Add(new LookPreset("GoldenDiorama", "Golden hour", "Soft clay colour with gentle highlights.")
+            {
+                hasClayRecipe = true,
+                clayWarmth = 0.72f,
+                clayWrap = 0.22f,
+                clayHighlight = 0.05f,
+                softBloom = 0.07f,
+                lumaDesat = true,
+                desat = 0.06f,
+                contrast = 0.18f,
+                shoulder = 0.2f,
+                bright = 0.99f,
+                exposure = 0.02f,
+                gain = new Color(1.0f, 0.93f, 0.84f),
+                lift = new Color(0.024f, 0.015f, 0.028f)
+            });
             Presets.Add(new LookPreset(CustomName, "Custom", "Set colour and brightness yourself with the two sliders below."));
         }
 
@@ -74,6 +129,18 @@ namespace IsoRim
             p.lift = lift ?? Color.black;
             p.lutFile = lutFile;
             Presets.Add(p);
+        }
+
+        public static void ApplyRecipe(LookPreset p, IsoRimSettings st)
+        {
+            if (p == null) return;
+            if (p.hasClayRecipe)
+            {
+                st.clayWarmth = p.clayWarmth;
+                st.clayWrap = p.clayWrap;
+                st.clayHighlight = p.clayHighlight;
+            }
+            st.softBloom = p.hasClayRecipe ? p.softBloom : 0f;
         }
 
         public static LookPreset Find(string name)
@@ -102,6 +169,8 @@ namespace IsoRim
                 return r;
             }
             float k = Mathf.Clamp01(st.lookStrength);
+            r.lumaDesat = p.lumaDesat;
+            r.shoulder = p.shoulder * k;
             r.contrast = p.contrast * k;
             r.desat = p.desat * k;
             r.bright = Mathf.Lerp(1f, p.bright, k);
@@ -138,6 +207,7 @@ namespace IsoRim
 
         private static readonly int strengthId = Shader.PropertyToID("_Strength");
         private static readonly int lutId = Shader.PropertyToID("_LutTex");
+        private static readonly int softBloomId = Shader.PropertyToID("_SoftBloom");
         private static readonly int testId = Shader.PropertyToID("_TestPattern");
 
         private static bool tried;
@@ -197,9 +267,10 @@ namespace IsoRim
                     }
                 }
             }
+            float bloom = st.grade && st.modelStyle > 0 ? Mathf.Clamp(st.softBloom, 0f, .15f) * Mathf.Clamp01(st.lookStrength) : 0f;
             if (lut == null || strength <= 0.001f)
             {
-                if (!TestPattern)
+                if (!TestPattern && bloom <= .001f)
                 {
                     return;
                 }
@@ -209,6 +280,7 @@ namespace IsoRim
             material.SetTexture(lutId, lut);
             material.SetFloat(strengthId, strength);
             material.SetFloat(testId, TestPattern ? 1f : 0f);
+            material.SetFloat(softBloomId, bloom);
             Graphics.DrawMesh(quad, Matrix4x4.identity, material, 0, cam);
             for (int i = 0; i < ExtraDraws; i++)
             {
@@ -264,7 +336,7 @@ namespace IsoRim
 
         private static string Key(LookPreset p)
         {
-            return string.Join(",", p.contrast, p.desat, p.bright, p.exposure, p.gain.r, p.gain.g, p.gain.b, p.lift.r, p.lift.g, p.lift.b);
+            return string.Join(",", p.contrast, p.desat, p.bright, p.exposure, p.gain.r, p.gain.g, p.gain.b, p.lift.r, p.lift.g, p.lift.b, p.shoulder, p.lumaDesat ? 1 : 0);
         }
 
         // ------------------------------------------------------------ LUT files

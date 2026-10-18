@@ -12,6 +12,7 @@ layout(set = 2, binding = 0) uniform MaterialUniforms
 {
     float _Strength;    // @default = 1.0
     float _TestPattern; // @default = 0.0   harness only: grade a band of known colours instead
+    float _SoftBloom; // @default = 0.0
 } u;
 
 layout(set = 2, binding = 1) uniform sampler2D _LutTex; // @default = white
@@ -74,5 +75,19 @@ void main()
     vec3 c = clamp(texelFetch(_GrabIsoRimGrade, p, 0).rgb, 0.0, 1.0);
     if (u._TestPattern > 0.5)
         c = TestPattern(p, c);
+    if (u._SoftBloom > 1e-4 && u._TestPattern < 0.5)
+    {
+        const ivec2 offsets[8] = ivec2[8](ivec2(-2, -2), ivec2(2, -2), ivec2(-2, 2), ivec2(2, 2),
+            ivec2(-4, 0), ivec2(4, 0), ivec2(0, -4), ivec2(0, 4));
+        ivec2 last = textureSize(_GrabIsoRimGrade, 0) - 1;
+        vec3 bloom = vec3(0.0);
+        for (int i = 0; i < 8; i++)
+        {
+            vec3 sampleRgb = texelFetch(_GrabIsoRimGrade, clamp(p + offsets[i], ivec2(0), last), 0).rgb;
+            float luma = dot(sampleRgb, vec3(0.2126, 0.7152, 0.0722));
+            bloom += max(0.0, luma - 0.78) / 0.22 * sampleRgb;
+        }
+        c = clamp(c + bloom * (1.0 / 8.0) * vec3(1.04, 0.99, 0.90) * u._SoftBloom, 0.0, 1.0);
+    }
     outColor = vec4(mix(c, Lookup(c), u._Strength), 1.0);
 }
